@@ -9,4 +9,5 @@ results.json
 .DS_Store
 # ad-hoc run logs from piped test output
 olg-*.txt
+*-run.txt
 probe-out.txt
