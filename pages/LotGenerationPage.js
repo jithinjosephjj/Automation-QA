@@ -75,6 +75,12 @@ class LotGenerationPage extends StockInwardBasePage {
     if (!lotNo && (await this.printDialog.isVisible({ timeout: 10_000 }).catch(() => false))) {
       lotNo = await this.voucherNumber();
     }
+    // the Print dialog offers Preview here - verify the template renders.
+    // Recorded (not thrown) so a broken template cannot swallow the lot
+    // number - the spec asserts printPreviewError after persisting state.
+    this.printPreviewError = null;
+    await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
     return lotNo;
   }

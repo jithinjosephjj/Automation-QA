@@ -23,6 +23,7 @@ Built to the conventions in `Playwright-Automation-Basics.pdf`.
 | Order - Inhouse - Production workflow (tests/e2e/order-inhouse-production-workflow, TC-PRD-OB-01…08) | **All 8 steps passing headed** — Order Booking → inhouse Job Work (Procurement > Issue: Order/Inhouse/Cochin, PP## series) → same downstream to the barcode; own state file |
 | Order - Outsource - Lot - Barcode workflow (tests/e2e/order-outsource-lot-barcode-workflow, TC-OLG-01…05) | **All 5 steps passing headed** — Stock Order → outsource Job Work (Issue: Order/Outsource/vendor RAJA, PP##) → Metal Inward jobwork return (Sub Txn "Jobwork" + Inward Type "Order"; one `jobWorkItemNo` pick fills the item, M##) → Lot Generation (/inv/view-lot-generation, employee Ubaid + BU Cochin, NNN##) → Barcode (/inv/view-barcode-generation **as user suja**; three mandatory description dropdowns; tag verified in Generated Tags); own state file e2e-order-lot-state.json |
 | B2B Order - Inhouse - Production workflow (tests/e2e/b2b-order-inhouse-production-workflow, TC-B2B-PRD-01…08) | **All 8 steps passing headed** — B2B Order Booking (customer Luxurio, Making Type "Job Work", BB## series) → inhouse Job Work (the Issue grid lists B2B orders under Generation Type "Order" too, PP##) → same downstream to the barcode; own state file e2e-b2border-state.json |
+| B2B Order - Outsource - Lot - Barcode workflow (tests/e2e/b2b-order-outsource-lot-barcode-workflow, TC-B2B-OLG-01…05) | **All 5 steps passing headed** — B2B Order Booking (Making Type "Job Work", BB##, + Add Files image) → outsource Job Work (vendor RAJA, PP##) → Metal Inward jobwork return (M##) → Lot Generation (NNN##) → Barcode **as user suja** (tag verified in Generated Tags); print-preview checks at every Print dialog; own state file e2e-b2b-order-lot-state.json |
 | Order Booking add (TC-OB-001, tests/sales/order-booking-add) | **Passing headed** — the CreateOrderBooking 400 bug was fixed by dev (verified 30-08-2026) |
 | B2B Order Booking add (TC-B2B-001, tests/sales/b2b-order-booking-add) | **Passing headed** — confirmed via TC-B2B-PRD-01 (same flow) on 31-08-2026 after the endpoint fix |
 
@@ -207,6 +208,9 @@ Mandatory (QA lead directive) — every new page's add spec includes all of thes
 7. **Verify the record in the list view** after save — `verifyRowInList(<doc no>)`.
 8. **Upload files** from `Demo files folder` via `utils/demo-files.js`, injected
    straight into `input[type=file]` (no Browse popup).
+9. **Verify the print template** when the post-save Print dialog offers Preview —
+   `verifyPrintPreview({screenshot})` opens it, asserts a report surface actually
+   rendered (inline offcanvas or popup), and throws when the template is broken.
 
 ## Conventions
 

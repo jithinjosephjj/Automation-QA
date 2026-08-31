@@ -3,17 +3,20 @@ const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueInvoiceNo } = require('../../utils/unique');
 const { DEMO_FILES } = require('../../utils/demo-files');
 
-const state = makeState('e2e-order-lot-state.json');
+const state = makeState('e2e-b2b-order-lot-state.json');
 
 /**
- * E2E WORKFLOW — ORDER / OUTSOURCE / LOT / BARCODE.
+ * E2E WORKFLOW — B2B ORDER / OUTSOURCE / LOT / BARCODE.
  *
- * Chain: Stock Order Booking → Procurement Issue (OUTSOURCE job work from
- * the order, vendor RAJA) → Metal Inward (jobwork return: Sub Transaction
- * Type "Jobwork" + Inward Type "Order") → Lot Generation → Barcode
- * (runs as user "suja" per the QA lead's recording of 31-08-2026).
+ * Chain: B2B Order Booking (Making Type "Job Work", customer Luxurio) →
+ * Procurement Issue (OUTSOURCE job work from the order, vendor RAJA) →
+ * Metal Inward (jobwork return against the order: Sub Transaction Type
+ * "Jobwork" + Inward Type "Order") → Lot Generation → Barcode (runs as
+ * user "suja" per the QA lead's recording of 31-08-2026).
  *
- * Document numbers chain through e2e-order-lot-state.json
+ * Same downstream as the stock-order variant
+ * (order-outsource-lot-barcode-workflow) - only step 01 differs. Document
+ * numbers chain through e2e-b2b-order-lot-state.json
  * (orderNo → jobWorkNo → inwardVoucherNo → lotNo → tagNo).
  *
  * MUST run headed - see README (Device Radar gate + Local Network Access).
@@ -21,10 +24,15 @@ const state = makeState('e2e-order-lot-state.json');
 
 const DATA = {
   order: {
+    purposeType: 'Order',
+    customer: 'Luxurio',
     itemType: 'Metal',
+    makingType: 'Job Work',
     supervisor: 'Abc',
     smCode: 'AJ10',
-    deliveryNote: 'Regular',
+    orderGivenBy: 'JJ',
+    contactNumber: '9898989899',
+    deliveryNote: 'Urgent',
     referenceType: 'Combination',
     groupCategory: 'Gold',
     category: 'Ring',
@@ -49,25 +57,30 @@ async function login(loginPage, page) {
   await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
 }
 
-test.describe('Order - Outsource - Lot - Barcode - Workflow', () => {
-  test('TC-OLG-01 create the stock order booking', async ({ loginPage, orderBooking, page }) => {
+test.describe('B2B Order - Outsource - Lot - Barcode - Workflow', () => {
+  test('TC-B2B-OLG-01 create the B2B job work order', async ({ loginPage, b2bOrderBooking, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
 
-    await orderBooking.open();
-    await orderBooking.openAddWizard();
-    await orderBooking.fillOrderDetails({
+    await b2bOrderBooking.open();
+    await b2bOrderBooking.openAddWizard();
+    await b2bOrderBooking.fillOrderDetails({
+      purposeType: DATA.order.purposeType,
+      customer: DATA.order.customer,
       itemType: DATA.order.itemType,
+      makingType: DATA.order.makingType,
       supervisor: DATA.order.supervisor,
       smCode: DATA.order.smCode,
+      orderGivenBy: DATA.order.orderGivenBy,
+      contactNumber: DATA.order.contactNumber,
       deliveryNote: DATA.order.deliveryNote,
       deliveryDate: businessDate(30).replace(/-/g, '/'),
     });
     await expect
-      .poll(async () => orderBooking.selectValue('salesExecutive'), { timeout: 20_000 })
+      .poll(async () => b2bOrderBooking.selectValue('salesExecutive'), { timeout: 20_000 })
       .toBe('Ajin G');
 
-    await orderBooking.fillItem({
+    await b2bOrderBooking.fillItem({
       referenceType: DATA.order.referenceType,
       groupCategory: DATA.order.groupCategory,
       category: DATA.order.category,
@@ -75,28 +88,29 @@ test.describe('Order - Outsource - Lot - Barcode - Workflow', () => {
       purity: DATA.order.purity,
       grossWeight: DATA.order.grossWeight,
     });
-    await orderBooking.attachFileViaAddFiles(DEMO_FILES.image1);
-    await orderBooking.addItemsAndVerify(1);
+    // attach one demo image via the Add Files control
+    await b2bOrderBooking.attachFileViaAddFiles(DEMO_FILES.image1);
+    await b2bOrderBooking.addItemsAndVerify(1);
 
-    if (!(await orderBooking.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await orderBooking.nextBtn.click();
-      await orderBooking.waitForIdle();
+    if (!(await b2bOrderBooking.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      await b2bOrderBooking.nextBtn.click();
+      await b2bOrderBooking.waitForIdle();
     }
-    await expect(orderBooking.submitBtn).toBeVisible({ timeout: 30_000 });
-    const { responses, diag } = await orderBooking.submitWithDiagnostics();
+    await expect(b2bOrderBooking.submitBtn).toBeVisible({ timeout: 30_000 });
+    const { responses, diag } = await b2bOrderBooking.submitWithDiagnostics();
     const save = responses.find((r) => r.body);
     expect(save, `no save response; validation: ${JSON.stringify(diag)}`).toBeTruthy();
     expect(save.status, `save rejected: ${JSON.stringify(save && save.body)}`).toBeLessThan(400);
     const orderNo = save.body.data && save.body.data.receiptNo;
-    expect(orderNo, 'generated order receipt no').toBeTruthy();
+    expect(orderNo, 'generated B2B order receipt no (BB## series)').toBeTruthy();
     state.writeState({ orderNo });
-    console.log(`Order booking created: ${orderNo}`);
+    console.log(`B2B job work order created: ${orderNo}`);
   });
 
-  test('TC-OLG-02 issue the order as outsource job work (Procurement > Issue)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-OLG-02 issue the order as outsource job work (Procurement > Issue)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     const { orderNo } = state.readState();
-    expect(orderNo, 'run TC-OLG-01 first').toBeTruthy();
+    expect(orderNo, 'run TC-B2B-OLG-01 first').toBeTruthy();
     await login(loginPage, page);
 
     const jobWorkNo = await production.createOutsourceJobWorkFromOrder({
@@ -110,10 +124,10 @@ test.describe('Order - Outsource - Lot - Barcode - Workflow', () => {
     expect(production.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-OLG-03 metal inward receives the goods back (jobwork return)', async ({ loginPage, metalInward, page }) => {
+  test('TC-B2B-OLG-03 metal inward receives the goods back (jobwork return)', async ({ loginPage, metalInward, page }) => {
     test.setTimeout(600_000);
     const { jobWorkNo } = state.readState();
-    expect(jobWorkNo, 'run TC-OLG-02 first').toBeTruthy();
+    expect(jobWorkNo, 'run TC-B2B-OLG-02 first').toBeTruthy();
     await login(loginPage, page);
 
     await metalInward.open();
@@ -144,17 +158,17 @@ test.describe('Order - Outsource - Lot - Barcode - Workflow', () => {
     console.log(`Metal inward saved: ${inwardVoucherNo}`);
 
     // the Print dialog offers Preview - verify the print template renders
-    await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-olg-03-print-preview.png' });
+    await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-b2b-olg-03-print-preview.png' });
 
     // close the post-save Print dialog, then prove the record reached the list
     await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
     await metalInward.verifyRowInList(inwardVoucherNo);
   });
 
-  test('TC-OLG-04 generate a lot from the inward', async ({ loginPage, lotGeneration, page }) => {
+  test('TC-B2B-OLG-04 generate a lot from the inward', async ({ loginPage, lotGeneration, page }) => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
-    expect(inwardVoucherNo, 'run TC-OLG-03 first').toBeTruthy();
+    expect(inwardVoucherNo, 'run TC-B2B-OLG-03 first').toBeTruthy();
     await login(loginPage, page);
 
     const lotNo = await lotGeneration.generateLot({
@@ -169,10 +183,10 @@ test.describe('Order - Outsource - Lot - Barcode - Workflow', () => {
     expect(lotGeneration.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-OLG-05 generate barcode for the lot (as suja)', async ({ loginPage, barcodeGeneration, page }) => {
+  test('TC-B2B-OLG-05 generate barcode for the lot (as suja)', async ({ loginPage, barcodeGeneration, page }) => {
     test.setTimeout(600_000);
     const { lotNo } = state.readState();
-    expect(lotNo, 'run TC-OLG-04 first').toBeTruthy();
+    expect(lotNo, 'run TC-B2B-OLG-04 first').toBeTruthy();
 
     // per the QA lead's recording this step runs as a DIFFERENT user
     await loginPage.open();

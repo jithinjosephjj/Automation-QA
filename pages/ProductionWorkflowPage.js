@@ -488,6 +488,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       throw new Error(`Issue save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
     const jobWorkNo = (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
+    // the Print dialog offers Preview here - verify the template renders.
+    // A broken template must NOT swallow the job work number (the caller
+    // still has to persist it), so record the failure for the spec to
+    // assert AFTER writing state instead of throwing here.
+    this.printPreviewError = null;
+    await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     // close the post-save Print dialog
     await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
     return jobWorkNo;

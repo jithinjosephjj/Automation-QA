@@ -1,6 +1,7 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
 const { businessDate } = require('../../utils/unique');
+const { DEMO_FILES } = require('../../utils/demo-files');
 
 const state = makeState('e2e-b2border-state.json');
 
@@ -94,6 +95,9 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
       purity: DATA.order.purity,
       grossWeight: DATA.order.grossWeight,
     });
+    // attach one demo image via the Add Files control
+    await b2bOrderBooking.attachFileViaAddFiles(DEMO_FILES.image1);
+
     await b2bOrderBooking.addItemsAndVerify(1);
 
     if (!(await b2bOrderBooking.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -125,6 +129,7 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
     expect(jobWorkNo, 'generated job work number (PP## series)').toBeTruthy();
     state.writeState({ jobWorkNo });
     console.log(`Inhouse job work created: ${jobWorkNo}`);
+    expect(production.printPreviewError, 'print template preview').toBeFalsy();
   });
 
   test('TC-B2B-PRD-03 assign the job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {

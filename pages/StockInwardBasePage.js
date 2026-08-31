@@ -278,6 +278,77 @@ class StockInwardBasePage extends BasePage {
   }
 
   /**
+   * Post-save print template check: when the Print dialog offers a Preview
+   * button, open it and verify the template actually rendered - a PDF
+   * viewer, iframe or report markup, inline or in a popup (both happen).
+   * Closes the preview again so the caller can continue with the dialog.
+   * Returns 'ok' | 'no-preview'; THROWS when Preview opens no report
+   * surface (that is the broken-template signal this check exists for).
+   */
+  async verifyPrintPreview({ screenshot } = {}) {
+    const previewBtn = this.page.getByRole('button', { name: /Preview/ }).last();
+    if (!(await previewBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      console.log('print preview: no Preview button offered - skipping');
+      return 'no-preview';
+    }
+    const maybePopup = this.page.waitForEvent('popup', { timeout: 15_000 }).catch(() => null);
+    await previewBtn.click();
+    const popup = await maybePopup;
+    const previewPage = popup || this.page;
+    await previewPage.waitForLoadState('domcontentloaded').catch(() => {});
+    await previewPage.waitForTimeout(3_000); // let the report start rendering
+
+    // A rendered template shows as a PDF viewer / iframe / canvas / blob
+    // image, OR as report HTML inside an offcanvas (the Issue page does the
+    // latter - no [class*=report] anywhere). Poll: server-side template
+    // builds can take a while.
+    // 'visible=true' matters: pages keep hidden background iframes, and
+    // .first() alone would test the hidden one forever.
+    const surface = previewPage
+      .locator('embed, iframe, object, canvas, img[src^="blob:"], img[src^="data:"], [class*=preview], [class*=report], [class*=pdf]')
+      .locator('visible=true')
+      .first();
+    let rendered = popup !== null ? 'popup' : '';
+    const deadline = Date.now() + 30_000;
+    while (!rendered && Date.now() < deadline) {
+      if (await surface.isVisible().catch(() => false)) { rendered = 'inline surface'; break; }
+      // report-as-HTML inside an offcanvas or modal (the Issue page renders
+      // the template in an add-custom-control-modal): substantial text that
+      // is NOT the Print dialog itself (which says "Voucher Number")
+      const oc = previewPage.locator('.offcanvas, .modal').locator('visible=true').last();
+      if (await oc.isVisible().catch(() => false)) {
+        const txt = ((await oc.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+        if (txt.length > 150 && !/Voucher Number\s*:/i.test(txt)) { rendered = 'dialog html'; break; }
+      }
+      await previewPage.waitForTimeout(1_000);
+    }
+    if (screenshot) await previewPage.screenshot({ path: screenshot, fullPage: true }).catch(() => {});
+
+    if (!rendered) {
+      // capture what IS on screen before declaring the template broken
+      const diag = await previewPage.evaluate(() => {
+        const vis = (n) => n.offsetParent !== null;
+        return {
+          offcanvases: [...document.querySelectorAll('.offcanvas, [role="dialog"], .modal')].filter(vis)
+            .map((n) => `${n.className.split(' ').slice(0, 3).join('.')}: ${(n.innerText || '').replace(/\s+/g, ' ').slice(0, 120)}`),
+          frames: document.querySelectorAll('iframe, embed, object, canvas').length,
+        };
+      }).catch(() => null);
+      throw new Error(`Print preview opened NO report surface - the print template looks broken. On screen: ${JSON.stringify(diag)}`);
+    }
+    console.log(`print preview: template rendered (${rendered})`);
+
+    if (popup) {
+      await popup.close().catch(() => {});
+    } else {
+      // inline preview renders in an offcanvas - close it, back to the dialog
+      await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+      await this.page.waitForTimeout(1_000);
+    }
+    return 'ok';
+  }
+
+  /**
    * Post-save proof: the record must show up in the page's list view (the
    * data table shown on load). Navigates back to the list (open + tab by
    * default, or a custom prepare()), then polls page 1 with reloads - lists

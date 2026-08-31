@@ -120,6 +120,7 @@ test.describe('Order - Inhouse - Production - Workflow', () => {
     expect(jobWorkNo, 'generated job work number (PP## series)').toBeTruthy();
     state.writeState({ jobWorkNo });
     console.log(`Inhouse job work created: ${jobWorkNo}`);
+    expect(production.printPreviewError, 'print template preview').toBeFalsy();
   });
 
   test('TC-PRD-OB-03 assign the job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {
