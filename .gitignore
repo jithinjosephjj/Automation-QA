@@ -1,0 +1,12 @@
+node_modules/
+auth/*.json
+.env
+test-results/
+playwright-report/
+blob-report/
+results.json
+*.zip
+.DS_Store
+# ad-hoc run logs from piped test output
+olg-*.txt
+probe-out.txt

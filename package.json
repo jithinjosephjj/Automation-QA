@@ -1,0 +1,22 @@
+{
+  "name": "sioniq-playwright-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sioniq QA UI automation suite - Playwright + JavaScript",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed --project=chromium",
+    "test:ui": "playwright test --ui",
+    "test:serial": "playwright test --workers=1",
+    "test:inward": "playwright test tests/inward --headed",
+    "auth": "playwright test --project=setup",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen https://qa.sioniq.com/",
+    "trace": "playwright show-trace",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "dotenv": "^16.4.7"
+  }
+}
