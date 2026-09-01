@@ -123,9 +123,13 @@ class OrderBookingPage extends StockInwardBasePage {
    * section): opens the Upload Files dialog, injects the file straight into
    * its input[type=file], commits with "Add Image", then closes the dialog.
    */
-  async attachFileViaAddFiles(filePath) {
-    await this.page.getByRole('button', { name: 'Add Files' }).first().scrollIntoViewIfNeeded();
-    await this.page.getByRole('button', { name: 'Add Files' }).first().click();
+  async attachFileViaAddFiles(filePath, { last = false } = {}) {
+    // pages can render several Add Files controls at once (e.g. the B2B
+    // sample panel has its own) - last:true targets the newest one
+    const btns = this.page.getByRole('button', { name: 'Add Files' }).locator('visible=true');
+    const btn = last ? btns.last() : btns.first();
+    await btn.scrollIntoViewIfNeeded();
+    await btn.click();
     const dlg = this.page
       .locator('[role="dialog"], .modal, ngb-modal-window, .offcanvas')
       .filter({ hasText: 'Upload Files' })

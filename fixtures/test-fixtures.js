@@ -14,6 +14,7 @@ const { B2BOrderBookingPage } = require('../pages/B2BOrderBookingPage');
 const { ProductionWorkflowPage } = require('../pages/ProductionWorkflowPage');
 const { LotGenerationPage } = require('../pages/LotGenerationPage');
 const { BarcodeGenerationPage } = require('../pages/BarcodeGenerationPage');
+const { SampleWorkflowPage } = require('../pages/SampleWorkflowPage');
 
 /**
  * Import { test, expect } from here instead of '@playwright/test' and page
@@ -80,6 +81,10 @@ const test = base.test.extend({
 
   barcodeGeneration: async ({ page }, use) => {
     await use(new BarcodeGenerationPage(page));
+  },
+
+  sampleWorkflow: async ({ page }, use) => {
+    await use(new SampleWorkflowPage(page));
   },
 });
 

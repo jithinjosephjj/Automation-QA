@@ -45,6 +45,92 @@ class B2BOrderBookingPage extends OrderBookingPage {
     await date.blur();
     await this.page.keyboard.press('Escape'); // close the date-picker popup
   }
+
+  /**
+   * SAMPLE-bearing item (QA lead recordings, 31-08-2026). The main block
+   * skips the Article; "Add Sample" opens a sub-form describing the
+   * physical sample the customer handed over. Sub-form presets verified
+   * live: Sample Type "Customer Sample", Vendor = the customer, Product
+   * Type, Received By, SM code, Received Type "In Person" all pre-filled -
+   * only the article chain, weights and the manual Rate need entry.
+   * The sub-form repeats the main block's labels/controlnames, so its
+   * fields are reached via label .last() AFTER the sub-form renders.
+   */
+  async fillSampleItem({ referenceType, groupCategory, category, article, purity, grossWeight, mainImage, sample }) {
+    await this.pick('referenceType', referenceType);
+    await this.pick('groupCategory', groupCategory, { exact: true });
+    await this.pick('category', category, { exact: true });
+    await this.page.waitForTimeout(2_000); // let the article list refilter
+    // NO typed search (the search path loses joined fields - same as fillItem)
+    await this.pick('article', article);
+    await this.pick('purity', purity);
+    // the Gross Weight container also holds the disabled "No of Pcs" input -
+    // target the enabled one explicitly (same trap as fillItem)
+    const mainGross = this.page
+      .locator('div.grid, div.form-group')
+      .filter({ has: this.page.locator('label:text-is("Gross Weight")') })
+      .last()
+      .locator('input:not([type=checkbox]):not([disabled])')
+      .first();
+    await mainGross.fill(String(grossWeight));
+    await mainGross.blur();
+
+    // one image on the MAIN item block via its Add Files control
+    if (mainImage) await this.attachFileViaAddFiles(mainImage);
+
+    await this.page.getByRole('button', { name: 'Add Sample' }).click();
+    await this.page.waitForTimeout(2_500);
+
+    // sub-form article chain (label .last() = the sub-form's instance)
+    await this.pickByLabel('Group Category', sample.groupCategory || groupCategory, { exact: true }).catch(() => {});
+    await this.pickByLabel('Category', sample.category || category, { exact: true }).catch(() => {});
+    await this.pickByLabel('Article', sample.article, { search: true });
+    await this.pickByLabel('Purity', sample.purity || purity);
+
+    // sub-form inputs carry ids (#grossWeight / #rate); pieces label is
+    // "No. of Pcs" (the main block's is "No of Pcs" - different text)
+    await this.fillByLabel('No. of Pcs', sample.pieces ?? 1).catch(() => {});
+    const gross = this.page.locator('#grossWeight');
+    await gross.fill(String(sample.grossWeight));
+    await gross.blur();
+    const rate = this.page.locator('#rate');
+    await rate.fill(String(sample.rate));
+    await rate.blur();
+    await this.page.waitForTimeout(1_500);
+
+    // a DIFFERENT image on the sample itself, via the PANEL's own Add Files
+    // control (the last visible one while the panel is open)
+    if (sample.image) await this.attachFileViaAddFiles(sample.image, { last: true });
+
+    // Add Sample is a FULL PANEL with its own Sample Summary, Add Items and
+    // Submit (verified live 31-08-2026): Add Items moves the sample into the
+    // panel's "Items Added" grid, the panel's Submit closes it back to the
+    // main items step. The panel's buttons are the LAST visible instances.
+    await this.page.getByRole('button', { name: 'Add Items' }).locator('visible=true').last().click();
+    const added = this.page.getByRole('row').filter({ hasText: sample.article }).first();
+    await added.waitFor({ state: 'visible', timeout: 20_000 });
+    console.log('Add Sample panel: sample listed under Items Added');
+    await this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last().click();
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_500);
+  }
+
+  /** Click Yes when the sample order's post-submit confirmation asks. */
+  async confirmYesIfAsked(timeout = 15_000) {
+    const yes = this.page.getByRole('button', { name: /^Yes$/ })
+      .or(this.page.getByText(/^Yes$/))
+      .last();
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      if (await yes.isVisible().catch(() => false)) {
+        await yes.click().catch(() => {});
+        console.log('confirmation dialog: clicked Yes');
+        return true;
+      }
+      await this.page.waitForTimeout(500);
+    }
+    return false;
+  }
 }
 
 module.exports = { B2BOrderBookingPage };
