@@ -304,23 +304,102 @@ class ProductionWorkflowPage extends StockInwardBasePage {
 
   // ---------- 3. Job Assignment ----------
   async assignJob(d) {
+    const sourceType = d.sourceType || 'Job Work';
     await this.openRoute('/prd/app-view-production-job-assignment');
     await this.clickAdd();
-    await this.pick('sourceType', 'Job Work', { exact: true });
-    await this.pick('generationType', d.generationType || 'Production Concept', { exact: true });
-    // the Order generation type additionally filters by item type + BU
-    if (d.itemType) await this.pick('itemType', d.itemType, { exact: true });
+    await this.pick('sourceType', sourceType, { exact: true });
+    if (sourceType === 'Job Work') {
+      await this.pick('generationType', d.generationType || 'Production Concept', { exact: true });
+    }
+    // the Order generation type / Sample source additionally filter by item
+    // type. The Sample form's Item Type select carries NO itemType
+    // controlname and its caption is NOT a <label> element - reach it
+    // structurally as the first ng-select after the Production Source.
+    if (d.itemType) {
+      await this.pick('itemType', d.itemType, { exact: true }).catch(async () => {
+        const sel = this.page
+          .locator('sioniq-ng-select[controlname="sourceType"]')
+          .locator('xpath=following::ng-select[1]');
+        await sel.locator('.ng-select-container').click();
+        const opt = this.page
+          .locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasText: new RegExp(`^\\s*${d.itemType}\\s*$`) })
+          .first();
+        await opt.waitFor({ state: 'visible', timeout: 15_000 });
+        await opt.click();
+      });
+    }
     if (d.location) await this.pick('locations', d.location, { closePanel: true });
+    // the Sample form adds a Business Unit filter (QA lead: Cochin) - like
+    // Item Type it carries no controlname; structurally the second ng-select
+    // after Production Source
+    if (d.businessUnit) {
+      // BEST-EFFORT: the BU select defaults correctly on some builds (the
+      // registration chain passed without it) - log rather than fail
+      await this.pick('businessUnit', d.businessUnit, { exact: true }).catch(async () => {
+        const sel = this.page
+          .locator('sioniq-ng-select[controlname="sourceType"]')
+          .locator('xpath=following::ng-select[2]');
+        await sel.locator('.ng-select-container').click();
+        const opt = this.page
+          .locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasText: new RegExp(`^\\s*${d.businessUnit}\\s*$`) })
+          .first();
+        await opt.waitFor({ state: 'visible', timeout: 15_000 });
+        await opt.click();
+      }).catch((e) => console.log(`assignJob: business unit pick skipped (${String(e).split('\n')[0]})`));
+    }
     await this.page.waitForTimeout(2_500);
 
-    // grid row for our concept/job - check it
+    // grid row for our concept/job/sample - check it
     await this.checkRow(d.rowText);
+
+    // sample rows need the Update button to open the assignment panel
+    const update = this.page.getByRole('button', { name: /Update$/ }).locator('visible=true').first();
+    if (await update.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await update.click();
+      await this.page.waitForTimeout(1_500);
+      // samples created ON the order pop an "Edit Item Details" overlay that
+      // must be confirmed with its own footer Update before the process
+      // picks are reachable
+      const editPanel = this.page
+        .locator('.offcanvas, .modal, ngb-modal-window, [role="dialog"]')
+        .filter({ hasText: 'Edit Item Details' })
+        .last();
+      if (await editPanel.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await editPanel.getByRole('button', { name: /Update$/ }).last().click();
+        await editPanel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+        console.log('assignJob: Edit Item Details panel confirmed');
+        await this.page.waitForTimeout(1_500);
+      }
+    }
 
     // Right panel: Department is preset to "Production"; assignment happens
     // via Process ("Design And CAD") + Sub Process ("CAD Modeling").
     await this.pick('process', d.process);
     await this.pick('subProcess', d.subProcess);
+
+    // verify the SAVE actually fires - Submit is a silent no-op on invalid
+    // forms (checklist rule 6)
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /create|save|assign/i.test(r.url()) &&
+        !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
+      { timeout: 30_000 },
+    ).catch(() => null);
     await this.page.getByRole('button', { name: 'Submit' }).click();
+    const r = await resp;
+    if (!r) {
+      const diag = await this.page.evaluate(() =>
+        [...document.querySelectorAll('sioniq-ng-select')]
+          .filter((n) => n.querySelector('ng-select')?.classList.contains('ng-invalid') && n.offsetParent)
+          .map((n) => n.getAttribute('controlname')));
+      throw new Error(`Job assignment Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(diag)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log('job assignment save:', r.status(), JSON.stringify(body).slice(0, 200));
+    if (r.status() >= 400 || (body && body.errorCode)) {
+      throw new Error(`Job assignment save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
+    }
     await this.waitForIdle();
     await this.page.waitForTimeout(3_000);
     await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
@@ -367,7 +446,12 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.clickAdd();
     await this.pick('process', d.process, { search: true });
     if (d.subProcess) await this.pick('subProcess', d.subProcess, { search: true }).catch(() => {});
-    await this.pick('sourceType', 'Job Work', { exact: true });
+    await this.pick('sourceType', d.sourceType || 'Job Work', { exact: true });
+    // the Sample source adds an Item Type filter
+    if (d.itemType) {
+      await this.pick('itemType', d.itemType, { exact: true }).catch(() =>
+        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() => {}));
+    }
     await this.page.waitForTimeout(2_500);
     // grids key rows by doc numbers we may not hold - first pending row is
     // ours (grid pre-filtered by process + source)
@@ -391,7 +475,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     // Production No With Sub No, then the To Process panel on the right.
     await this.pickByLabel('From Process', d.fromProcess);
     if (d.fromSubProcess) await this.pickByLabel('From Sub Process', d.fromSubProcess).catch(() => {});
-    await this.pickByLabel('Production Source', 'Job Work', { exact: true });
+    await this.pickByLabel('Production Source', d.productionSource || 'Job Work', { exact: true });
+    if (d.itemType) {
+      await this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
+        this.pick('itemType', d.itemType, { exact: true }).catch(() => {}));
+    }
     // "Production No With Sub No" filters by the PRODUCTION number
     // (D42026/...), which we may not hold - use it only when we have it,
     // never with the job work number (wrong value = grid filtered to nothing).
@@ -427,7 +515,12 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (d.subProcess) await this.pickByLabel('Sub Process', d.subProcess, { search: true }).catch(() => {});
     await this.pick('masterDataValueID_WorkerType', 'Inhouse Worker', { exact: true });
     await this.pick('vendorID', d.worker, { search: true });
-    await this.pick('masterDataValueID_ProductionSourceType', 'Job Work', { exact: true });
+    await this.pick('masterDataValueID_ProductionSourceType', d.productionSource || 'Job Work', { exact: true });
+    // the Sample source adds an Item Type filter
+    if (d.itemType) {
+      await this.pick('itemType', d.itemType, { exact: true }).catch(() =>
+        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() => {}));
+    }
     await this.page.waitForTimeout(2_500);
   }
 
@@ -562,7 +655,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (d.subProcess) await this.pickByLabel('Sub Process', d.subProcess).catch(() => {});
     await this.pickByLabel('Worker Type', 'Inhouse Worker', { exact: true });
     await this.pickByLabel('Worker', d.worker, { search: true });
-    await this.pickByLabel('Production Source Type', 'Job Work', { exact: true });
+    await this.pickByLabel('Production Source Type', d.productionSource || 'Job Work', { exact: true });
+    if (d.itemType) {
+      await this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
+        this.pick('itemType', d.itemType, { exact: true }).catch(() => {}));
+    }
     await this.page.waitForTimeout(2_500);
     if (d.item) {
       // ---- Settlement Wise receipt (Casting): an ITEM FORM, not a grid ----
@@ -606,6 +703,20 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         console.log(`workerReceipt: nothing pending for ${d.process}/${d.worker} - already received, skipping`);
         return 'skipped';
       }
+    }
+
+    // SAMPLE flow (QA lead, 01-09-2026): the final receipt carries a
+    // "Finalize Sample" checkbox instead of jobwork's "Move to Job Finalize"
+    // - checking it releases the sample to Sample Receipt.
+    if (d.finalizeSample) {
+      const box = this.page.getByRole('checkbox', { name: /Finalize Sample/i }).first();
+      if (await box.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await box.check({ force: true });
+      } else {
+        // checkboxes hide behind label.invisible-click on some forms
+        await this.page.locator('label').filter({ hasText: /Finalize Sample/i }).first().click();
+      }
+      console.log('workerReceipt: Finalize Sample checked');
     }
 
     await this.page.getByRole('button', { name: 'Submit' }).click();

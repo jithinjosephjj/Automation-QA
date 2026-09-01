@@ -3,24 +3,20 @@ const { makeState } = require('../../utils/e2e-state');
 const { businessDate } = require('../../utils/unique');
 const { DEMO_FILES } = require('../../utils/demo-files');
 
-const state = makeState('e2e-b2b-sample-state.json');
+const state = makeState('e2e-b2b-samplereg-inhouse-state.json');
 
 /**
- * E2E WORKFLOW — B2B SAMPLE (ON THE ORDER) / INHOUSE PRODUCTION.
+ * E2E WORKFLOW — B2B ORDER / SAMPLE REGISTRATION / INHOUSE PRODUCTION.
  *
- * Chain: B2B Order Booking WITH a sample (Add Sample panel on the order
- * itself - registers the sample at save) → Sample Issue INHOUSE
- * (production unit Cochin) → Job Assignment (source "Sample") → Process
- * Movement → Worker Issue/Receipt ×2 (the FINAL Casting receipt checks
- * "Finalize Sample") → Sample Receipt (Repair page, Inhouse) → Sample
- * Delivery. Samples have NO Job Finalize/barcode step.
+ * Chain: B2B order WITHOUT a sample → Sample Registration against the
+ * order no → Sample Issue INHOUSE (production unit Cochin) → Job
+ * Assignment (source type "Sample") → Process Movement → Worker
+ * Issue/Receipt (production source "Sample"; the FINAL receipt checks
+ * "Finalize Sample") → Sample Receipt (Repair page, Inhouse mode) →
+ * Sample Delivery. Samples have NO Job Finalize/barcode step (QA lead,
+ * 01-09-2026); grids key rows by the SAMPLE NO.
  *
- * Unblocked 01-09-2026: the Worker Issue/Receipt sample bug is fixed.
- * Twin of b2b-sample-registration-inhouse-production-workflow - only the
- * sample's origin differs (on the order vs registered afterwards).
- * Grids key rows by the SAMPLE NO (captured from the Sample Registration
- * list after the order saves). State: e2e-b2b-sample-state.json.
- *
+ * State: e2e-b2b-samplereg-inhouse-state.json.
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
@@ -40,13 +36,15 @@ const DATA = {
     category: 'Ring',
     article: 'Tendulkar',
     purity: '91.60',
-    grossWeight: 54,
+    grossWeight: 50,
+  },
+  registration: {
+    itemType: 'Metal',
     sample: { article: 'Tendulkar', purity: '91.6', pieces: 1, grossWeight: 12, rate: 25000 },
   },
   issue: { itemType: 'Metal', productionUnit: 'Cochin', submissionMethod: 'In Person', receivedFrom: 'Raja', contactNumber: '6565455555' },
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
   round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
-  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser11' },
 };
 
 async function login(loginPage, page) {
@@ -60,8 +58,8 @@ function rowKey() {
   return state.readState().sampleNo;
 }
 
-test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
-  test('TC-B2B-SMP-01 create the B2B order with a sample', async ({ loginPage, b2bOrderBooking, sampleWorkflow, page }) => {
+test.describe('B2B Sample Registration - Inhouse - Production - Workflow', () => {
+  test('TC-B2B-SRI-01 create the B2B order (no sample)', async ({ loginPage, b2bOrderBooking, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
 
@@ -83,16 +81,15 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
       .poll(async () => b2bOrderBooking.selectValue('salesExecutive'), { timeout: 20_000 })
       .toBe('Ajin G');
 
-    await b2bOrderBooking.fillSampleItem({
+    await b2bOrderBooking.fillItem({
       referenceType: DATA.order.referenceType,
       groupCategory: DATA.order.groupCategory,
       category: DATA.order.category,
       article: DATA.order.article,
       purity: DATA.order.purity,
       grossWeight: DATA.order.grossWeight,
-      mainImage: DEMO_FILES.image1,
-      sample: { ...DATA.order.sample, image: DEMO_FILES.image2 },
     });
+    await b2bOrderBooking.attachFileViaAddFiles(DEMO_FILES.image1);
     await b2bOrderBooking.addItemsAndVerify(1);
 
     if (!(await b2bOrderBooking.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -100,28 +97,38 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
       await b2bOrderBooking.waitForIdle();
     }
     await expect(b2bOrderBooking.submitBtn).toBeVisible({ timeout: 30_000 });
-    const confirmer = b2bOrderBooking.confirmYesIfAsked();
     const { responses, diag } = await b2bOrderBooking.submitWithDiagnostics();
-    await confirmer;
     const save = responses.find((r) => r.body);
     expect(save, `no save response; validation: ${JSON.stringify(diag)}`).toBeTruthy();
     expect(save.status, `save rejected: ${JSON.stringify(save && save.body)}`).toBeLessThan(400);
     const orderNo = save.body.data && save.body.data.receiptNo;
-    expect(orderNo, 'generated sample order receipt no').toBeTruthy();
+    expect(orderNo, 'generated B2B order receipt no').toBeTruthy();
     state.writeState({ orderNo });
-    console.log(`B2B sample order created: ${orderNo}`);
-
-    // the sample registers under its OWN sample no - newest registration row
-    const sampleNo = await sampleWorkflow.latestSampleNo();
-    expect(sampleNo, 'registered sample number').toBeTruthy();
-    state.writeState({ sampleNo });
-    console.log(`Sample registered as: ${sampleNo}`);
+    console.log(`B2B order created: ${orderNo}`);
   });
 
-  test('TC-B2B-SMP-02 sample issue inhouse (Procurement > Issue, Sample tab)', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SRI-02 register a sample against the order', async ({ loginPage, sampleWorkflow, page }) => {
+    test.setTimeout(600_000);
+    const { orderNo } = state.readState();
+    expect(orderNo, 'run TC-B2B-SRI-01 first').toBeTruthy();
+    await login(loginPage, page);
+
+    const sampleNo = await sampleWorkflow.registerSample({
+      orderNo,
+      itemType: DATA.registration.itemType,
+      sample: DATA.registration.sample,
+      image: DEMO_FILES.image2,
+    });
+    expect(sampleNo, 'registered sample number').toBeTruthy();
+    state.writeState({ sampleNo });
+    console.log(`Sample registered against ${orderNo}: ${sampleNo}`);
+    expect(sampleWorkflow.printPreviewError, 'print template preview').toBeFalsy();
+  });
+
+  test('TC-B2B-SRI-03 sample issue inhouse (Procurement > Issue, Sample tab)', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
-    expect(sampleNo, 'run TC-B2B-SMP-01 first').toBeTruthy();
+    expect(sampleNo, 'run TC-B2B-SRI-02 first').toBeTruthy();
     await login(loginPage, page);
 
     const issueNo = await sampleWorkflow.createSampleIssueInhouse({
@@ -138,9 +145,9 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     expect(sampleWorkflow.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-B2B-SMP-03 assign the sample job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SRI-04 assign the sample job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
-    expect(rowKey(), 'run TC-B2B-SMP-01 first').toBeTruthy();
+    expect(rowKey(), 'run TC-B2B-SRI-02 first').toBeTruthy();
     await login(loginPage, page);
     await production.assignJob({
       sourceType: 'Sample',
@@ -153,7 +160,7 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     console.log(`Sample job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
   });
 
-  test('TC-B2B-SMP-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SRI-05 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     await login(loginPage, page);
     await production.processMovementAccept({
@@ -165,7 +172,7 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     console.log('Process movement accepted at Design And CAD');
   });
 
-  test('TC-B2B-SMP-05 worker issue and receipt (CAD Modeling, Prabhat)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SRI-06 worker issue and receipt (CAD Modeling, Prabhat)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
     const header = { ...DATA.round1, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() };
@@ -174,7 +181,7 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     console.log('Worker issue + receipt (CAD) done');
   });
 
-  test('TC-B2B-SMP-06 transfer to Casting, accept, worker issue and receipt (Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SRI-07 transfer to Casting, accept, worker issue and receipt (Sioniquser11)', async ({ loginPage, production, page }) => {
     test.setTimeout(900_000);
     await login(loginPage, page);
     await production.processMovementTransfer({
@@ -194,16 +201,16 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     });
     const header = { ...DATA.round2, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() };
     await production.workerIssue(header);
-    // the FINAL receipt checks "Finalize Sample" - releases the sample to
-    // Sample Receipt (samples have no Job Finalize/barcode step)
+    // sample receipts use the pending GRID (no settlement item form); the
+    // FINAL receipt checks "Finalize Sample" to release it to Sample Receipt
     await production.workerReceipt({ ...header, finalizeSample: true });
     console.log('Transferred to Casting, accepted, worker issue + receipt (finalized) done');
   });
 
-  test('TC-B2B-SMP-07 sample receipt (Repair page, Sample tab, inhouse)', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SRI-08 sample receipt (Repair page, Sample tab, inhouse)', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
-    expect(sampleNo, 'run TC-B2B-SMP-01 first').toBeTruthy();
+    expect(sampleNo, 'run TC-B2B-SRI-02 first').toBeTruthy();
     await login(loginPage, page);
 
     const receiptNo = await sampleWorkflow.sampleReceiptInhouse({
@@ -216,18 +223,18 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     expect(sampleWorkflow.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-B2B-SMP-08 sample delivery to the customer', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SRI-09 sample delivery to the customer', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
-    expect(sampleNo, 'run TC-B2B-SMP-01 first').toBeTruthy();
+    expect(sampleNo, 'run TC-B2B-SRI-02 first').toBeTruthy();
     await login(loginPage, page);
 
     const deliveryNo = await sampleWorkflow.sampleDelivery({
       sampleNo,
-      customer: DATA.delivery.customer,
-      itemType: DATA.delivery.itemType,
-      dispatchType: DATA.delivery.dispatchType,
-      employee: DATA.delivery.employee,
+      customer: DATA.order.customer,
+      itemType: 'Metal',
+      dispatchType: 'Our Employee',
+      employee: 'Sioniquser11',
     });
     state.writeState({ deliveryNo });
     console.log(`Sample delivered (doc: ${deliveryNo || 'keyed by sample no'})`);

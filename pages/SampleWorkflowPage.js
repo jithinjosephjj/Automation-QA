@@ -185,17 +185,33 @@ class SampleWorkflowPage extends StockInwardBasePage {
    * from / contact number, then check the order's grid row, Add Item,
    * Add, Next, Submit.
    */
-  async createSampleIssueOutsource({ sampleNo, itemType = 'Metal', vendor = 'RAJA', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555', image }) {
+  async createSampleIssueOutsource(d) {
+    return this.createSampleIssue({ ...d, mode: 'Outsource' });
+  }
+
+  /** Inhouse variant: Production Unit replaces the Vendor pick. */
+  async createSampleIssueInhouse(d) {
+    return this.createSampleIssue({ ...d, mode: 'Inhouse' });
+  }
+
+  async createSampleIssue({ sampleNo, mode = 'Outsource', itemType = 'Metal', vendor = 'RAJA', productionUnit = 'Cochin', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555', image }) {
     await this.openTab('/prc/view-samplejobwork-issue', 'Sample');
     await this.clickVisibleAdd();
 
     await this.pick('itemType', itemType, { exact: true });
-    await this.pick('jobworkMode', 'Outsource', { exact: true });
-    await this.pick('vendor', vendor).catch(async () => {
-      // the wrapper carries id #vendorControl when the controlname is absent
-      await this.page.locator('#vendorControl .ng-select-container').click();
-      await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: vendor }).first().click();
-    });
+    await this.pick('jobworkMode', mode, { exact: true });
+    if (mode === 'Outsource') {
+      await this.pick('vendor', vendor).catch(async () => {
+        // the wrapper carries id #vendorControl when the controlname is absent
+        await this.page.locator('#vendorControl .ng-select-container').click();
+        await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: vendor }).first().click();
+      });
+    } else {
+      await this.pick('productionUnit', productionUnit, { exact: true }).catch(async () => {
+        await this.page.locator('#productionUnit .ng-select-container').click();
+        await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: productionUnit }).first().click();
+      });
+    }
     await this.pick('deilveryMode', submissionMethod, { exact: true });
 
     // received-from + contact: two plain textboxes on the form (no ids -
@@ -228,12 +244,39 @@ class SampleWorkflowPage extends StockInwardBasePage {
    * Vendor Name -> Item Type reveal the pending grid; check the sample's
    * row and Submit Receipt.
    */
-  async sampleReceiptOutsource({ sampleNo, vendor = 'RAJA', itemType = 'Metal' }) {
+  async sampleReceiptOutsource(d) {
+    return this.sampleReceipt({ ...d, mode: 'Outsource' });
+  }
+
+  /** Inhouse variant: Production Unit (Cochin) replaces the Vendor pick. */
+  async sampleReceiptInhouse(d) {
+    return this.sampleReceipt({ ...d, mode: 'Inhouse' });
+  }
+
+  async sampleReceipt({ sampleNo, mode = 'Outsource', vendor = 'RAJA', productionUnit = 'Cochin', itemType = 'Metal' }) {
     await this.openTab('/prc/app-repair-setup', 'Sample');
     await this.clickVisibleAdd();
 
-    await this.pick('masterDataValueID_JobWorkMode', 'Outsource', { exact: true });
-    await this.pick('vendorID', vendor);
+    await this.pick('masterDataValueID_JobWorkMode', mode, { exact: true });
+    if (mode === 'Outsource') {
+      await this.pick('vendorID', vendor);
+    } else {
+      // the Inhouse mode swaps the vendor for a production-unit select with
+      // no known controlname - structurally the select right after Job Work
+      // Mode (dump order: mode, [vendor|unit], item type)
+      await this.pick('productionUnitID', productionUnit, { exact: true }).catch(async () => {
+        const sel = this.page
+          .locator('sioniq-ng-select[controlname="masterDataValueID_JobWorkMode"]')
+          .locator('xpath=following::ng-select[1]');
+        await sel.locator('.ng-select-container').click();
+        const opt = this.page
+          .locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasText: new RegExp(`^\\s*${productionUnit}\\s*$`) })
+          .first();
+        await opt.waitFor({ state: 'visible', timeout: 15_000 });
+        await opt.click();
+      });
+    }
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.waitForIdle();
     await this.page.waitForTimeout(2_500);
