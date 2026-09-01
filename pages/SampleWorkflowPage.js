@@ -95,12 +95,97 @@ class SampleWorkflowPage extends StockInwardBasePage {
   }
 
   /**
+   * Sample Registration (/sls/app-sample-setup, "Sample Registration" tab):
+   * register a sample AGAINST an existing B2B order. Sample Ref Type is
+   * preset "B2B Order"; pick Item Type, then the order in the "RC No."
+   * TYPEAHEAD (slow server search - open, let it load, then type and wait;
+   * verified manually by the QA lead with BB50). The order's rows land in
+   * a "Sample Details" grid - check the row, Next, Submit.
+   * Returns the registered sample no.
+   */
+  async registerSample({ orderNo, itemType = 'Metal', sample, image }) {
+    await this.openTab('/sls/app-sample-setup', 'Sample Registration');
+    await this.clickVisibleAdd();
+
+    await this.pick('itemType', itemType, { exact: true });
+
+    // RC No. typeahead: a fresh panel can show a stale "No items found"
+    // while the server search runs - type, WAIT LONG, reopen and retry
+    const rc = this.select('receiptNo');
+    let picked = false;
+    for (let attempt = 1; attempt <= 4 && !picked; attempt++) {
+      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
+        await this.page.keyboard.press('Escape');
+        await this.page.waitForTimeout(500);
+      }
+      await rc.locator('.ng-select-container').click();
+      await rc.locator('input[role="combobox"]').fill(orderNo);
+      await this.page.waitForTimeout(2_000 + attempt * 2_000);
+      const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: orderNo }).first();
+      if (await opt.isVisible().catch(() => false)) {
+        await opt.click();
+        picked = true;
+      }
+    }
+    if (!picked) throw new Error(`RC No. typeahead never offered "${orderNo}"`);
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_500);
+
+    // checking the order's row in the Sample Details grid opens the SAME
+    // "Add Sample" panel as the order flow - Sample Information arrives
+    // preset from the order; only "Build Sample Items" needs entry
+    await this.checkRow(orderNo);
+    await this.page.waitForTimeout(2_500);
+
+    await this.pickByLabel('Group Category', sample.groupCategory || 'Gold', { exact: true }).catch(() => {});
+    await this.pickByLabel('Category', sample.category || 'Ring', { exact: true }).catch(() => {});
+    await this.pickByLabel('Article', sample.article, { search: true });
+    await this.pickByLabel('Purity', sample.purity);
+    await this.fillByLabel('No. of Pcs', sample.pieces ?? 1).catch(() => {});
+    const gross = this.page.locator('#grossWeight');
+    await gross.fill(String(sample.grossWeight));
+    await gross.blur();
+    const rate = this.page.locator('#rate');
+    await rate.fill(String(sample.rate));
+    await rate.blur();
+    await this.page.waitForTimeout(1_500);
+
+    // demo image via the PANEL's own Add Files control
+    if (image) await this.attachFileViaAddFiles(image, { last: true });
+
+    // panel commit: Add Items -> Items Added row -> the panel's Submit
+    // closes the panel; the WIZARD then still needs Next -> Submit to save
+    // (QA lead, 01-09-2026)
+    await this.page.getByRole('button', { name: 'Add Items' }).locator('visible=true').last().click();
+    const added = this.rowMatcher(sample.article).first();
+    await added.waitFor({ state: 'visible', timeout: 20_000 });
+    console.log('registration panel: sample listed under Items Added');
+    await this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last().click();
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_500);
+
+    const next = this.page.getByRole('button', { name: 'Next' }).locator('visible=true').last();
+    if (await next.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await next.click();
+      await this.waitForIdle();
+      await this.page.waitForTimeout(2_000);
+    }
+    const body = await this.clickAndCaptureSave(
+      this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last(),
+    );
+    await this.previewAndClose();
+    let sampleNo = (body && body.data && (body.data.receiptNo || body.data.sampleNo || body.data.docNo)) || '';
+    if (!sampleNo) sampleNo = await this.latestSampleNo();
+    return (sampleNo || '').trim();
+  }
+
+  /**
    * Sample Issue, OUTSOURCE mode: Item Type + JobWork Mode + Vendor +
    * Sample Submission Method (control "deilveryMode" [sic]) + received
    * from / contact number, then check the order's grid row, Add Item,
    * Add, Next, Submit.
    */
-  async createSampleIssueOutsource({ sampleNo, itemType = 'Metal', vendor = 'RAJA', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555' }) {
+  async createSampleIssueOutsource({ sampleNo, itemType = 'Metal', vendor = 'RAJA', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555', image }) {
     await this.openTab('/prc/view-samplejobwork-issue', 'Sample');
     await this.clickVisibleAdd();
 
@@ -126,6 +211,8 @@ class SampleWorkflowPage extends StockInwardBasePage {
     // (private-use char, not whitespace) - match by the trailing "Add" only
     await this.page.getByRole('button', { name: 'Add Item' }).click();
     await this.page.waitForTimeout(2_000);
+    // demo image via the Add Item Details panel's own Add Files control
+    if (image) await this.attachFileViaAddFiles(image, { last: true });
     await this.page.getByRole('button', { name: /Add$/ }).last().click();
     await this.page.waitForTimeout(1_500);
     await this.page.getByRole('button', { name: 'Next' }).click();

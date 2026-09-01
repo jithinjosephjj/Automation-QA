@@ -278,6 +278,37 @@ class StockInwardBasePage extends BasePage {
   }
 
   /**
+   * Attach a file through an "Add Files" control: opens the Upload Files
+   * dialog, injects the file straight into its input[type=file], commits
+   * with "Add Image", then closes the dialog. Pages can render several Add
+   * Files controls at once (order form + a sample/item panel) - last:true
+   * targets the newest visible one.
+   */
+  async attachFileViaAddFiles(filePath, { last = false } = {}) {
+    const btns = this.page.getByRole('button', { name: 'Add Files' }).locator('visible=true');
+    const btn = last ? btns.last() : btns.first();
+    await btn.scrollIntoViewIfNeeded();
+    await btn.click();
+    const dlg = this.page
+      .locator('[role="dialog"], .modal, ngb-modal-window, .offcanvas')
+      .filter({ hasText: 'Upload Files' })
+      .last();
+    await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+
+    await dlg.locator('input[type="file"]').first().setInputFiles(filePath);
+    await this.page.waitForTimeout(1_500);
+
+    const addImage = dlg.getByRole('button', { name: 'Add Image' });
+    await addImage.waitFor({ state: 'visible', timeout: 15_000 });
+    await addImage.click();
+    await this.page.waitForTimeout(1_500);
+
+    await dlg.getByRole('button', { name: 'Close' }).last().click();
+    await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    console.log('Add Files: image attached and dialog closed');
+  }
+
+  /**
    * Post-save print template check: when the Print dialog offers a Preview
    * button, open it and verify the template actually rendered - a PDF
    * viewer, iframe or report markup, inline or in a popup (both happen).

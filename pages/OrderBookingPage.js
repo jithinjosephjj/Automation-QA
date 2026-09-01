@@ -118,37 +118,6 @@ class OrderBookingPage extends StockInwardBasePage {
     return { fired, responses, diag };
   }
 
-  /**
-   * Attach a file through the "Add Files" control (renders with the item
-   * section): opens the Upload Files dialog, injects the file straight into
-   * its input[type=file], commits with "Add Image", then closes the dialog.
-   */
-  async attachFileViaAddFiles(filePath, { last = false } = {}) {
-    // pages can render several Add Files controls at once (e.g. the B2B
-    // sample panel has its own) - last:true targets the newest one
-    const btns = this.page.getByRole('button', { name: 'Add Files' }).locator('visible=true');
-    const btn = last ? btns.last() : btns.first();
-    await btn.scrollIntoViewIfNeeded();
-    await btn.click();
-    const dlg = this.page
-      .locator('[role="dialog"], .modal, ngb-modal-window, .offcanvas')
-      .filter({ hasText: 'Upload Files' })
-      .last();
-    await dlg.waitFor({ state: 'visible', timeout: 15_000 });
-
-    await dlg.locator('input[type="file"]').first().setInputFiles(filePath);
-    await this.page.waitForTimeout(1_500);
-
-    const addImage = dlg.getByRole('button', { name: 'Add Image' });
-    await addImage.waitFor({ state: 'visible', timeout: 15_000 });
-    await addImage.click();
-    await this.page.waitForTimeout(1_500);
-
-    await dlg.getByRole('button', { name: 'Close' }).last().click();
-    await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
-    console.log('Add Files: image attached and dialog closed');
-  }
-
   /** Add Items with proof via the Stock Order Summary panel. */
   async addItemsAndVerify(expectedItems = 1) {
     // Rate and the pricing strip land asynchronously after Gross Weight -
