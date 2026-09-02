@@ -311,6 +311,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (sourceType === 'Job Work') {
       await this.pick('generationType', d.generationType || 'Production Concept', { exact: true });
     }
+    // the Repair source adds a Business Type filter (QA lead: B2B)
+    if (d.businessType) {
+      await this.pick('businessType', d.businessType, { exact: true }).catch(() =>
+        this.pickByLabel('Business Type', d.businessType, { exact: true }));
+    }
     // the Order generation type / Sample source additionally filter by item
     // type. The Sample form's Item Type select carries NO itemType
     // controlname and its caption is NOT a <label> element - reach it
@@ -632,10 +637,52 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await this.page.waitForTimeout(1_500);
     }
 
+    await this.submitWorkerForm('worker issue');
+  }
+
+  /** Submit a worker issue/receipt form and VERIFY the save fired - Submit
+   *  is a silent no-op on invalid forms (checklist rule 6), and relying on
+   *  the print dialog alone let a repair receipt slip through unsaved. */
+  async submitWorkerForm(what) {
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /create|save|submit/i.test(r.url()) &&
+        !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
+      { timeout: 60_000 },
+    ).catch(() => null);
     await this.page.getByRole('button', { name: 'Submit' }).click();
-    await this.printDialog.waitFor({ state: 'visible', timeout: 120_000 }).catch(() => {});
+    const r = await resp;
+    if (!r) {
+      const diag = await this.page.evaluate(() =>
+        [...document.querySelectorAll('sioniq-ng-select')]
+          .filter((n) => n.querySelector('ng-select')?.classList.contains('ng-invalid') && n.offsetParent)
+          .map((n) => n.getAttribute('controlname')));
+      throw new Error(`${what} Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(diag)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log(`${what} save:`, r.status(), r.url().split('/').pop(), JSON.stringify(body).slice(0, 150));
+    if (r.status() >= 400 || (body && body.errorCode)) {
+      throw new Error(`${what} save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
+    }
+    await this.printDialog.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
     await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
     await this.waitForIdle();
+  }
+
+  /** Check a finalize checkbox by accessible name or invisible-click label. */
+  async checkFinalizeBox(pattern) {
+    const box = this.page.getByRole('checkbox', { name: pattern }).first();
+    if (await box.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
+      console.log(`workerReceipt: finalize checkbox checked (${pattern})`);
+      return true;
+    }
+    const lbl = this.page.locator('label').filter({ hasText: pattern }).first();
+    if (await lbl.isVisible().catch(() => false)) {
+      await lbl.click();
+      console.log(`workerReceipt: finalize checkbox checked via label (${pattern})`);
+      return true;
+    }
+    return false;
   }
 
   async workerReceipt(d) {
@@ -667,36 +714,81 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       // Move to Job Finalize, Add Items.
       // Production No populates with this worker's pending jobs - select the
       // one offered (QA lead: "will populate in the dropdown, just select it").
+      // Production No: harden against ng-select's stale-panel behaviour (a
+      // panel opened too early shows nothing / "No items found" until
+      // reopened - flagged by the QA lead as a click issue in VS Code runs)
       const sel = this.page.locator('label:text-is("Production No")').last().locator('xpath=following::ng-select[1]');
-      await sel.locator('.ng-select-container').click();
-      const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
-      await opt.waitFor({ state: 'visible', timeout: 20_000 });
-      this.lastProductionNo = ((await opt.textContent()) || '').trim();
+      let picked = false;
+      for (let attempt = 1; attempt <= 4 && !picked; attempt++) {
+        if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
+          await this.page.keyboard.press('Escape');
+          await this.page.waitForTimeout(300);
+        }
+        await this.waitForSpinner();
+        await sel.locator('.ng-select-container').click({ timeout: 15_000 });
+        const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i }).first();
+        const found = await opt.waitFor({ state: 'visible', timeout: attempt * 5_000 })
+          .then(() => true).catch(() => false);
+        if (found) {
+          this.lastProductionNo = ((await opt.textContent()) || '').trim();
+          picked = await opt.click({ timeout: 10_000 }).then(() => true).catch(() => false);
+        }
+        if (!picked) await this.page.keyboard.press('Escape');
+      }
+      if (!picked) throw new Error('Production No dropdown never offered a pending production number');
       console.log(`workerReceipt: Production No -> ${this.lastProductionNo}`);
-      await opt.click();
       await this.page.waitForTimeout(2_500);
 
-      const article = this.page.locator('#itemArticleSelect');
-      await article.locator('.ng-select-container').click();
-      await article.locator('input[role="combobox"]').fill(d.item.articleSearch);
-      await this.page.waitForTimeout(2_500);
-      await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.item.article }).first().click();
+      // article/purity/weight are per-flow: jobwork receipts need them typed,
+      // repair receipts auto-fill from the production no - fill only what the
+      // caller provided AND the form renders
+      if (d.item.article) {
+        const article = this.page.locator('#itemArticleSelect');
+        if (await article.isVisible({ timeout: 5_000 }).catch(() => false)) {
+          await article.locator('.ng-select-container').click();
+          await article.locator('input[role="combobox"]').fill(d.item.articleSearch);
+          await this.page.waitForTimeout(2_500);
+          await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.item.article }).first().click();
+        }
+      }
+      if (d.item.purity) await this.pickByLabel('Purity', d.item.purity, { search: false }).catch(() => {});
+      if (d.item.weight !== undefined) {
+        const weight = this.page
+          .locator('label:text-is("Gross Weight")')
+          .last()
+          .locator('xpath=following::input[1]');
+        await weight.fill(String(d.item.weight)).catch(() => {});
+        await weight.blur().catch(() => {});
+        await this.page.waitForTimeout(1_500);
+      }
 
-      await this.pickByLabel('Purity', d.item.purity, { search: false });
-
-      const weight = this.page
-        .locator('label:text-is("Gross Weight")')
-        .last()
-        .locator('xpath=following::input[1]');
-      await weight.fill(String(d.item.weight));
-      await weight.blur();
-      await this.page.waitForTimeout(1_500);
+      // demo image via the item form's Add Files control
+      if (d.item.image) await this.attachFileViaAddFiles(d.item.image, { last: true });
 
       if (d.item.moveToJobFinalize) {
         await this.page.getByRole('checkbox', { name: 'Move to Job Finalize' }).check({ force: true });
       }
-      await this.page.getByRole('button', { name: 'Add Items' }).click();
-      await this.page.waitForTimeout(2_500);
+      // sample/repair finalize checkboxes live INSIDE the item form - check
+      // them before Add Items when requested
+      if (d.finalizeSample || d.finalizeRepair) {
+        await this.checkFinalizeBox(d.finalizeSample ? /Finalize Sample/i : /(Repair Finalize|Finalize Repair)/i)
+          .then((ok) => { this.finalizeChecked = ok; });
+      }
+      // jobwork receipts label the commit "Add Items"; repair receipts just
+      // "Add" (with an icon) - accept either, never "Add Files"
+      const addItems = this.page.getByRole('button', { name: /(?:Add Items|Add)\s*$/ }).locator('visible=true').last();
+      if (await addItems.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await addItems.click();
+        // the item must land as a grid row before Submit (QA lead, 02-09-2026)
+        const addedRow = this.page
+          .locator('table tbody tr')
+          .filter({ hasNotText: /No pending/i })
+          .locator('visible=true')
+          .first();
+        await addedRow.waitFor({ state: 'visible', timeout: 20_000 });
+        console.log('workerReceipt: item row added to the grid');
+        await this.page.waitForTimeout(1_500);
+      }
     } else {
       // ---- plain receipt: pending grid, selection is MANDATORY ----
       if (!(await this.selectRowOrFirst(d.rowText))) {
@@ -705,24 +797,22 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       }
     }
 
-    // SAMPLE flow (QA lead, 01-09-2026): the final receipt carries a
-    // "Finalize Sample" checkbox instead of jobwork's "Move to Job Finalize"
-    // - checking it releases the sample to Sample Receipt.
-    if (d.finalizeSample) {
-      const box = this.page.getByRole('checkbox', { name: /Finalize Sample/i }).first();
-      if (await box.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await box.check({ force: true });
-      } else {
-        // checkboxes hide behind label.invisible-click on some forms
-        await this.page.locator('label').filter({ hasText: /Finalize Sample/i }).first().click();
-      }
-      console.log('workerReceipt: Finalize Sample checked');
+    // SAMPLE/REPAIR flows: the final receipt carries a finalize checkbox
+    // instead of jobwork's "Move to Job Finalize" - checking it releases the
+    // piece to Sample Receipt / Repair Receipt respectively. (Item-form
+    // receipts already checked it before Add Items.)
+    const finalizePattern = d.finalizeSample
+      ? /Finalize Sample/i
+      : d.finalizeRepair
+        ? /(Repair Finalize|Finalize Repair)/i
+        : null;
+    if (finalizePattern && !this.finalizeChecked) {
+      const ok = await this.checkFinalizeBox(finalizePattern);
+      if (!ok) throw new Error(`finalize checkbox matching ${finalizePattern} never appeared on the receipt`);
     }
+    this.finalizeChecked = false;
 
-    await this.page.getByRole('button', { name: 'Submit' }).click();
-    await this.printDialog.waitFor({ state: 'visible', timeout: 120_000 }).catch(() => {});
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
-    await this.waitForIdle();
+    await this.submitWorkerForm('worker receipt');
   }
 
   // ---------- 8. Job Finalize ----------
