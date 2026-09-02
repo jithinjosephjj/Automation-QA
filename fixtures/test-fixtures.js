@@ -16,6 +16,7 @@ const { LotGenerationPage } = require('../pages/LotGenerationPage');
 const { BarcodeGenerationPage } = require('../pages/BarcodeGenerationPage');
 const { SampleWorkflowPage } = require('../pages/SampleWorkflowPage');
 const { RepairWorkflowPage } = require('../pages/RepairWorkflowPage');
+const { RemodelWorkflowPage } = require('../pages/RemodelWorkflowPage');
 
 /**
  * Import { test, expect } from here instead of '@playwright/test' and page
@@ -90,6 +91,10 @@ const test = base.test.extend({
 
   repairWorkflow: async ({ page }, use) => {
     await use(new RepairWorkflowPage(page));
+  },
+
+  remodelWorkflow: async ({ page }, use) => {
+    await use(new RemodelWorkflowPage(page));
   },
 });
 
