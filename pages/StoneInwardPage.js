@@ -58,7 +58,7 @@ class StoneInwardPage extends StockInwardBasePage {
    * Item entry on Build Items & Submit. Searching the article back-fills the
    * stone hierarchy; rateUom sets itself from the rate config (disabled).
    */
-  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, discountPercent, returnPercent }) {
+  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, discountPercent, returnPercent, assortedStock }) {
     await this.pick('refType', refType);
     await this.pick('stoneArticle', stoneArticle, { search: true });
     await this.pick('entryMode', entryMode);
@@ -76,6 +76,21 @@ class StoneInwardPage extends StockInwardBasePage {
       const pct = this.percentInputOf('Return Weight');
       await pct.fill(String(returnPercent));
       await pct.blur();
+    }
+    // Assorted Stock gates downstream eligibility: ONLY assorted stone
+    // inwards appear in the Certification Issue "Select Inward Stock" grid.
+    if (assortedStock) {
+      // the styled checkbox swallows forced clicks on the input - fall back
+      // through the label and a DOM click until the state actually flips
+      const box = this.page.locator('#assortedStock');
+      if (!(await box.isChecked().catch(() => false))) {
+        await box.check({ timeout: 5_000 }).catch(() => {});
+        if (!(await box.isChecked())) {
+          await this.page.locator('label[for="assortedStock"]').click({ timeout: 5_000 }).catch(() => {});
+        }
+        if (!(await box.isChecked())) await box.evaluate((el) => el.click());
+        if (!(await box.isChecked())) throw new Error('Assorted Stock checkbox did not toggle');
+      }
     }
   }
 }
