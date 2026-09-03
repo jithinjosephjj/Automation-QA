@@ -15,18 +15,17 @@ const { uniqueRef, businessDate } = require('../../utils/unique');
  *   Additional Charges (mandatory since the app update of 29-08-2026):
  *     item-level  "Item wise charge bullion" / "item wise bullion"
  *     bill-level  "Raja Bullion Charges" (vendor-specific)
- *   Flow: both charges -> Add Items -> Submit.
+ *   Flow (QA lead, 03-09-2026): item charge -> Add Items -> bill charge
+ *   -> Submit. The bill-level charge goes in only AFTER the item is on
+ *   the grid.
  *
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  *
- * KNOWN APP BUG (confirmed by QA lead, 29-08-2026): after Add Items, clicking
- * Submit does NOTHING - no API request, no toast, no dialog - while the
- * cleared next-item form shows red required-field flags (Purity, Gross
- * Weight, Rate, both Additional Charges buttons). The item and both charges
- * are correctly registered in the summary at that point (Net Payable
- * 4,534,232.67 for this data). Submit should save the record. This spec
- * asserts the CreateBullionInward response, so it FAILS while the bug exists
- * and turns green when dev fixes it.
+ * RESOLVED (03-09-2026): the silent-Submit issue first seen 29-08-2026 was
+ * caused by the charge ORDER - adding the bill-level charge before Add
+ * Items left the form invalid, so Submit no-opped. With the corrected
+ * order (bill charge AFTER the item is on the grid) Submit fires
+ * CreateBullionInward and returns the receipt number.
  */
 test.describe('Bullion Inward - add record', () => {
   test('TC-BUI-001 add and submit a Direct bullion inward', async ({ loginPage, bullionInward, page }) => {
@@ -100,24 +99,19 @@ test.describe('Bullion Inward - add record', () => {
       }, { timeout: 60_000, message: 'pricing chain never settled into a consistent state' })
       .toBeLessThan(0.05);
 
-    // ---- Add Items (verified - the click is a silent no-op on invalid forms) ----
-    // ---- Additional Charges (mandatory since the app update of 29-08-2026):
-    // BOTH the item-level and the bill-level charge must be added BEFORE
-    // Add Items. The bill-level charge names are vendor-specific (RAJA). ----
+    // ---- Additional Charges order (QA lead, 03-09-2026): the ITEM-level
+    // charge goes in BEFORE Add Items; the BILL-level charge is added only
+    // AFTER the item sits in the grid. Charge names are vendor-specific. ----
     await bullionInward.addAdditionalCharge({
       buttonIndex: 0, // item-level (next to Add Items)
       chargeType: 'Item wise charge bullion',
       chargeName: 'item wise bullion',
     });
-    await bullionInward.addAdditionalCharge({
-      buttonIndex: 1, // bill-level (lower Remarks section)
-      chargeType: 'Raja Bullion Charges',
-      chargeName: 'Raja Bullion Charges',
-    });
 
+    // ---- Add Items (verified - the click is a silent no-op on invalid forms) ----
     await bullionInward.addItemsAndVerify('Gross Weight : 100.000');
 
-    // the item-level charge (33.00) flows into the totals
+    // the item-level charge (33.00) flows into the totals with the item
     await expect
       .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
       .toContain('Additional Charges Value 33.00');
@@ -127,6 +121,18 @@ test.describe('Bullion Inward - add record', () => {
     // The item grid row carries the article and the agreed numbers
     await expect(bullionInward.gridRows.first()).toContainText('Tendulkar');
     await expect(bullionInward.gridRows.first()).toContainText('50000');
+
+    // ---- bill-level charge, only AFTER the item is in the grid ----
+    await bullionInward.addAdditionalCharge({
+      buttonIndex: 1, // bill-level (lower Remarks section)
+      chargeType: 'Raja Bullion Charges',
+      chargeName: 'Raja Bullion Charges',
+    });
+
+    // the bill-level charge (2000.00) joins the totals: 33 + 2000
+    await expect
+      .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
+      .toContain('Additional Charges Value 2033.00');
 
     // ---- Submit ----
     // Unlike Metal/Brand/Stone/Alloy, this screen shows NO Print dialog after
