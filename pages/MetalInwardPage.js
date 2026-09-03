@@ -90,6 +90,49 @@ class MetalInwardPage extends StockInwardBasePage {
   }
 
   /**
+   * Step 2 for the GOODS RECEIPT flow (logistics chain, QA lead screenshots
+   * 03-09-2026): purchase type "Goods Receipt" adds a Goods Receipt select
+   * on the items step; picking the GR back-fills weights (gross-with-tare
+   * from the receipt). The rest is picked/filled only where still empty.
+   */
+  async fillItemFromGoodsReceipt({ goodsReceiptNo, entryMode = 'SINGLE TAG', referenceType = 'Combination', article = 'Tendulkar', purity = '91.60', noOfPcs, grossWeightWithTare, makingType = 'Direct', makingCharges = 1200 }) {
+    await this.pickByLabel('Goods Receipt', this.shortCore(goodsReceiptNo))
+      .catch(() => this.pick('goodsReceipt', this.shortCore(goodsReceiptNo)));
+    await this.page.waitForTimeout(2_500);
+
+    // the GR pick does NOT auto-fill the item (unlike the jobwork one-pick):
+    // entry data and the gross-with-tare weight are entered manually; rate
+    // computes after the article/purity picks; making charges defaults 1200
+    if (!(await this.selectValue('entryMode'))) await this.pick('entryMode', entryMode);
+    if (!(await this.selectValue('referenceType'))) await this.pick('referenceType', referenceType);
+    if (!(await this.selectValue('article'))) await this.pick('article', article, { search: true });
+    if (!(await this.selectValue('purity'))) await this.pick('purity', purity);
+    if (noOfPcs !== undefined && !(await this.noOfPcs.inputValue())) await this.noOfPcs.fill(String(noOfPcs));
+    const gwt = this.inputByLabel('Gross Weight With Tare');
+    if (grossWeightWithTare !== undefined && !Number(await gwt.inputValue().catch(() => 0))) {
+      await this.fillByLabel('Gross Weight With Tare', grossWeightWithTare);
+    }
+    if (!(await this.selectValue('makingType').catch(() => 'skip'))) {
+      await this.pick('makingType', makingType).catch(() => {});
+    }
+    const mc = await this.makingCharges.inputValue().catch(() => 'skip');
+    if (makingCharges !== undefined && !mc) {
+      await this.makingCharges.fill(String(makingCharges));
+      await this.makingCharges.blur();
+    }
+    await this.page.waitForTimeout(2_000);
+    console.log('GR item state: article', await this.selectValue('article').catch(() => ''),
+      '| gross with tare', await gwt.inputValue().catch(() => '?'),
+      '| making charges', mc);
+  }
+
+  /** Distinctive middle segment of a composed doc no (series permute). */
+  shortCore(docNo) {
+    const s = String(docNo).replace(/w?june/gi, '').replace(/d4\d{4}\/\d{4}/gi, '');
+    return s.split(/[^A-Za-z0-9]+/).filter(Boolean)[0] || String(docNo);
+  }
+
+  /**
    * Item entry on step 2. Auto-populated fields (Wastage, Making) are left
    * alone. Selecting an Article by search back-fills Group Category and
    * Category on its own, so the cascade fields are optional.
