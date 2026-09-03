@@ -99,7 +99,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
   /**
    * Stone Assorting Issue. Returns the issue doc no from the save response.
    */
-  async assortedIssue({ transactionType = 'Stone Inward', vendor = 'RAJA', inwardNo, employee = 'Sioniquser' }) {
+  async assortedIssue({ transactionType = 'Stone Inward', vendor = 'RAJA', inwardNo, employee = 'Sioniquser', expectInRow }) {
     await this.openAssortedPage();
     await this.clickVisibleAdd();
 
@@ -109,6 +109,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.page.waitForTimeout(2_500);
 
     await this.checkRow(inwardNo).catch(() => this.checkRow(this.docCore(inwardNo)));
+    if (expectInRow) await this.verifyRowText(inwardNo, expectInRow);
     await this.pickEmptyRaw(new RegExp(employee, 'i'), { search: employee.slice(0, 4) });
 
     const add = this.page.locator('button')
@@ -129,7 +130,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
   /**
    * Stone Assorting Receipt against the issue. Returns the receipt doc no.
    */
-  async assortedReceipt({ issueNo, employee = 'Sioniquser' }) {
+  async assortedReceipt({ issueNo, employee = 'Sioniquser', expectInRow }) {
     await this.openAssortedPage('Receipt');
     await this.clickVisibleAdd();
 
@@ -138,6 +139,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.page.waitForTimeout(2_500);
 
     await this.checkRow(this.docCore(issueNo));
+    if (expectInRow) await this.verifyRowText(this.docCore(issueNo), expectInRow);
     const add = this.page.locator('button')
       .filter({ hasText: /Add Items\s*$/ })
       .locator('visible=true')

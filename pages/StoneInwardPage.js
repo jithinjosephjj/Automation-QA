@@ -58,14 +58,64 @@ class StoneInwardPage extends StockInwardBasePage {
    * Item entry on Build Items & Submit. Searching the article back-fills the
    * stone hierarchy; rateUom sets itself from the rate config (disabled).
    */
-  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, discountPercent, returnPercent, assortedStock }) {
+  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, tareWeight, discountPercent, returnPercent, assortedStock }) {
     await this.pick('refType', refType);
     await this.pick('stoneArticle', stoneArticle, { search: true });
     await this.pick('entryMode', entryMode);
-    await this.pick('uom', uom);
+    // With Tare mode AUTO-SETS the UOM (Gram) and disables the select - only
+    // pick when it is still open for choosing
+    const uomValue = await this.selectValue('uom').catch(() => '');
+    if (uomValue.trim() !== String(uom)) {
+      const uomDisabled = await this.select('uom').locator('input[role="combobox"]')
+        .isDisabled().catch(() => false);
+      if (uomDisabled) console.log(`uom auto-set to "${uomValue.trim()}" (disabled) - pick skipped`);
+      else await this.pick('uom', uom);
+    }
 
     await this.fillByLabel('Stone No Of Pcs', noOfPcs, { exact: false });
     await this.fillByLabel('Gross Weight', grossWeight);
+    // With Tare mode shows tare as a read-only total next to a "+" button
+    // that opens the "Tare Weight Information" dialog: pick Item + Tare
+    // Weight Type, enter the weight, Add Item, Close. Net = Gross - Tare.
+    if (tareWeight !== undefined) {
+      await this.page.getByRole('button', { name: '+', exact: true }).first().click();
+      const dlg = this.page
+        .locator('.modal, .offcanvas, ngb-modal-window, [role="dialog"]')
+        .filter({ hasText: 'Tare Weight Information' })
+        .last();
+      await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+      for (let i = 0; i < 2; i++) { // Item, then Tare Weight Type
+        const sel = dlg.locator('ng-select').nth(i);
+        let picked = false;
+        for (let attempt = 1; attempt <= 4 && !picked; attempt++) {
+          if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
+            await this.page.keyboard.press('Escape');
+            await this.page.waitForTimeout(300);
+          }
+          await sel.locator('.ng-select-container').click();
+          const options = this.page.locator('.ng-dropdown-panel .ng-option');
+          const ok = await options.first().waitFor({ state: 'visible', timeout: attempt * 4_000 })
+            .then(() => true).catch(() => false);
+          if (ok && !/No items found/i.test((await options.first().textContent().catch(() => '')) || '')) {
+            // "Per Pcs" tare type MULTIPLIES the entered weight by the piece
+            // count - prefer an absolute-weight type so tare = what we enter
+            const flat = options.filter({ hasNotText: /Per\s*Pcs/i }).first();
+            const opt = (i === 1 && (await flat.isVisible().catch(() => false))) ? flat : options.first();
+            console.log('tare dialog select', i, '->', ((await opt.textContent()) || '').trim());
+            picked = await opt.click().then(() => true).catch(() => false);
+          }
+          if (!picked) await this.page.keyboard.press('Escape');
+        }
+        if (!picked) throw new Error(`tare dialog: select ${i} never offered an option`);
+        await this.page.waitForTimeout(800);
+      }
+      await dlg.locator('input[type="number"]').first().fill(String(tareWeight));
+      await dlg.getByRole('button', { name: 'Add Item' }).click();
+      await this.page.waitForTimeout(1_500);
+      await dlg.locator('button[data-role="close-tare"]').click();
+      await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+      await this.page.waitForTimeout(1_000);
+    }
 
     if (discountPercent !== undefined) {
       const pct = this.percentInputOf('Discount Amount');

@@ -21,6 +21,46 @@ const { HallmarkWorkflowPage } = require('./HallmarkWorkflowPage');
  */
 class CertificationWorkflowPage extends HallmarkWorkflowPage {
   /**
+   * Assert the grid row keyed by `key` shows every given pattern - used to
+   * verify weights (gross/tare/net) carry through the chain's grids.
+   */
+  async verifyRowText(key, patterns) {
+    // grids re-render after the row checkbox click, so re-grab the rows and
+    // poll; weights may sit in the master OR the item-wise row - test the
+    // combined text of every row matching the key
+    let txt = '';
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const rows = this.rowMatcher(key);
+      const n = await rows.count().catch(() => 0);
+      const parts = [];
+      for (let i = 0; i < n; i++) {
+        parts.push(((await rows.nth(i).innerText().catch(() => '')) || ''));
+      }
+      // checking a row can open a details panel (Stone Assorting's "Add
+      // Stone Details") that detaches the grid row - the values then live
+      // in the panel, so include the topmost open overlay's text too
+      const panel = this.page
+        .locator('.offcanvas, .modal, ngb-modal-window, [role="dialog"]')
+        .locator('visible=true')
+        .last();
+      parts.push(((await panel.innerText().catch(() => '')) || ''));
+      // panel values (weights) sit in disabled inputs - innerText misses them
+      const inputVals = await panel.locator('input')
+        .evaluateAll((els) => els.map((e) => e.value).filter(Boolean))
+        .catch(() => []);
+      parts.push(inputVals.join(' '));
+      txt = parts.join(' | ').replace(/\s+/g, ' ').trim();
+      if (txt && patterns.every((re) => re.test(txt))) {
+        console.log(`row/panel verified for ${key}:`, txt.slice(0, 220));
+        return;
+      }
+      await this.page.waitForTimeout(1_500);
+    }
+    const missing = patterns.filter((re) => !re.test(txt));
+    throw new Error(`grid row for "${key}" does not show ${missing.join(', ')}. Rows: "${txt}"`);
+  }
+
+  /**
    * pick() variant for selects whose caption is NOT a <label> element and
    * that lack the sioniq-ng-select wrapper (the RC Wise Selection section):
    * the first ng-select after any element carrying exactly the caption text.
@@ -72,7 +112,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
    * Source Type (a from-transaction select renders after "Inward") reveal
    * the inward grid; check the inward's row, commit via Add, Submit.
    */
-  async certificationIssue({ itemType = 'Stone', vendor, sourceType = 'Inward', transactionType = 'Stone Inward', inwardNo }) {
+  async certificationIssue({ itemType = 'Stone', vendor, sourceType = 'Inward', transactionType = 'Stone Inward', inwardNo, expectInRow }) {
     await this.openCertificationTab('/inv/app-issue-list');
     await this.clickVisibleAdd();
 
@@ -84,6 +124,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     await this.page.waitForTimeout(2_500);
 
     await this.checkRow(inwardNo);
+    if (expectInRow) await this.verifyRowText(inwardNo, expectInRow);
     const add = this.page.locator('button')
       .filter({ hasText: /Add/ })
       .filter({ hasNotText: /Files|Image|Charges|Certification/ })
@@ -105,7 +146,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
    * the issue's grid row, the item-wise row (Details overlay tolerated),
    * Add, Submit.
    */
-  async certificationReceipt({ itemType = 'Stone', vendor, invoiceNo, invoiceDate, issueNo }) {
+  async certificationReceipt({ itemType = 'Stone', vendor, invoiceNo, invoiceDate, issueNo, expectInRow }) {
     await this.openCertificationTab('/inv/app-receipt-list');
     await this.clickVisibleAdd();
 
@@ -143,6 +184,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     await this.page.waitForTimeout(2_500);
 
     await this.checkRow(issueNo);
+    if (expectInRow) await this.verifyRowText(issueNo, expectInRow);
     // item-wise grid row (when rendered) - may pop a Details overlay
     const itemRow = this.rowMatcher(issueNo).nth(1);
     if (await itemRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
