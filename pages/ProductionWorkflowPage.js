@@ -354,6 +354,27 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         await opt.click();
       }).catch((e) => console.log(`assignJob: business unit pick skipped (${String(e).split('\n')[0]})`));
     }
+    // Sample source: the grid pages (25 pending samples over 3 pages), so
+    // the target row is often not on page 1. Narrow it via the form's own
+    // "Sample No" filter (4th ng-select after Production Source: Item Type,
+    // Business Unit, Sample No) - its caption is plain text, not a <label>.
+    const sampleNo = d.sampleNo || (sourceType === 'Sample' ? d.rowText : null);
+    if (sampleNo) {
+      await this.pick('sampleNo', sampleNo, { search: true }).catch(async () => {
+        const sel = this.page
+          .locator('sioniq-ng-select[controlname="sourceType"]')
+          .locator('xpath=following::ng-select[3]');
+        await sel.locator('.ng-select-container').click();
+        await sel.locator('input[role="combobox"]').fill(sampleNo).catch(() => {});
+        await this.page.waitForTimeout(1_500);
+        const opt = this.page
+          .locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasText: new RegExp(sampleNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
+          .first();
+        await opt.waitFor({ state: 'visible', timeout: 15_000 });
+        await opt.click();
+      }).catch((e) => console.log(`assignJob: sample no filter skipped (${String(e).split('\n')[0]})`));
+    }
     await this.page.waitForTimeout(2_500);
 
     // grid row for our concept/job/sample - check it
