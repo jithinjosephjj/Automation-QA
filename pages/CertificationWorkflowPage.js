@@ -65,7 +65,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
    * that lack the sioniq-ng-select wrapper (the RC Wise Selection section):
    * the first ng-select after any element carrying exactly the caption text.
    */
-  async pickByCaption(caption, optionText, { exact = true } = {}) {
+  async pickByCaption(caption, optionText, { exact = true, search = false } = {}) {
     const sel = this.page
       .locator(`xpath=//*[normalize-space(text())="${caption}"]/following::ng-select[1]`)
       .last();
@@ -86,6 +86,10 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
         await this.page.waitForTimeout(500);
       }
       await sel.locator('.ng-select-container').click();
+      if (search) {
+        await sel.locator('input[role="combobox"]').fill(String(optionText)).catch(() => {});
+        await this.page.waitForTimeout(2_000); // server-side filter debounce
+      }
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
       if (found && (await wanted.first().click({ timeout: 10_000 }).then(() => true).catch(() => false))) {

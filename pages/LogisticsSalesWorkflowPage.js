@@ -263,6 +263,90 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
   }
 
   /**
+   * Purchase Return (/prc/view-purchase-return, probed 03-09-2026): six
+   * header selects (itemType/returnMode/subTransactionType/returnType/
+   * vendor/stockSourceType), then the return stock - a tag scan or a grid
+   * depending on the source type. Preferences target the tag-wise return
+   * of a barcoded purchase; every option list is logged.
+   */
+  async purchaseReturn({ itemType = 'Metal', vendor, tagNo, inwardNo, sourceType }) {
+    await this.goto('/prc/view-purchase-return');
+    await this.waitForIdle();
+    await this.clickVisibleAdd();
+
+    await this.pickPreferred('itemType', new RegExp(itemType, 'i'));
+    await this.pickPreferred('returnMode', /confirmed/i); // [Confirmed, Provisional]
+    await this.pickPreferred('subTransactionType', /invoice/i); // [GRN, Invoice]
+    await this.pickPreferred('returnType', /original/i); // [Different Vendor, Original Vendor]
+    await this.pick('vendor', vendor);
+    // [Approval, Inward, Provisional, TagWise, Locker] - TagWise returns a
+    // barcoded tag, Inward returns the metal inward directly
+    const source = sourceType || (tagNo ? 'TagWise' : 'Inward');
+    await this.pickPreferred('stockSourceType', new RegExp(`^${source}$`, 'i'));
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_000);
+
+    const key = tagNo || inwardNo;
+    if (tagNo) {
+      // Scan Type = Tag Number (QA lead) reveals the scan field
+      await this.pick('scanType', 'Tag Number')
+        .catch(() => this.pickTolerant('Scan Type', 'Tag Number', { exact: true }))
+        .catch(() => this.pickPreferred('masterDataValueID_ScanType', /tag/i));
+      await this.waitForIdle();
+      await this.page.waitForTimeout(2_500);
+
+      const tagField = this.inputByCaption('Tag Number');
+      const scanField = this.page.getByPlaceholder(/Scan/i).locator('visible=true').last();
+      if (await tagField.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await tagField.fill(tagNo);
+        const add = this.page.locator('button').filter({ hasText: /Add/ })
+          .filter({ hasNotText: /Files|Selected|Charges/ }).locator('visible=true').last();
+        if (await add.isVisible({ timeout: 3_000 }).catch(() => false)) await add.click();
+        else await tagField.press('Enter');
+        await this.page.waitForTimeout(2_000);
+      } else if (await scanField.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await scanField.fill(tagNo);
+        await scanField.press('Enter');
+        await this.page.waitForTimeout(2_000);
+      } else {
+        await this.checkRow(tagNo);
+      }
+    } else {
+      // Inward source: From Transaction Type (Metal Inward) + an RC No
+      // select for the inward, then the rows land in Return Items
+      await this.fillEmptySelects(['Metal Inward']);
+      await this.waitForIdle();
+      await this.page.waitForTimeout(1_500);
+      // the RC No list is a typeahead - search the inward's number
+      await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true });
+      await this.waitForIdle();
+      await this.page.waitForTimeout(2_500);
+      await this.checkRow(inwardNo).catch(() => {});
+      const add = this.page.locator('button').filter({ hasText: /Add/ })
+        .filter({ hasNotText: /Files|Selected|Charges/ }).locator('visible=true').last();
+      if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await add.click();
+        await this.page.waitForTimeout(2_000);
+        console.log('purchase return: inward committed via Add');
+      }
+    }
+    // the returned stock's row must be present (staged) before Submit
+    const row = this.rowMatcher(this.docCore(key)).last();
+    if (await row.isVisible({ timeout: 10_000 }).catch(() => false)) {
+      const box = row.getByRole('checkbox').first();
+      if (!(await box.isChecked().catch(() => true))) await box.check({ force: true }).catch(() => {});
+      console.log('purchase return: row staged');
+    } else {
+      const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
+      throw new Error(`"${key}" never appeared on the purchase return. Toasts: ${JSON.stringify(toasts)}`);
+    }
+
+    const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
+    await this.previewAndClose();
+    return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
+  }
+
+  /**
    * B2B Metal Sales Invoice: /sls/app-invoice-setup, own tab. Scan the tag,
    * Add, Submit.
    */
