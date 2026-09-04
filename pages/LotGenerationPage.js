@@ -40,8 +40,10 @@ class LotGenerationPage extends StockInwardBasePage {
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.pick('masterDataValueID_StockSourceType', sourceType, { exact: true });
     await this.pick('fromTransactionTypeID', transactionType, { exact: true });
-    // Vendor is a MULTI-select - close its panel or it swallows the next click
-    await this.pick('vendorFilter', vendor, { closePanel: true });
+    // Vendor is a MULTI-select - close its panel or it swallows the next
+    // click. Non-vendor sources (Stone Assorting Receipt) may not render it.
+    await this.pick('vendorFilter', vendor, { closePanel: true })
+      .catch((e) => console.log('lot: vendor filter skipped -', String(e).slice(0, 100)));
     await this.waitForIdle();
     await this.page.waitForTimeout(2_500);
 

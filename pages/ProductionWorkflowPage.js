@@ -563,6 +563,12 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('jobworkMode', d.mode, { exact: true });
     if (d.mode === 'Outsource') {
       await this.pick('vendor', d.vendor || 'RAJA');
+      // Vendor Making Type - new mandatory dropdown (QA lead 04-09-2026):
+      // without it Submit silently no-ops. Select "Job work".
+      const vmt = d.vendorMakingType || 'Job work';
+      await this.pick('vendorMakingType', vmt)
+        .catch(() => this.pickByLabel('Vendor Making Type', vmt))
+        .catch(() => this.pickByLabel('Vendor Making Type', 'Jobwork'));
     } else {
       await this.pick('productionUnit', d.productionUnit || 'Cochin', { exact: true });
     }

@@ -29,6 +29,8 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     stockIdentityType = 'Jobwork Stock',
     vendor = 'RAJA',
     lotNo,
+    brand, // Brand item type only: the Brand Name select (QA lead 04-09-2026)
+    amount, // Brand item type only: the Pricing Amount input is mandatory
     grossWeight,
     descriptions = { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
   }) {
@@ -55,12 +57,40 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       `article=${await this.selectValue('productArticleID')}, entry=${await this.selectValue('masterDataValueID_ItemTaggingMode')}`,
     );
 
-    // mandatory custom description dropdowns (labels are env-configured)
-    for (const [label, option] of Object.entries(descriptions)) {
-      await this.pickByLabel(label, option, { exact: true });
+    // Brand tags carry a mandatory Brand Name select (controlname
+    // productBrandID - named by the silent-submit diagnostics)
+    if (brand) {
+      await this.pick('productBrandID', brand);
     }
 
-    if (grossWeight !== undefined) await this.fillByLabel('Gross Weight', grossWeight);
+    // mandatory custom description dropdowns (labels are env-configured;
+    // present on Metal/Brand, ABSENT on the Stone barcode form) - skip any
+    // label that is not on this form
+    for (const [label, option] of Object.entries(descriptions)) {
+      const lbl = this.page.locator(`label:text-is("${label}")`).first();
+      if (await lbl.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await this.pickByLabel(label, option, { exact: true });
+      } else {
+        console.log(`description "${label}" not on this form - skipped`);
+      }
+    }
+
+    // Brand lots do not auto-fill the entry mode - set it when blank
+    if (!(await this.selectValue('masterDataValueID_ItemTaggingMode').catch(() => 'skip'))) {
+      await this.pick('masterDataValueID_ItemTaggingMode', 'SINGLE TAG', { exact: true }).catch(() => {});
+    }
+    // Gross weight label differs by tab: Metal/Brand "Gross Weight",
+    // Stone "Stone Gross Weight With Tare" (the plain Gross Weight there is
+    // a disabled computed field)
+    if (grossWeight !== undefined) {
+      const stoneGross = this.inputByLabel('Stone Gross Weight With Tare');
+      if (await stoneGross.isVisible({ timeout: 2_000 }).catch(() => false) && await stoneGross.isEnabled().catch(() => false)) {
+        await this.fillByLabel('Stone Gross Weight With Tare', grossWeight);
+      } else {
+        await this.fillByLabel('Gross Weight', grossWeight);
+      }
+    }
+    if (amount !== undefined) await this.fillByLabel('Amount', amount);
     await this.page.waitForTimeout(1_500);
 
     const resp = this.page.waitForResponse(

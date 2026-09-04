@@ -108,6 +108,12 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.waitForIdle();
     await this.page.waitForTimeout(2_500);
 
+    // the inward grid pages (dozens of records, not strictly newest-first)
+    // - narrow it via the form's own RC No typeahead before picking the row
+    await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true })
+      .catch((e) => console.log('assorting issue: RC No pick skipped -', String(e).slice(0, 100)));
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_500);
     await this.checkRow(inwardNo).catch(() => this.checkRow(this.docCore(inwardNo)));
     if (expectInRow) await this.verifyRowText(inwardNo, expectInRow);
     await this.pickEmptyRaw(new RegExp(employee, 'i'), { search: employee.slice(0, 4) });
