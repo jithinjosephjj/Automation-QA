@@ -194,9 +194,23 @@ class SampleWorkflowPage extends StockInwardBasePage {
     return this.createSampleIssue({ ...d, mode: 'Inhouse' });
   }
 
-  async createSampleIssue({ sampleNo, mode = 'Outsource', itemType = 'Metal', vendor = 'RAJA', productionUnit = 'Cochin', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555', image }) {
+  async createSampleIssue({ sampleNo, mode = 'Outsource', itemType = 'Metal', vendor = 'RAJA', productionUnit = 'Cochin', submissionMethod = 'In Person', receivedFrom = 'Raja', contactNumber = '6565455555', usedInProduction, image }) {
     await this.openTab('/prc/view-samplejobwork-issue', 'Sample');
     await this.clickVisibleAdd();
+
+    // "Used In Production" toggle in the Sample Issue section header - a
+    // styled checkbox (input#active[formcontrolname=active], real input
+    // hidden; drive it via its <label for="active">). Off by default.
+    if (usedInProduction !== undefined) {
+      const box = this.page.locator('#active');
+      const on = await box.isChecked().catch(() => false);
+      if (on !== usedInProduction) {
+        await this.page.locator('label[for="active"]').click({ timeout: 5_000 })
+          .catch(() => box.click({ force: true }));
+        await this.page.waitForTimeout(500);
+      }
+      console.log(`sample issue: Used In Production = ${await box.isChecked().catch(() => '?')}`);
+    }
 
     await this.pick('itemType', itemType, { exact: true });
     await this.pick('jobworkMode', mode, { exact: true });

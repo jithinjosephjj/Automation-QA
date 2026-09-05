@@ -98,6 +98,21 @@ class B2BOrderBookingPage extends OrderBookingPage {
     await rate.blur();
     await this.page.waitForTimeout(1_500);
 
+    // "Used In Production" toggle inside the Add Sample panel - its own
+    // control (input#useInProduction / formcontrolname "useInProduction",
+    // styled checkbox, off by default; distinct from the order form's
+    // hidden #active). Drive via its label when the input is not clickable.
+    if (sample.usedInProduction !== undefined) {
+      const box = this.page.locator('#useInProduction');
+      const on = await box.isChecked().catch(() => false);
+      if (on !== sample.usedInProduction) {
+        await this.page.locator('label[for="useInProduction"]').click({ timeout: 5_000 })
+          .catch(() => box.click({ force: true }));
+        await this.page.waitForTimeout(500);
+      }
+      console.log(`Add Sample panel: Used In Production = ${await box.isChecked().catch(() => '?')}`);
+    }
+
     // a DIFFERENT image on the sample itself, via the PANEL's own Add Files
     // control (the last visible one while the panel is open)
     if (sample.image) await this.attachFileViaAddFiles(sample.image, { last: true });
