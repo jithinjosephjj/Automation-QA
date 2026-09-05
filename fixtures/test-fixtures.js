@@ -22,6 +22,8 @@ const { CertificationWorkflowPage } = require('../pages/CertificationWorkflowPag
 const { StoneAssortedWorkflowPage } = require('../pages/StoneAssortedWorkflowPage');
 const { BullionBookingPage } = require('../pages/BullionBookingPage');
 const { LogisticsSalesWorkflowPage } = require('../pages/LogisticsSalesWorkflowPage');
+const { CustomerRegistrationPage } = require('../pages/CustomerRegistrationPage');
+const { DepartmentProcessPage } = require('../pages/DepartmentProcessPage');
 
 /**
  * Import { test, expect } from here instead of '@playwright/test' and page
@@ -120,6 +122,14 @@ const test = base.test.extend({
 
   logisticsSales: async ({ page }, use) => {
     await use(new LogisticsSalesWorkflowPage(page));
+  },
+
+  customerRegistration: async ({ page }, use) => {
+    await use(new CustomerRegistrationPage(page));
+  },
+
+  departmentProcess: async ({ page }, use) => {
+    await use(new DepartmentProcessPage(page));
   },
 });
 
