@@ -49,11 +49,13 @@ class DepartmentProcessPage extends StockInwardBasePage {
     await this.page.waitForTimeout(1_500);
   }
 
-  /** Open the Add offcanvas for the current tab. */
+  /** Open the Add offcanvas for the current tab. Waits on the panel's Submit
+   *  button, which every tab's form has (the Level form has no name field). */
   async openAdd() {
     await this.waitForSpinner();
     await this.addBtn.click({ timeout: 30_000 });
-    await this.panel.locator('[formcontrolname="name"]').first().waitFor({ state: 'visible', timeout: 20_000 });
+    await this.panel.waitFor({ state: 'visible', timeout: 20_000 });
+    await this.panel.getByRole('button', { name: 'Submit' }).first().waitFor({ state: 'visible', timeout: 20_000 });
     await this.page.waitForTimeout(800);
   }
 
@@ -263,14 +265,43 @@ class DepartmentProcessPage extends StockInwardBasePage {
   }
 
   /**
+   * Fill the Designation add form (Designation tab). name is dynamic.
+   * Designation Type is a multi-select master; picks the given value or the
+   * first option when none is provided.
+   */
+  async fillDesignation(d) {
+    await this.input('name').fill(d.name);
+    await this.input('shortName').fill(d.shortName);
+    await this.pickInPanel('department', d.department, { exact: true });
+    if (d.designationType) {
+      await this.pickInPanel('designationType', d.designationType, { multi: true });
+    } else {
+      await this.pickInPanel('designationType', '', { multi: true, first: true });
+    }
+    await this.ensureCheck('active', d.active !== false);
+  }
+
+  /**
+   * Fill the Level add form (Level tab). designation must already exist under
+   * the chosen department (the designation select is filtered by department).
+   */
+  async fillLevel(d) {
+    await this.pickInPanel('department', d.department, { exact: true });
+    await this.pickInPanel('designation', d.designation, { search: true, exact: true });
+    await this.input('designationLevel').fill(d.level); // label "Level"
+    if (d.sortOrder !== undefined) await this.input('sortOrder').fill(String(d.sortOrder));
+    await this.ensureCheck('active', d.active !== false);
+  }
+
+  /**
    * Submit the offcanvas and return the parsed save body. Throws (with the
    * ng-invalid diagnostics) when Submit fires no save request - a silent
    * block is an app bug to surface, per the checklist.
    */
-  async submitForm(label = 'record') {
+  async submitForm(label = 'record', pattern = this.submitApiPattern) {
     const submit = this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last();
     const resp = this.page.waitForResponse(
-      (r) => r.request().method() === 'POST' && this.submitApiPattern.test(r.url()) &&
+      (r) => r.request().method() === 'POST' && pattern.test(r.url()) &&
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation|Search|List/i.test(r.url()),
       { timeout: 60_000 },
     ).catch(() => null);
