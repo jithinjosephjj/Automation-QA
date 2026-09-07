@@ -187,17 +187,27 @@ class DepartmentProcessPage extends StockInwardBasePage {
     await this.pickInPanel('department', d.department, { exact: true });
     // Locations - multi-select; leave the panel open then close it neutrally.
     // The Material / Process Type selects RENDER ONLY after a location is set.
-    await this.pickInPanel('selectedLocations', d.location, { multi: true });
-    await this.waitForRendered('materialIssue');
-    // Material Issue / Receipt / Clearance are MANDATORY - set the exact sheet
-    // value (skips if already auto-populated; throws if a wanted option isn't
-    // offered, surfacing a data slip).
-    await this.ensureSelect('materialIssue', d.materialIssue);
-    await this.ensureSelect('materialReceipt', d.materialReceipt);
-    await this.ensureSelect('materialClearance', d.materialClearance);
-    // Process Type is OPTIONAL (options: Concept / CAD) - set only when the
-    // sheet gives one (Design And CAD -> "CAD"); leave empty otherwise.
-    if (d.processType) await this.pickInPanel('processType', d.processType, { exact: true });
+    // locationSearch typeaheads the combobox first (long location lists, e.g.
+    // "Hyderabad - KPJHO", virtual-scroll out of the initial DOM).
+    await this.pickInPanel('selectedLocations', d.location, { multi: true, search: d.locationSearch === true });
+    // Material Issue / Receipt / Clearance + Process Type are DEPARTMENT-
+    // specific: they render (and are mandatory) for Production, but NOT for
+    // departments like Procurement, whose process form is just the fields
+    // above. Only set them when the form actually shows them.
+    const hasMaterials = await this.panel
+      .locator('sioniq-ng-select[controlname="materialIssue"]').first()
+      .isVisible({ timeout: 8_000 }).catch(() => false);
+    if (hasMaterials) {
+      await this.page.waitForTimeout(500);
+      // set the exact value (skips if already auto-populated; throws if a
+      // wanted option isn't offered, surfacing a data slip).
+      await this.ensureSelect('materialIssue', d.materialIssue);
+      await this.ensureSelect('materialReceipt', d.materialReceipt);
+      await this.ensureSelect('materialClearance', d.materialClearance);
+      // Process Type is OPTIONAL (options: Concept / CAD) - set only when given
+      // (Design And CAD -> "CAD"); leave empty otherwise.
+      if (d.processType) await this.pickInPanel('processType', d.processType, { exact: true });
+    }
     // Configuration is OPTIONAL - the sheet doesn't set it, so leave it empty.
     // Allow Sub Process must be ON so sub-processes can attach to it.
     await this.ensureCheck('allowSubProcess', d.allowSubProcess !== false);
