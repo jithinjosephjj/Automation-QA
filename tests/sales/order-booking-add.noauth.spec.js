@@ -1,5 +1,4 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
-const { businessDate } = require('../../utils/unique');
 const { DEMO_FILES } = require('../../utils/demo-files');
 
 /**
@@ -37,6 +36,13 @@ test.describe('Order Booking - add record', () => {
 
     // ---- Sales & Distribution > B2B > Order, Order Booking tab ----
     await orderBooking.open();
+
+    // delivery date = the app's PROCESS date (the header chip date, e.g.
+    // "23/06/2026"), i.e. the login/business date - NOT the real system clock
+    const deliveryDate = await orderBooking.processDate();
+    expect(deliveryDate, 'process date read from the header').toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    console.log(`process (delivery) date: ${deliveryDate}`);
+
     await orderBooking.openAddWizard();
 
     // ---- General Order Information ----
@@ -45,7 +51,7 @@ test.describe('Order Booking - add record', () => {
       supervisor: 'Abc',
       smCode: 'AJ10',
       deliveryNote: 'Regular',
-      deliveryDate: businessDate(30).replace(/-/g, '/'), // 30 days out, DD/MM/YYYY
+      deliveryDate, // the process/login date
     });
 
     // Sales Executive auto-fills from the SM Executive Code

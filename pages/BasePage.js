@@ -62,6 +62,28 @@ class BasePage {
     const target = locator || this.page;
     return target.screenshot({ path: `test-results/screens/${name}.png` });
   }
+
+  /**
+   * The app's PROCESS (business) date shown in the top-bar chip next to the
+   * Business Unit (e.g. "23/06/2026 Cochin") - this is the app's "today", which
+   * differs from the real system clock. Returned as DD/MM/YYYY (the format the
+   * date inputs accept). Use it for delivery/booking dates so they align with
+   * the process date, not the machine's clock.
+   */
+  async processDate() {
+    return this.page.evaluate(() => {
+      const dateRe = /\b(\d{2}\/\d{2}\/\d{4})\b/;
+      const buRe = /(Cochin|Aluva|Palakkad|Trivendrum|Hyderabad)/;
+      // the header chip carries both the date and the BU name - prefer it
+      const nodes = [...document.querySelectorAll('span, div, p, button, a, li')];
+      for (const n of nodes) {
+        const t = (n.textContent || '').replace(/\s+/g, ' ').trim();
+        if (t.length <= 60 && dateRe.test(t) && buRe.test(t)) return t.match(dateRe)[1];
+      }
+      const m = (document.body.innerText || '').match(dateRe);
+      return m ? m[1] : '';
+    });
+  }
 }
 
 function matches(url, pattern) {
