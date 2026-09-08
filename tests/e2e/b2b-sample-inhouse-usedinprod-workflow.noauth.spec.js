@@ -8,13 +8,26 @@ const state = makeState('e2e-b2b-sample-usedinprod-state.json');
 /**
  * E2E WORKFLOW — B2B SAMPLE (ON THE ORDER) / INHOUSE / USED IN PRODUCTION.
  *
- * Variant of b2b-sample-inhouse-workflow with "Used In Production" ENABLED
- * in TWO places: the Add Sample panel on the B2B order (input#useInProduction)
- * AND the Sample Issue form (input#active in the section header) - both off
- * by default. The rest of the inhouse chain is identical; the effect is
- * verified at the Worker Receipt page - the used-in-production sample is
- * receivable and finalized there. After the sample issue, a Procurement
- * Job Work (Inhouse) is also raised against the B2B order no (SUP-02B).
+ * "Used In Production" is ENABLED in TWO places: the Add Sample panel on the
+ * B2B order (input#useInProduction) AND the Sample Issue form (input#active) -
+ * both off by default. With it on, the order drives a DUAL-STREAM production
+ * flow (QA lead recording, 08-09-2026): a JOB WORK stream (raised from the
+ * order) AND a SAMPLE stream. Both are assigned DIRECTLY to Casting Process /
+ * Casting Inspection (one round - no Design/CAD, no process transfer) and go
+ * through Process Movement Accept -> Worker Issue -> Worker Receipt each. The
+ * JOB WORK worker receipt is a SETTLEMENT item-form (Production No + item
+ * details + Move to Job Finalize) and MUST submit BEFORE the SAMPLE worker
+ * receipt (which checks Finalize Sample). Then Sample Receipt + Sample
+ * Delivery close the flow.
+ *
+ * Step order:
+ *   1 order+sample  2 job work (from order)  3 sample issue
+ *   4 assign jobwork  5 assign sample                (-> Casting Inspection)
+ *   6 accept jobwork  7 accept sample                (Casting)
+ *   8 worker issue jobwork  9 worker issue sample    (Casting)
+ *   10 worker receipt jobwork (settlement, Move to Job Finalize)
+ *   11 worker receipt sample (Finalize Sample)
+ *   12 sample receipt   13 sample delivery
  *
  * State: e2e-b2b-sample-usedinprod-state.json.
  * MUST run headed - see README (Device Radar gate + Local Network Access).
@@ -37,12 +50,15 @@ const DATA = {
     article: 'Tendulkar',
     purity: '91.60',
     grossWeight: 54,
-    sample: { article: 'Tendulkar', purity: '91.6', pieces: 1, grossWeight: 12, rate: 25000, usedInProduction: true },
+    sample: { article: 'Tendulkar', purity: '91.6', pieces: 1, grossWeight: 40, rate: 2456, usedInProduction: true },
   },
   issue: { itemType: 'Metal', productionUnit: 'Cochin', submissionMethod: 'In Person', receivedFrom: 'Raja', contactNumber: '6565455555' },
-  round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
-  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser11' },
+  // single production round: both streams are assigned directly to Casting
+  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
+  // the JOB WORK settlement receipt: Production No auto-selects the offered
+  // pending job, then item details, then Move to Job Finalize + Add Items
+  receiptItem: { article: 'Tendulkar', articleSearch: 'ring', purity: '91.6', weight: 40 },
+  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser18' },
 };
 
 async function login(loginPage, page) {
@@ -54,6 +70,10 @@ async function login(loginPage, page) {
 
 function rowKey() {
   return state.readState().sampleNo;
+}
+
+function jobWorkKey() {
+  return state.readState().jobWorkNo;
 }
 
 test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
@@ -113,7 +133,24 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     console.log(`Sample registered as: ${sampleNo}`);
   });
 
-  test('TC-B2B-SUP-02 sample issue inhouse with Used In Production enabled', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SUP-02 procurement job work inhouse against the order', async ({ loginPage, production, page }) => {
+    test.setTimeout(600_000);
+    const { orderNo } = state.readState();
+    expect(orderNo, 'run TC-B2B-SUP-01 first').toBeTruthy();
+    await login(loginPage, page);
+
+    const jobWorkNo = await production.createInhouseJobWorkFromOrder({
+      orderNo,
+      productionUnit: 'Cochin',
+      itemType: 'Metal',
+    });
+    expect(jobWorkNo, 'generated job work number').toBeTruthy();
+    state.writeState({ jobWorkNo });
+    console.log(`Inhouse job work created against order ${orderNo}: ${jobWorkNo}`);
+    expect(production.printPreviewError, 'print template preview').toBeFalsy();
+  });
+
+  test('TC-B2B-SUP-03 sample issue inhouse with Used In Production enabled', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
     expect(sampleNo, 'run TC-B2B-SUP-01 first').toBeTruthy();
@@ -126,7 +163,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
       submissionMethod: DATA.issue.submissionMethod,
       receivedFrom: DATA.issue.receivedFrom,
       contactNumber: DATA.issue.contactNumber,
-      usedInProduction: true, // the toggle under test
+      usedInProduction: true,
       image: DEMO_FILES.image3,
     });
     state.writeState({ issueNo });
@@ -134,28 +171,22 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     expect(sampleWorkflow.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-B2B-SUP-02B procurement job work inhouse against the order', async ({ loginPage, production, page }) => {
-    test.setTimeout(600_000);
-    const { orderNo } = state.readState();
-    expect(orderNo, 'run TC-B2B-SUP-01 first').toBeTruthy();
+  test('TC-B2B-SUP-04 assign the JOB WORK to Casting Process / Casting Inspection', async ({ loginPage, production, page }) => {
+    test.setTimeout(420_000);
+    expect(jobWorkKey(), 'run TC-B2B-SUP-02 first').toBeTruthy();
     await login(loginPage, page);
-
-    // Procurement > Issue > Job Work tab: Generation Type Order + JobWork
-    // Mode Inhouse + Production Unit Cochin + Item Type Metal, select the
-    // B2B order's row, Submit (PP## job work). Inhouse needs no Vendor
-    // Making Type (that is the outsource-only field).
-    const jobWorkNo = await production.createInhouseJobWorkFromOrder({
-      orderNo,
-      productionUnit: 'Cochin',
+    await production.assignJob({
+      sourceType: 'Job Work',
+      generationType: 'Order',
       itemType: 'Metal',
+      process: DATA.round.process,
+      subProcess: DATA.round.subProcess,
+      rowText: jobWorkKey(),
     });
-    expect(jobWorkNo, 'generated job work number').toBeTruthy();
-    state.writeState({ jobWorkNo });
-    console.log(`Inhouse job work created against order ${orderNo}: ${jobWorkNo}`);
-    expect(production.printPreviewError, 'print template preview').toBeFalsy();
+    console.log(`Job work assigned to ${DATA.round.process} / ${DATA.round.subProcess}`);
   });
 
-  test('TC-B2B-SUP-03 assign the sample job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SUP-05 assign the SAMPLE to Casting Process / Casting Inspection', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     expect(rowKey(), 'run TC-B2B-SUP-01 first').toBeTruthy();
     await login(loginPage, page);
@@ -163,65 +194,83 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
       sourceType: 'Sample',
       itemType: 'Metal',
       businessUnit: 'Cochin',
-      process: DATA.round1.process,
-      subProcess: DATA.round1.subProcess,
+      process: DATA.round.process,
+      subProcess: DATA.round.subProcess,
       rowText: rowKey(),
     });
-    console.log(`Sample job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
+    console.log(`Sample assigned to ${DATA.round.process} / ${DATA.round.subProcess}`);
   });
 
-  test('TC-B2B-SUP-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SUP-06 process movement accept - JOB WORK (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     await login(loginPage, page);
     await production.processMovementAccept({
-      process: DATA.round1.process,
+      process: DATA.round.process,
+      sourceType: 'Job Work',
+      itemType: 'Metal',
+      rowText: jobWorkKey(),
+    });
+    console.log('Process movement accepted (job work) at Casting');
+  });
+
+  test('TC-B2B-SUP-07 process movement accept - SAMPLE (Casting)', async ({ loginPage, production, page }) => {
+    test.setTimeout(420_000);
+    await login(loginPage, page);
+    await production.processMovementAccept({
+      process: DATA.round.process,
       sourceType: 'Sample',
       itemType: 'Metal',
       rowText: rowKey(),
     });
-    console.log('Process movement accepted at Design And CAD');
+    console.log('Process movement accepted (sample) at Casting');
   });
 
-  test('TC-B2B-SUP-05 worker issue and receipt (CAD Modeling, Prabhat)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-SUP-08 worker issue - JOB WORK (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
-    const header = { ...DATA.round1, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() };
-    await production.workerIssue(header);
-    await production.workerReceipt(header);
-    console.log('Worker issue + receipt (CAD) done');
+    await production.workerIssue({ ...DATA.round, productionSource: 'Job Work', itemType: 'Metal', rowText: jobWorkKey() });
+    console.log('Worker issue (job work) done at Casting');
   });
 
-  test('TC-B2B-SUP-06 transfer to Casting, accept, worker issue and receipt (Sioniquser11)', async ({ loginPage, production, page }) => {
-    test.setTimeout(900_000);
+  test('TC-B2B-SUP-09 worker issue - SAMPLE (Casting)', async ({ loginPage, production, page }) => {
+    test.setTimeout(600_000);
     await login(loginPage, page);
-    await production.processMovementTransfer({
-      fromProcess: DATA.round1.process,
-      fromSubProcess: DATA.round1.subProcess,
-      toProcess: DATA.round2.process,
-      toSubProcess: DATA.round2.subProcess,
-      productionSource: 'Sample',
-      itemType: 'Metal',
-      rowText: rowKey(),
-    });
-    await production.processMovementAccept({
-      process: DATA.round2.process,
-      sourceType: 'Sample',
-      itemType: 'Metal',
-      rowText: rowKey(),
-    });
-    const header = { ...DATA.round2, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() };
-    await production.workerIssue(header);
-    // the FINAL receipt checks "Finalize Sample" (same as the toggle-off
-    // chain). The verification that the toggle carried through is that the
-    // Used-In-Production sample is present and receivable at Worker Receipt:
-    // the receipt save fires (submitWorkerForm verifies it) rather than the
-    // process reporting nothing pending.
-    const result = await production.workerReceipt({ ...header, finalizeSample: true });
-    expect(result, 'Used-In-Production sample was receivable at Worker Receipt (not skipped)').not.toBe('skipped');
-    console.log('Worker Receipt verified: Used-In-Production sample received + finalized');
+    await production.workerIssue({ ...DATA.round, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() });
+    console.log('Worker issue (sample) done at Casting');
   });
 
-  test('TC-B2B-SUP-07 sample receipt (Repair page, Sample tab, inhouse)', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize)', async ({ loginPage, production, page }) => {
+    test.setTimeout(600_000);
+    await login(loginPage, page);
+    // settlement item-form: Production No auto-selects the offered pending job,
+    // then item details; Move to Job Finalize releases it. MUST be before the
+    // sample receipt.
+    const result = await production.workerReceipt({
+      ...DATA.round,
+      productionSource: 'Job Work',
+      itemType: 'Metal',
+      rowText: jobWorkKey(),
+      item: {
+        article: DATA.receiptItem.article,
+        articleSearch: DATA.receiptItem.articleSearch,
+        purity: DATA.receiptItem.purity,
+        weight: DATA.receiptItem.weight,
+        moveToJobFinalize: true,
+      },
+    });
+    expect(result, 'job work receivable at Worker Receipt (not skipped)').not.toBe('skipped');
+    console.log('Worker receipt (job work settlement) done + moved to Job Finalize');
+  });
+
+  test('TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample)', async ({ loginPage, production, page }) => {
+    test.setTimeout(600_000);
+    await login(loginPage, page);
+    const result = await production.workerReceipt({ ...DATA.round, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey(), finalizeSample: true });
+    expect(result, 'sample receivable at Worker Receipt (not skipped)').not.toBe('skipped');
+    console.log('Worker receipt (sample) done + finalized');
+  });
+
+  test('TC-B2B-SUP-12 sample receipt (Repair page, Sample tab, inhouse)', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
     expect(sampleNo, 'run TC-B2B-SUP-01 first').toBeTruthy();
@@ -237,7 +286,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     expect(sampleWorkflow.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-B2B-SUP-08 sample delivery to the customer', async ({ loginPage, sampleWorkflow, page }) => {
+  test('TC-B2B-SUP-13 sample delivery to the customer', async ({ loginPage, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
     const { sampleNo } = state.readState();
     expect(sampleNo, 'run TC-B2B-SUP-01 first').toBeTruthy();
