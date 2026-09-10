@@ -1,0 +1,16 @@
+
+Running 3 tests using 1 worker
+
+workerReceipt: could not set Used Gross Weight - proceeding with default (best-effort)
+workerReceipt: finalize checkbox checked (/Finalize Sample/i)
+worker receipt save: 200 CreateWorkerReceiptSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"4ac48d32-543a-4761-9ad6-f096246cd9e6","p
+Worker receipt (sample) done + finalized (used sample weight consumed)
+  ok 1 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:273:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) (1.6m)
+sample save: 200 CreateSampleReceipt {"code":1001,"message":"Saved successfully!","header":"Done","data":{"sampleReceiptID":"0a57142a-2fe5-43c0-a2fd-bdc564f05e06","transactionRefernceID":"0a57142a-2fe5-43c0-a2fd-bdc564f05e06","receiptNo":"wJune-58TestJune "}}
+Sample received back (doc: wJune-58TestJune )
+  ok 2 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:288:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-12 sample receipt (Repair page, Sample tab, inhouse) (56.2s)
+sample save: 200 CreateSampleDelivery {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"647e7c6c-9ad8-4352-8209-926ccdd7723a","transactionLineRefernceID":null,"receiptNo":"wJune-f41wJune-"}}
+Sample delivered (doc: wJune-f41wJune-)
+  ok 3 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:304:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-13 sample delivery to the customer (1.2m)
+
+  3 passed (3.8m)

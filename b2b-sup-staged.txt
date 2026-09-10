@@ -1,0 +1,87 @@
+
+Running 10 tests using 1 worker
+
+Add Files: image attached and dialog closed
+Add Sample panel: Used In Production = true
+Add Files: image attached and dialog closed
+Add Sample panel: sample listed under Items Added
+order submit fired: POST https://qa.sioniq.com/sioniq/OrderBooking/CreateOrderBooking | POST https://qa.sioniq.com/sioniq/PrintAndBarcodeBuilder/GetPrintTemplateByConfiguration
+order submit responses: [{"status":200,"url":"https://qa.sioniq.com/sioniq/OrderBooking/CreateOrderBooking","body":{"code":1001,"message":"Saved successfully!","header":"Done","data":{"orderBookingID":"a6d81d6e-8575-4013-8f90-d1684670c77a","receiptNo":"B138","status":false}},"payload":"{\"status\":true,\"orderBookingID\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\"receiptNo\":\"VTO5RG\",\"receiptSerialNo\":545596,\"vendor
+order submit diag: {"toast":"","invalidNg":["purposeType","customer","itemType","makingType","smcode","salesExecutive","deliveryNote","referenceType"]}
+B2B sample order created: B138
+latest sample no: E0AV0Q (row: 1 E0AV0Q B2B Order Metal 40 40 0)
+Sample registered as: E0AV0Q
+  ok  1 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:83:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-01 create the B2B order with a sample (3.1m)
+inhouse job work save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"917f65cd-a12d-4a78-81e0-ccce423ae1d5","receiptNo":"P156","receiptSerialNo":156,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Inhouse job work created against order B138: P156
+  ok  2 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:141:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-02 procurement job work inhouse against the order (1.2m)
+sample issue: Used In Production = true
+Add Files: image attached and dialog closed
+sample save: 200 CreateSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"sampleIssueID":"8ed0ac6d-5b9d-4308-899a-b593bcd9df6d","masterDataValueID_JobWorkMode":"4874526e-032a-406d-a2f2-30b4481cd261","vendorID":null,"productionUnitID":"594cdc3a-7c9b-4ce8-
+Sample issued inhouse, Used In Production ON (doc: keyed by sample no)
+  ok  3 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:158:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-03 sample issue inhouse with Used In Production enabled (1.3m)
+job assignment save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":[{"transactionRefernceID":"8ccec916-9269-462e-ae31-57688e31fbb1","transactionLineRefernceID":null,"receiptNo":"J361"}]}
+Job work assigned to Casting Process / Casting Inspection
+  ok  4 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:179:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-04 assign the JOB WORK to Casting Process / Casting Inspection (45.8s)
+assignJob: Edit Item Details panel confirmed
+job assignment save: 200 {"code":1001,"message":"{0} Saved Successfully!","header":"Done","data":[{"transactionRefernceID":"cc0be821-d39f-4f23-b8a4-74fa702ab4c3","transactionLineRefernceID":null,"receiptNo":"J362"}]}
+Sample assigned to Casting Process / Casting Inspection
+  ok  5 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:194:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-05 assign the SAMPLE to Casting Process / Casting Inspection (1.4m)
+Process movement accepted (job work) at Casting
+  ok  6 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:209:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-06 process movement accept - JOB WORK (Casting) (1.3m)
+Process movement accepted (sample) at Casting
+  ok  7 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:221:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-07 process movement accept - SAMPLE (Casting) (46.6s)
+worker issue save: 200 CreateWorkerIssue {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"33e8a268-5895-4785-8ad7-c73b13cea9f1","transactionLineRe
+Worker issue (job work) done at Casting
+  ok  8 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:233:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-08 worker issue - JOB WORK (Casting) (1.4m)
+worker issue save: 200 CreateWorkerIssueSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"6710961a-c8f6-4279-a8c9-c2385fa59aa3","transactionLineRe
+Worker issue (sample) done at Casting
+  ok  9 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:240:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-09 worker issue - SAMPLE (Casting) (1.1m)
+workerReceipt: Production No -> J361.1
+workerReceipt: Use Sample Weight -> entered 20, summary consumed = 20
+  x  10 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (1.9m)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+
+    TimeoutError: locator.check: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('checkbox', { name: 'Move to Job Finalize' })
+
+
+       at ..\pages\ProductionWorkflowPage.js:912
+
+      910 |
+      911 |       if (d.item.moveToJobFinalize) {
+    > 912 |         await this.page.getByRole('checkbox', { name: 'Move to Job Finalize' }).check({ force: true });
+          |                                                                                 ^
+      913 |       }
+      914 |       // sample/repair finalize checkboxes live INSIDE the item form - check
+      915 |       // them before Add Items when requested
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:912:81)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:254:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Slow test file: [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js (14.3m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+  9 passed (14.4m)

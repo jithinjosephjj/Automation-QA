@@ -1,0 +1,78 @@
+
+Running 3 tests using 1 worker
+
+worker issue save: 200 CreateWorkerIssueSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"3fb8c0b2-6fe7-4e88-8275-6ae3d3cc57bd","transactionLineRe
+Worker issue (sample) done at Casting
+  ok 1 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:240:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-09 worker issue - SAMPLE (Casting) (1.1m)
+workerReceipt: Production No -> J346.1
+workerReceipt: item row added to the grid
+  x  2 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (1.5m)
+  x  3 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) (3.5s)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+
+    Error: locator.click: Target page, context or browser has been closed
+
+       at ..\pages\ProductionWorkflowPage.js:679
+
+      677 |       { timeout: 60_000 },
+      678 |     ).catch(() => null);
+    > 679 |     await this.page.getByRole('button', { name: 'Submit' }).click();
+          |                                                             ^
+      680 |     const r = await resp;
+      681 |     if (!r) {
+      682 |       const diag = await this.page.evaluate(() =>
+        at ProductionWorkflowPage.submitWorkerForm (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:679:61)
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:899:16)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:253:20
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) 
+
+    Error: page.goto: Target page, context or browser has been closed
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:68:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:272:11
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) 
+  1 passed (2.9m)

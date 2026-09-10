@@ -1,0 +1,104 @@
+
+Running 4 tests using 1 worker
+
+processMovementAccept: nothing pending at Casting Process - already accepted, skipping
+Process movement accepted (sample) at Casting
+  ok 1 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:221:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-07 process movement accept - SAMPLE (Casting) (43.4s)
+workerIssue: no pending row for 0SK3S3 - already issued, skipping
+Worker issue (sample) done at Casting
+  ok 2 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:240:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-09 worker issue - SAMPLE (Casting) (1.3m)
+workerReceipt: Production No -> J346.1
+  x  3 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (1.3m)
+  x  4 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) (23.5s)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+
+    Error: page.waitForTimeout: Target page, context or browser has been closed
+
+       at ..\pages\ProductionWorkflowPage.js:828
+
+      826 |         await weight.fill(String(d.item.weight)).catch(() => {});
+      827 |         await weight.blur().catch(() => {});
+    > 828 |         await this.page.waitForTimeout(1_500);
+          |                         ^
+      829 |       }
+      830 |
+      831 |       // demo image via the item form's Add Files control
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:828:25)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:253:20
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) 
+
+    Error: locator.click: Target page, context or browser has been closed
+    Call log:
+      - waiting for getByRole('tab', { name: 'Worker Receipt' })
+        - locator resolved to <button role="tab" type="button" ngbnavlink="" tabindex="-1" id="ngb-nav-1" class="nav-link" aria-selected="false" aria-disabled="false">Worker Receipt</button>
+      - attempting click action
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div _ngcontent-ng-c2230211809="" class="ngx-spinner-overlay ng-tns-c2230211809-1 ng-trigger ng-trigger-fadeIn ng-star-inserted ng-animating">…</div> from <ngx-spinner size="large" name="visible" bdcolor="rgba(0,0,0,0)" _nghost-ng-c2230211809="" _ngcontent-ng-c764340214="" class="ng-tns-c2230211809-1" template="<div class='spinner-border avatar-lg m-2 text-primary' role='status' ></div>">…</ngx-spinner> subtree intercepts pointer events
+      - retrying click action
+        - waiting for element to be visible, enabled and stable
+        - element is visible, enabled and stable
+        - scrolling into view if needed
+        - done scrolling
+        - <div _ngcontent-ng-c2230211809="" class="ngx-spinner-overlay ng-tns-c2230211809-1 ng-trigger ng-trigger-fadeIn ng-star-inserted">…</div> from <ngx-spinner size="large" name="visible" bdcolor="rgba(0,0,0,0)" _nghost-ng-c2230211809="" _ngcontent-ng-c764340214="" class="ng-tns-c2230211809-1" template="<div class='spinner-border avatar-lg m-2 text-primary' role='status' ></div>">…</ngx-spinner> subtree intercepts pointer events
+      - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is visible, enabled and stable
+          - scrolling into view if needed
+          - done scrolling
+          - <div _ngcontent-ng-c2230211809="" class="ngx-spinner-overlay ng-tns-c2230211809-1 ng-trigger ng-trigger-fadeIn ng-star-inserted">…</div> from <ngx-spinner size="large" name="visible" bdcolor="rgba(0,0,0,0)" _nghost-ng-c2230211809="" _ngcontent-ng-c764340214="" class="ng-tns-c2230211809-1" template="<div class='spinner-border avatar-lg m-2 text-primary' role='status' ></div>">…</ngx-spinner> subtree intercepts pointer events
+        - retrying click action
+          - waiting 100ms
+
+
+       at ..\pages\ProductionWorkflowPage.js:533
+
+      531 |   async openWorkerIR(tab) {
+      532 |     await this.openRoute('/prd/app-worker-issue-receipt-setup');
+    > 533 |     await this.page.getByRole('tab', { name: tab }).click();
+          |                                                     ^
+      534 |     await this.waitForIdle();
+      535 |     await this.page.waitForTimeout(1_500);
+      536 |     await this.clickAdd();
+        at ProductionWorkflowPage.openWorkerIR (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:533:53)
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:755:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:273:20
+
+    attachment #1: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-4264c-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:270:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample) 
+  2 passed (3.8m)

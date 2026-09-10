@@ -1,0 +1,47 @@
+
+Running 1 test using 1 worker
+
+workerReceipt: Production No -> J357.1
+  x  1 [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (1.7m)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByText(/Used? Sample Weight/i).filter({ visible: true }).last() to be visible
+
+
+       at ..\pages\ProductionWorkflowPage.js:766
+
+      764 |     // small "+" button as its Add control
+      765 |     const anchor = this.page.getByText(/Used? Sample Weight/i).locator('visible=true').last();
+    > 766 |     await anchor.waitFor({ state: 'visible', timeout: 15_000 });
+          |                  ^
+      767 |     // the tile's Add control: the nearest following button, falling back to a
+      768 |     // button inside the tile's own container
+      769 |     const addBtn = anchor.locator('xpath=following::button[1]');
+        at ProductionWorkflowPage.useSampleWeight (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:766:18)
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:897:20)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:254:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-inhouse-use-b15ec-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [no-auth] › tests\e2e\b2b-sample-inhouse-usedinprod-workflow.noauth.spec.js:247:3 › B2B Sample - Inhouse - Used In Production - Workflow › TC-B2B-SUP-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
