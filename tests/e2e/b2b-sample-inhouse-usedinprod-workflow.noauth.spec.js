@@ -58,6 +58,9 @@ const DATA = {
   // the JOB WORK settlement receipt: Production No auto-selects the offered
   // pending job, then item details, then Move to Job Finalize + Add Items
   receiptItem: { article: 'Tendulkar', articleSearch: 'ring', purity: '91.6', weight: 40 },
+  // "Use Sample Weight": on the SAMPLE worker receipt, consume this much of the
+  // issued sample weight via the row's "Used Gross Weight" cell
+  usedSampleWeight: 20,
   delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser18' },
 };
 
@@ -95,9 +98,11 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
       deliveryNote: DATA.order.deliveryNote,
       deliveryDate: businessDate(30).replace(/-/g, '/'),
     });
-    await expect
-      .poll(async () => b2bOrderBooking.selectValue('salesExecutive'), { timeout: 20_000 })
-      .toBe('Ajin G');
+    // the SM Code resolves the sales executive; the app now surfaces it in the
+    // B2B Order Summary panel ("Sales Executive :AJ10 / Ajin G") rather than a
+    // filled form select, so assert on the summary text
+    await expect(page.getByText(/Sales Executive\s*:\s*AJ10\s*\/\s*Ajin G/).first())
+      .toBeVisible({ timeout: 20_000 });
 
     await b2bOrderBooking.fillSampleItem({
       referenceType: DATA.order.referenceType,
@@ -243,8 +248,9 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     test.setTimeout(600_000);
     await login(loginPage, page);
     // settlement item-form: Production No auto-selects the offered pending job,
-    // then item details; Move to Job Finalize releases it. MUST be before the
-    // sample receipt.
+    // then item details; "Use Sample Weight" Add button -> pick the issued
+    // sample from the grid and consume HALF its weight; Move to Job Finalize
+    // releases it. MUST be before the sample receipt.
     const result = await production.workerReceipt({
       ...DATA.round,
       productionSource: 'Job Work',
@@ -255,6 +261,8 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
         articleSearch: DATA.receiptItem.articleSearch,
         purity: DATA.receiptItem.purity,
         weight: DATA.receiptItem.weight,
+        useSampleWeight: DATA.usedSampleWeight, // half of the sample's 40 gross
+        sampleRowText: rowKey(),
         moveToJobFinalize: true,
       },
     });
@@ -265,9 +273,16 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
   test('TC-B2B-SUP-11 worker receipt - SAMPLE (Finalize Sample)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
-    const result = await production.workerReceipt({ ...DATA.round, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey(), finalizeSample: true });
+    const result = await production.workerReceipt({
+      ...DATA.round,
+      productionSource: 'Sample',
+      itemType: 'Metal',
+      rowText: rowKey(),
+      usedSampleWeight: DATA.usedSampleWeight, // "Use Sample Weight" - consume amount
+      finalizeSample: true,
+    });
     expect(result, 'sample receivable at Worker Receipt (not skipped)').not.toBe('skipped');
-    console.log('Worker receipt (sample) done + finalized');
+    console.log('Worker receipt (sample) done + finalized (used sample weight consumed)');
   });
 
   test('TC-B2B-SUP-12 sample receipt (Repair page, Sample tab, inhouse)', async ({ loginPage, sampleWorkflow, page }) => {

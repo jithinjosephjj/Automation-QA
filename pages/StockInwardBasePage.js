@@ -99,12 +99,11 @@ class StockInwardBasePage extends BasePage {
    * like Article). closePanel is required after multi-selects (purchaser).
    */
   async pick(controlname, optionText, { closePanel = false, search = false, exact = false } = {}) {
-    const options = this.page.locator('.ng-dropdown-panel .ng-option');
+    const host = this.select(controlname);
     // exact avoids substring traps: "Sioniq QA" must not match "Sioniq QA1".
     const pattern = exact
       ? new RegExp(String.raw`^\s*` + escapeRe(optionText) + String.raw`\s*$`)
       : new RegExp(escapeRe(optionText), 'i');
-    const wanted = options.filter({ hasText: pattern });
 
     // ng-select renders whatever the list held at open time - including an
     // empty panel or a stale "No items found" - and does not refresh until
@@ -112,17 +111,22 @@ class StockInwardBasePage extends BasePage {
     // so close and reopen until the option is actually there.
     let all = [];
     for (let attempt = 1; attempt <= 4; attempt++) {
-      // a leftover open panel (from a failed prior attempt or another
-      // control) floats over the page and intercepts the container click
-      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
-        await this.page.keyboard.press('Escape');
-        await this.page.waitForTimeout(300);
-      }
-      await this.select(controlname).locator('.ng-select-container').click();
+      await this.closeStalePanels();
+      await host.locator('.ng-select-container').click();
       if (search) {
-        await this.select(controlname).locator('input[role="combobox"]').fill(optionText);
+        await host.locator('input[role="combobox"]').fill(optionText);
         await this.page.waitForTimeout(2_000); // server-side filter debounce
       }
+      // scope to THIS control's own panel: the reworked B2B order form keeps
+      // other dropdowns' panels in the DOM, so a page-global .first() can land
+      // on a hidden stale panel's option and never see it become visible.
+      // Fall back to the page-level panel for appendTo-body selects.
+      const inline = host.locator('.ng-dropdown-panel');
+      await inline.waitFor({ state: 'attached', timeout: 1_500 }).catch(() => {});
+      const options = (await inline.count())
+        ? inline.locator('.ng-option')
+        : this.page.locator('.ng-dropdown-panel .ng-option');
+      const wanted = options.filter({ hasText: pattern });
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
       all = (await options.allTextContents()).map((s) => s.trim());
@@ -144,6 +148,23 @@ class StockInwardBasePage extends BasePage {
   }
 
   /**
+   * Close every ng-select panel left open on the page. The reworked B2B order
+   * form (Sept 2026) no longer closes a dropdown's panel after selection or on
+   * outside click, so stale panels pile up, float over other controls and
+   * hijack page-global option lookups. Escape only closes the focused select;
+   * clicking a stuck panel's own container toggles it shut regardless of focus.
+   */
+  async closeStalePanels() {
+    const open = this.page.locator('ng-select.ng-select-opened');
+    for (let i = 0; i < 6; i++) {
+      if (!(await open.count())) break;
+      await open.first().locator('.ng-select-container').click({ timeout: 2_000 }).catch(() => {});
+      await this.page.keyboard.press('Escape');
+      await this.page.waitForTimeout(200);
+    }
+  }
+
+  /**
    * pick() variant addressing the dropdown by its LABEL text instead of a
    * controlname - for screens whose sioniq-ng-selects carry no controlname
    * or duplicate ones. Same open/retry/stale-panel semantics as pick().
@@ -155,21 +176,23 @@ class StockInwardBasePage extends BasePage {
       .locator(`label:text-is("${labelText}")`)
       .last()
       .locator('xpath=following::ng-select[1]');
-    const options = this.page.locator('.ng-dropdown-panel .ng-option');
     const pattern = exact
       ? new RegExp(String.raw`^\s*` + escapeRe(optionText) + String.raw`\s*$`)
       : new RegExp(escapeRe(optionText), 'i');
-    const wanted = options.filter({ hasText: pattern });
     for (let attempt = 1; attempt <= 4; attempt++) {
-      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
-        await this.page.keyboard.press('Escape');
-        await this.page.waitForTimeout(300);
-      }
+      await this.closeStalePanels();
       await wrapper.locator('.ng-select-container').click();
       if (search) {
         await wrapper.locator('input[role="combobox"]').fill(optionText);
         await this.page.waitForTimeout(2_000);
       }
+      // same stale-panel trap as pick(): scope to this select's own panel
+      const inline = wrapper.locator('.ng-dropdown-panel');
+      await inline.waitFor({ state: 'attached', timeout: 1_500 }).catch(() => {});
+      const options = (await inline.count())
+        ? inline.locator('.ng-option')
+        : this.page.locator('.ng-dropdown-panel .ng-option');
+      const wanted = options.filter({ hasText: pattern });
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
       if (found && (await wanted.first().click({ timeout: 10_000 }).then(() => true).catch(() => false))) {

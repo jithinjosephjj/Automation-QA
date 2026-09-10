@@ -712,6 +712,126 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     return false;
   }
 
+  /**
+   * Set the "Used Gross Weight" (use-sample-weight consume amount) on the
+   * SAMPLE receipt grid. The grid is a PrimeNG frozen-column table where the
+   * cell renders as display text until clicked, so click the cell by the
+   * header column's x-range at the selected row's y, then type. Best-effort:
+   * returns true on success, false if the field can't be reached.
+   */
+  async setUsedGrossWeight(rowText, value) {
+    const th = this.page.locator('table thead th').filter({ hasText: /Used Gross Weight/i }).first();
+    if (!(await th.count())) return false;
+    const thBox = await th.boundingBox();
+    const row = this.rowMatcher(rowText).first();
+    const rowBox = await row.boundingBox().catch(() => null);
+    const bodyBox = rowBox || (await this.page.locator('table tbody tr').first().boundingBox().catch(() => null));
+    if (!thBox || !bodyBox) return false;
+    const x = thBox.x + thBox.width / 2;
+    const y = bodyBox.y + bodyBox.height / 2;
+    await this.page.mouse.click(x, y);
+    await this.page.waitForTimeout(600);
+    // an inline input should now be focused (or present) at that cell
+    const filled = await this.page.evaluate((val) => {
+      const a = document.activeElement;
+      if (a && a.tagName === 'INPUT' && a.type !== 'checkbox') {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(a, String(val));
+        a.dispatchEvent(new Event('input', { bubbles: true }));
+        a.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      return false;
+    }, value).catch(() => false);
+    if (filled) {
+      await this.page.keyboard.press('Tab').catch(() => {});
+      await this.page.waitForTimeout(500);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * "Use Sample Weight" on the SETTLEMENT (job work) worker receipt item form
+   * (B2B used-in-production flow, QA walkthrough 10-09-2026): the field has its
+   * own Add button which opens a grid of the worker's issued samples. Select
+   * the record (by rowText when given, else the first data row), enter the
+   * consume amount - half the issued sample weight - and confirm back to the
+   * item form.
+   */
+  async useSampleWeight(value, rowText) {
+    // the field renders as a stat tile "Used Sample Weight  0.000 Gram" with a
+    // small "+" button as its Add control
+    const anchor = this.page.getByText(/Used? Sample Weight/i).locator('visible=true').last();
+    await anchor.waitFor({ state: 'visible', timeout: 15_000 });
+    // the tile's Add control: the nearest following button, falling back to a
+    // button inside the tile's own container
+    const addBtn = anchor.locator('xpath=following::button[1]');
+    await addBtn.click({ timeout: 10_000 }).catch(() =>
+      anchor.locator('xpath=ancestor::div[2]//button').first().click({ timeout: 10_000 }));
+    await this.page.waitForTimeout(1_500);
+
+    // the "+" opens the CUSTOMER SAMPLE picker (verified 10-09-2026): a dialog
+    // with Stone Sample and Metal Sample grids, a Used Sample Weight Summary
+    // strip, and its own Submit. The metal row's checkbox enables its PCS and
+    // Gross Weight inputs (per the dialog's own notes); rows list by article,
+    // NOT by sample number, so rowText is only a best-effort filter.
+    const dialog = this.page.locator('.modal.show, .offcanvas.show, [role="dialog"]').locator('visible=true').last();
+    const scope = (await dialog.count().catch(() => 0)) ? dialog : this.page;
+
+    const rows = scope.locator('table tbody tr')
+      .filter({ hasNotText: /No .*(records?|items?|data).* found|No (pending|records|items|data)/i })
+      .filter({ has: this.page.locator('input[type=checkbox]') });
+    let row = rows.filter({ hasText: rowText || '' }).first();
+    if (!rowText || !(await row.count().catch(() => 0))) row = rows.first();
+    await row.waitFor({ state: 'visible', timeout: 15_000 });
+    const box = row.locator('input[type=checkbox]').first();
+    await box.check({ force: true }).catch(() => box.click({ force: true }));
+    await this.page.waitForTimeout(800);
+
+    // consume amount goes into the row's Gross Weight input - the 2nd text
+    // input on the metal row (the 1st is PCS). The consumed amount MUST
+    // register (summary must not stay 0), so retry the edit and verify the
+    // Used Sample Weight Summary before submitting the picker.
+    const inputs = row.locator('input:not([type=checkbox])');
+    const gross = (await inputs.count()) > 1 ? inputs.nth(1) : inputs.first();
+    const summaryText = async () =>
+      ((await scope.getByText(/Total Used Sample Wt/i).locator('xpath=ancestor::*[1]').textContent().catch(() => '')) || '');
+    let consumed = 0;
+    for (let attempt = 1; attempt <= 3 && !consumed; attempt++) {
+      await gross.click().catch(() => {});
+      await gross.fill(String(value)).catch(() => {});
+      await gross.press('Tab').catch(() => gross.blur().catch(() => {}));
+      await this.page.waitForTimeout(1_000);
+      const m = (await summaryText()).match(/Total Used Sample Wt\s*:?\s*([\d.]+)/i);
+      consumed = m ? parseFloat(m[1]) : 0;
+      if (!consumed) {
+        // some grids only enable the input after the checkbox change settles
+        await box.check({ force: true }).catch(() => {});
+        await this.page.waitForTimeout(700);
+      }
+    }
+    console.log(`workerReceipt: Use Sample Weight -> entered ${value}, summary consumed = ${consumed}`);
+    if (!consumed) {
+      throw new Error(`Use Sample Weight: consumed amount stayed 0 after entering ${value} - must not be 0`);
+    }
+
+    // the picker's own Submit commits the consumption back to the item form.
+    // Its accessible name carries an icon glyph, so role-based lookup misses
+    // it - match by text. The modal is aria-modal: while it stays open it both
+    // intercepts clicks AND hides the rest of the page from the a11y tree, so
+    // hard-verify it actually closes.
+    const confirm = scope.locator('button').filter({ hasText: /Submit|^\s*(Add|Ok|OK|Select|Save)\s*$/i })
+      .locator('visible=true').last();
+    await confirm.waitFor({ state: 'visible', timeout: 10_000 });
+    await confirm.click();
+    const openModal = this.page.locator('ngb-modal-window, .modal.show').locator('visible=true').first();
+    const closed = await openModal.waitFor({ state: 'hidden', timeout: 10_000 }).then(() => true).catch(() => false);
+    if (!closed) throw new Error('Use Sample Weight: the Customer Sample picker did not close after Submit');
+    console.log('workerReceipt: Customer Sample picker submitted and closed');
+    await this.page.waitForTimeout(1_000);
+  }
+
   async workerReceipt(d) {
     await this.openWorkerIR('Worker Receipt');
     // The Receipt form's selects carry different controlnames than Issue -
@@ -792,8 +912,37 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       // demo image via the item form's Add Files control
       if (d.item.image) await this.attachFileViaAddFiles(d.item.image, { last: true });
 
-      if (d.item.moveToJobFinalize) {
-        await this.page.getByRole('checkbox', { name: 'Move to Job Finalize' }).check({ force: true });
+      // "Use Sample Weight": click its Add button, pick the issued-sample
+      // record from the grid, enter the consume amount, then continue
+      if (d.item.useSampleWeight !== undefined) {
+        await this.useSampleWeight(d.item.useSampleWeight, d.item.sampleRowText);
+      }
+
+      // "Move to Job Finalize" toggle: its checkbox gets its accessible name
+      // LATE (a11y attrs attach after async renders), so role lookups are
+      // unreliable - address it positionally from the label text. Click ONCE
+      // and read back the state; never blind-double-click (that re-toggles).
+      const finalizeState = async () => {
+        const holder = this.page.getByText(/^\s*Move to Job Finalize\s*$/).locator('visible=true').last()
+          .locator('xpath=..');
+        const cb = holder.locator('input[type=checkbox], [role="checkbox"], .p-checkbox').first();
+        if (!(await cb.count())) return null;
+        const c = await cb.isChecked().catch(() => null);
+        if (c !== null) return c;
+        const aria = await cb.getAttribute('aria-checked').catch(() => null);
+        return aria === null ? null : aria === 'true';
+      };
+      const clickFinalize = async () => {
+        const label = this.page.getByText(/^\s*Move to Job Finalize\s*$/).locator('visible=true').last();
+        const cb = label.locator('xpath=..')
+          .locator('input[type=checkbox], [role="checkbox"], .p-checkbox').first();
+        if (await cb.count()) await cb.click({ force: true }).catch(() => label.click({ force: true }));
+        else await label.locator('xpath=following-sibling::*[1]').click({ force: true }).catch(() => label.click({ force: true }));
+        await this.page.waitForTimeout(600);
+      };
+      if (d.item.moveToJobFinalize && (await finalizeState()) !== true) {
+        await clickFinalize();
+        console.log(`workerReceipt: Move to Job Finalize (pre-add) checked = ${await finalizeState()}`);
       }
       // sample/repair finalize checkboxes live INSIDE the item form - check
       // them before Add Items when requested
@@ -802,10 +951,42 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .then((ok) => { this.finalizeChecked = ok; });
       }
       // jobwork receipts label the commit "Add Items"; repair receipts just
-      // "Add" (with an icon) - accept either, never "Add Files"
-      const addItems = this.page.getByRole('button', { name: /(?:Add Items|Add)\s*$/ }).locator('visible=true').last();
-      if (await addItems.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await addItems.click();
+      // "Add" (with an icon) - accept either, never "Add Files". Role-based
+      // lookup misses this toolbar (a11y names attach late) - use text
+      // matching, with the role locator as fallback.
+      let addItems = this.page.locator('button').filter({ hasText: /^\s*(Add Items|Add)\s*$/ })
+        .filter({ hasNotText: /Add Files/i }).locator('visible=true').last();
+      if (!(await addItems.isVisible({ timeout: 10_000 }).catch(() => false))) {
+        const roleBtn = this.page.getByRole('button', { name: /(?:Add Items|Add)\s*$/ }).locator('visible=true').last();
+        if (await roleBtn.isVisible({ timeout: 3_000 }).catch(() => false)) addItems = roleBtn;
+        else {
+          const names = await this.page.locator('button').locator('visible=true').allTextContents().catch(() => []);
+          console.log(`workerReceipt: Add Items button not found; visible buttons: ${JSON.stringify(names.map((s) => s.trim()).filter(Boolean))}`);
+        }
+      }
+      if (await addItems.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        // the reliable "item landed" signal is the Worker Receipt Summary
+        // panel's "No. of Items" counter - a page-wide tbody-tr check can hit
+        // an unrelated table and false-pass. Retry the click until the counter
+        // moves; fall back to the row check on pages without the counter.
+        const itemsCount = async () => {
+          const t = await this.page.getByText(/No\.?\s*of\s*Items/i).locator('xpath=ancestor::*[1]')
+            .textContent().catch(() => '');
+          const m = String(t).replace(/No\.?\s*of\s*Items/i, '').match(/(\d+)/);
+          return m ? parseInt(m[1], 10) : null;
+        };
+        const before = await itemsCount();
+        let added = false;
+        for (let attempt = 1; attempt <= 3 && !added; attempt++) {
+          await addItems.click();
+          await this.page.waitForTimeout(2_500);
+          const now = await itemsCount();
+          if (before === null || now === null) break; // no counter on this page
+          added = now > before;
+        }
+        if (!added && before !== null && (await itemsCount()) !== null) {
+          throw new Error(`Add Items never moved the item into the receipt - "No. of Items" stayed at ${before}`);
+        }
         // the item must land as a grid row before Submit (QA lead, 02-09-2026)
         const addedRow = this.page
           .locator('table tbody tr')
@@ -813,14 +994,38 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .locator('visible=true')
           .first();
         await addedRow.waitFor({ state: 'visible', timeout: 20_000 });
-        console.log('workerReceipt: item row added to the grid');
+        console.log(`workerReceipt: item added to the grid (summary count: ${await itemsCount() ?? 'n/a'})`);
         await this.page.waitForTimeout(1_500);
+        // some builds enable the finalize toggle only once an item exists -
+        // set it after the add when it did not stick before
+        if (d.item.moveToJobFinalize && (await finalizeState()) !== true) {
+          await clickFinalize();
+          console.log(`workerReceipt: Move to Job Finalize (post-add) checked = ${await finalizeState()}`);
+        }
       }
     } else {
       // ---- plain receipt: pending grid, selection is MANDATORY ----
       if (!(await this.selectRowOrFirst(d.rowText))) {
         console.log(`workerReceipt: nothing pending for ${d.process}/${d.worker} - already received, skipping`);
         return 'skipped';
+      }
+      // "Use Sample Weight": the SAMPLE receipt grid has an editable
+      // "Used Gross Weight" input (a PrimeNG FROZEN-RIGHT column - the grid
+      // splits rows across frozen sections, so a header-index -> td-index map
+      // fails). Frozen cells carry the `pfrozencolumn` attribute; frozen-LEFT
+      // cells (checkbox / Sl No) hold no text input, so the first text input in
+      // any frozen cell is the Used Gross Weight of the (single) pending row.
+      if (d.usedSampleWeight !== undefined) {
+        // Best-effort: click the "Used Gross Weight" cell of the selected row to
+        // enter inline edit, then type the consume amount. The grid is a
+        // PrimeNG frozen-column table (rows split across sections), so target
+        // the cell by matching the header column's x-range, then click+type.
+        const done = await this.setUsedGrossWeight(d.rowText, d.usedSampleWeight).catch(() => false);
+        if (done) {
+          console.log(`workerReceipt: Used Gross Weight (use sample weight) = ${d.usedSampleWeight}`);
+        } else {
+          console.log('workerReceipt: could not set Used Gross Weight - proceeding with default (best-effort)');
+        }
       }
     }
 
