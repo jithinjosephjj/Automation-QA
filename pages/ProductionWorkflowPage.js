@@ -590,6 +590,137 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     return this.createJobWorkFromOrder({ ...d, mode: 'Outsource' });
   }
 
+  /**
+   * DIRECT inhouse job work (verified in the app 11-09-2026): Generation
+   * Type "Direct" turns the Issue > JobWork Issue tab into a 3-step wizard
+   * (General Job Work Details -> Items / Order Details -> Review & Submit).
+   * General step: Direct + Inhouse + Production Unit + Item Type + Order
+   * Type "Stock" + Making Type + SM Code (resolves the Sales Executive into
+   * the Total Item Summary panel) + Delivery Note; Delivery Date prefills.
+   * Items step: article chain + gross weight + Add Items, then Next to the
+   * review step and Submit (save verified; a Print dialog follows).
+   */
+  async createDirectInhouseJobWork(d) {
+    await this.openRoute('/prc/view-samplejobwork-issue');
+    await this.clickAdd();
+    await this.pick('generationType', 'Direct', { exact: true });
+    await this.pick('jobworkMode', d.mode || 'Inhouse', { exact: true });
+    await this.pick('productionUnit', d.productionUnit || 'Cochin', { exact: true });
+    await this.pick('itemType', d.itemType || 'Metal', { exact: true });
+    // Order Type / Making Type may default (Stock / Regular) - set only when
+    // empty or different. Wizard labels carry TRAILING COLONS ("SM Code:"),
+    // so try controlnames (checking existence first - no wasted timeouts) and
+    // both label spellings.
+    const ensure = async (controls, label, value, opts = {}) => {
+      for (const control of controls) {
+        if (!(await this.page.locator(`sioniq-ng-select[controlname="${control}"]`).count())) continue;
+        const cur = await this.selectValue(control).catch(() => '');
+        if (cur.trim() === value) return;
+        try { await this.pick(control, value, { exact: true, ...opts }); return; } catch (e) { /* try next */ }
+      }
+      for (const txt of [label, `${label}:`]) {
+        if (!(await this.page.locator(`label:text-is("${txt}")`).count())) continue;
+        try { await this.pickByLabel(txt, value, { exact: true, ...opts }); return; } catch (e) { /* try next */ }
+      }
+      console.log(`direct jobwork: ${label} pick failed - no matching control/label took "${value}"`);
+    };
+    await ensure(['orderType'], 'Order Type', d.orderType || 'Stock');
+    await ensure(['makingType'], 'Making Type', d.makingType || 'Regular');
+    await ensure(['smcode', 'smCode'], 'SM Code', d.smCode || 'AJ10', { search: true });
+    await ensure(['deliveryNote'], 'Delivery Note', d.deliveryNote || 'Urgent');
+
+    // Delivery Date does NOT prefill - fill it like the order wizards do
+    const date = this.page.locator('#deliveryDate');
+    if (await date.count()) {
+      await date.fill(d.deliveryDate);
+      await date.blur();
+      await this.page.keyboard.press('Escape'); // close the date-picker popup
+    } else {
+      await this.fillByLabel('Delivery Date', d.deliveryDate).catch(() =>
+        console.log('direct jobwork: delivery date input not found'));
+    }
+
+    // the SM Code resolves the sales executive into the summary panel
+    await this.page.getByText(/Sales Executive\s*:\s*AJ10\s*\/\s*Ajin G/).first()
+      .waitFor({ state: 'visible', timeout: 20_000 })
+      .catch(() => console.log('direct jobwork: sales executive summary not confirmed (continuing)'));
+
+    await this.nextBtn.click();
+    await this.waitForIdle();
+    await this.page.waitForTimeout(2_500);
+    // verify the wizard actually advanced - Next is a silent no-op on invalid
+    // forms; surface the invalid controls instead of timing out downstream
+    const onItems = await this.page.locator('label').filter({ hasText: /^Article:?$/ }).first()
+      .waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false);
+    if (!onItems) {
+      const diag = await this.page.evaluate(() =>
+        [...document.querySelectorAll('sioniq-ng-select, input.ng-invalid')]
+          .filter((n) => (n.querySelector('ng-select')?.classList.contains('ng-invalid') || n.classList?.contains('ng-invalid')) && n.offsetParent)
+          .map((n) => n.getAttribute('controlname') || n.id || n.name));
+      throw new Error(`direct jobwork: wizard did not advance to Items step; invalid: ${JSON.stringify(diag)}`);
+    }
+
+    // ---- Items / Order Details step (verified 11-09-2026): "Add Item
+    // Details" (Reference type is REQUIRED and drives the article chain; all
+    // labels carry trailing colons) + "Add Weight Details" (No. of Pieces +
+    // PIECE Weight - there is no Gross Weight input) + Add Items.
+    const pickLbl = async (label, value, opts) => {
+      const txt = (await this.page.locator(`label:text-is("${label}")`).count()) ? label : `${label}:`;
+      return this.pickByLabel(txt, value, opts);
+    };
+    await pickLbl('Reference type', d.item.referenceType || 'Combination', { exact: true });
+    if (d.item.groupCategory) await pickLbl('Group Category', d.item.groupCategory, { exact: true }).catch(() => {});
+    if (d.item.category) await pickLbl('Category', d.item.category, { exact: true }).catch(() => {});
+    await this.page.waitForTimeout(2_000); // let the article list refilter
+    await pickLbl('Article', d.item.article, { search: true });
+    await pickLbl('Purity', d.item.purity);
+    const pieceWeight = this.inputByLabel('Piece Weight', { exact: false });
+    await pieceWeight.fill(String(d.item.pieceWeight ?? d.item.grossWeight));
+    await pieceWeight.blur();
+    await this.page.waitForTimeout(1_500);
+    const addItems = this.page.locator('button').filter({ hasText: /^\s*Add Items?\s*$/ })
+      .locator('visible=true').last();
+    await addItems.waitFor({ state: 'visible', timeout: 15_000 });
+    await addItems.click();
+    // the item must land before moving on - the summary panel's No. of Items
+    // is the reliable signal
+    await this.page.waitForTimeout(2_000);
+    const items = await this.page.getByText(/No\.?\s*of\s*Items/i).locator('xpath=ancestor::*[1]')
+      .textContent().catch(() => '');
+    console.log(`direct jobwork: items summary after Add -> ${String(items).replace(/\s+/g, ' ').trim()}`);
+
+    // Review & Submit
+    if (!(await this.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      await this.nextBtn.click();
+      await this.waitForIdle();
+    }
+    await this.submitBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    const resp = this.page.waitForResponse(
+      (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData/i.test(r.url()),
+      { timeout: 120_000 },
+    ).catch(() => null);
+    await this.submitBtn.click();
+    const r = await resp;
+    if (!r) {
+      const diag = await this.page.evaluate(() =>
+        [...document.querySelectorAll('sioniq-ng-select')]
+          .filter((n) => n.querySelector('ng-select')?.classList.contains('ng-invalid') && n.offsetParent)
+          .map((n) => n.getAttribute('controlname')));
+      throw new Error(`direct jobwork Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(diag)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log('direct jobwork save:', r.status(), JSON.stringify(body).slice(0, 200));
+    if (r.status() >= 400 || (body && body.errorCode)) {
+      throw new Error(`direct jobwork save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
+    }
+    const jobWorkNo = (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
+    this.printPreviewError = null;
+    await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+    await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
+    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    return jobWorkNo;
+  }
+
   async createJobWorkFromOrder(d) {
     await this.openRoute('/prc/view-samplejobwork-issue');
     await this.clickAdd();

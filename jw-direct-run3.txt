@@ -1,0 +1,30 @@
+
+Running 5 tests using 1 worker
+
+direct jobwork: items summary after Add -> 
+direct jobwork save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"e8825a64-825c-4beb-8e13-ce3eacececc5","receiptNo":"P165","receiptSerialNo":165,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Direct inhouse job work created: P165
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:58:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-01 create the DIRECT inhouse job work (1.9m)
+job assignment save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":[{"transactionRefernceID":"f83ae28e-2619-4f1f-acd3-c80462657bc8","transactionLineRefernceID":null,"receiptNo":"J377"}]}
+Direct job work assigned to Casting Process / Casting Inspection
+  ok 2 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:72:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-02 assign the job work to Casting Process / Casting Inspection (46.9s)
+processMovementAccept: WARNING - Item Type pick failed, grid may stay empty (TimeoutError: locator.click: Timeout 15000ms exceeded.)
+Process movement accepted (direct job work) at Casting
+  ok 3 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:87:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-03 process movement accept (Casting) (1.2m)
+workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (TimeoutError: locator.click: Timeout 15000ms exceeded.)
+workerIssue: edit-item dialog confirmed (Add to Issue List)
+worker issue save: 200 CreateWorkerIssue {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"703e72c6-e581-4742-b870-3642f328c123","transactionLineRe
+Worker issue (direct job work) done at Casting
+  ok 4 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:100:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-04 worker issue (Casting, Sioniquser11) (1.5m)
+workerReceipt: Production No -> J377.1
+workerReceipt: Move to Job Finalize (pre-add) checked = true
+workerReceipt: item added to the grid (summary count: 1)
+workerReceipt: Move to Job Finalize (post-add) checked = true
+worker receipt save: 200 CreateWorkerReceiptMode2 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"74e16f87-171d-4d4e-8c84-e3a3189360e4","p
+Worker receipt (settlement) done + moved to Job Finalize
+  ok 5 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:113:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-05 worker receipt - settlement (Move to Job Finalize) (2.1m)
+
+  Slow test file: [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js (7.4m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  5 passed (7.5m)

@@ -1,0 +1,210 @@
+
+Running 5 tests using 1 worker
+
+  x  1 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:58:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-01 create the DIRECT inhouse job work (1.7m)
+  x  2 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:72:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-02 assign the job work to Casting Process / Casting Inspection (1.4s)
+processMovementAccept: WARNING - Item Type pick failed, grid may stay empty (TimeoutError: locator.click: Timeout 15000ms exceeded.)
+row "undefined" not found - selecting the first pending row (grid pre-filtered)
+  x  3 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:87:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-03 process movement accept (Casting) (1.2m)
+workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (TimeoutError: locator.click: Timeout 15000ms exceeded.)
+workerIssue: no pending row for undefined - already issued, skipping
+  x  4 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:100:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-04 worker issue (Casting, Sioniquser11) (1.7m)
+  x  5 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:113:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-05 worker receipt - settlement (Move to Job Finalize) (1.6m)
+
+
+  1) [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:58:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-01 create the DIRECT inhouse job work 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('label:text-is("Article")').last().locator('xpath=following::ng-select[1]').locator('.ng-select-container')
+
+
+       at ..\pages\StockInwardBasePage.js:184
+
+      182 |     for (let attempt = 1; attempt <= 4; attempt++) {
+      183 |       await this.closeStalePanels();
+    > 184 |       await wrapper.locator('.ng-select-container').click();
+          |                                                     ^
+      185 |       if (search) {
+      186 |         await wrapper.locator('input[role="combobox"]').fill(optionText);
+      187 |         await this.page.waitForTimeout(2_000);
+        at ProductionWorkflowPage.pickByLabel (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:184:53)
+        at ProductionWorkflowPage.createDirectInhouseJobWork (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:666:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:62:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-f938e-the-DIRECT-inhouse-job-work-no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-f938e-the-DIRECT-inhouse-job-work-no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-inhouse-f938e-the-DIRECT-inhouse-job-work-no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-f938e-the-DIRECT-inhouse-job-work-no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-inhouse-f938e-the-DIRECT-inhouse-job-work-no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:72:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-02 assign the job work to Casting Process / Casting Inspection 
+
+    Error: run TC-JW-DIR-01 first
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      72 |   test('TC-JW-DIR-02 assign the job work to Casting Process / Casting Inspection', async ({ loginPage, production, page }) => {
+      73 |     test.setTimeout(420_000);
+    > 74 |     expect(rowKey(), 'run TC-JW-DIR-01 first').toBeTruthy();
+         |                                                ^
+      75 |     await login(loginPage, page);
+      76 |     await production.assignJob({
+      77 |       sourceType: 'Job Work',
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:74:48
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-e28eb--Process-Casting-Inspection-no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-e28eb--Process-Casting-Inspection-no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-inhouse-e28eb--Process-Casting-Inspection-no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-e28eb--Process-Casting-Inspection-no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-inhouse-e28eb--Process-Casting-Inspection-no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:87:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-03 process movement accept (Casting) 
+
+    Error: locator.check: Clicking the checkbox did not change its state
+    Call log:
+      - waiting for getByRole('row').filter({ has: getByRole('checkbox') }).last().getByRole('checkbox').first()
+        - locator resolved to <input disabled type="checkbox" value="undefined" autocomplete="off" class="p-checkbox-input"/>
+      - attempting click action
+        - scrolling into view if needed
+        - done scrolling
+        - forcing action
+        - performing click action
+        - click action done
+        - waiting for scheduled navigations to finish
+        - navigations have finished
+
+
+       at ..\pages\ProductionWorkflowPage.js:464
+
+      462 |     console.log(`row "${rowText}" not found - selecting the first pending row (grid pre-filtered)`);
+      463 |     const box = anyRow.getByRole('checkbox').first();
+    > 464 |     if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
+          |                                                                ^
+      465 |     return true;
+      466 |   }
+      467 |
+        at ProductionWorkflowPage.selectRowOrFirst (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:464:64)
+        at ProductionWorkflowPage.processMovementAccept (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:487:11)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:90:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-732b0-ss-movement-accept-Casting--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-732b0-ss-movement-accept-Casting--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-inhouse-732b0-ss-movement-accept-Casting--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-732b0-ss-movement-accept-Casting--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-inhouse-732b0-ss-movement-accept-Casting--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:100:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-04 worker issue (Casting, Sioniquser11) 
+
+    Error: job work issuable at Worker Issue (not skipped)
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not "skipped"
+
+      107 |       rowText: rowKey(),
+      108 |     });
+    > 109 |     expect(result, 'job work issuable at Worker Issue (not skipped)').not.toBe('skipped');
+          |                                                                           ^
+      110 |     console.log('Worker issue (direct job work) done at Casting');
+      111 |   });
+      112 |
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:109:75
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-c3265-issue-Casting-Sioniquser11--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-c3265-issue-Casting-Sioniquser11--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-inhouse-c3265-issue-Casting-Sioniquser11--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-c3265-issue-Casting-Sioniquser11--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-inhouse-c3265-issue-Casting-Sioniquser11--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:113:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-05 worker receipt - settlement (Move to Job Finalize) 
+
+    Error: Option "Sioniquser11" never appeared in dropdown labeled "Worker"
+
+       at ..\pages\StockInwardBasePage.js:204
+
+      202 |       await this.page.keyboard.press('Escape');
+      203 |     }
+    > 204 |     throw new Error(`Option "${optionText}" never appeared in dropdown labeled "${labelText}"`);
+          |           ^
+      205 |   }
+      206 |
+      207 |   /**
+        at ProductionWorkflowPage.pickByLabel (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:204:11)
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:998:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:116:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-2bb7e-ement-Move-to-Job-Finalize--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-2bb7e-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-inhouse-2bb7e-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-inhouse-2bb7e-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-inhouse-2bb7e-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:58:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-01 create the DIRECT inhouse job work 
+    [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:72:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-02 assign the job work to Casting Process / Casting Inspection 
+    [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:87:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-03 process movement accept (Casting) 
+    [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:100:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-04 worker issue (Casting, Sioniquser11) 
+    [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:113:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-05 worker receipt - settlement (Move to Job Finalize) 
