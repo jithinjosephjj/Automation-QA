@@ -545,15 +545,22 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('masterDataValueID_WorkerType', 'Inhouse Worker', { exact: true });
     await this.pick('vendorID', d.worker, { search: true });
     await this.pick('masterDataValueID_ProductionSourceType', d.productionSource || 'Job Work', { exact: true });
-    // the Sample source adds an Item Type filter - the grid loads ONLY after
-    // it is picked; a silent failure here produces an empty grid and a FALSE
-    // "already issued" skip. Log loudly when it fails.
+    // the Sample source adds an Item Type filter and the grid loads ONLY after
+    // it is picked ("Select Process, Worker, Production Source Type and Item
+    // Type to load items"). On THIS form its controlname is
+    // masterDataValueID_JewelleryItemType (not itemType) - resolve whichever
+    // control actually exists, and log loudly when the pick still fails,
+    // because a silent failure produces an empty grid and a FALSE
+    // "already issued" skip.
     if (d.itemType) {
-      await this.pick('itemType', d.itemType, { exact: true }).catch((e1) =>
-        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
-          console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`)));
+      await this.page.waitForTimeout(1_500); // the select renders after the source pick
+      const itCtl = (await this.page.locator('sioniq-ng-select[controlname="masterDataValueID_JewelleryItemType"]').count())
+        ? 'masterDataValueID_JewelleryItemType' : 'itemType';
+      await this.pick(itCtl, d.itemType, { exact: true })
+        .catch(() => this.pickByLabel('Item Type', d.itemType, { exact: true }))
+        .catch((e1) => console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`));
     }
-    await this.page.waitForTimeout(2_500);
+    await this.page.waitForTimeout(4_000); // the pending grid loads noticeably after the last filter
   }
 
   /** Does a grid row containing rowText exist? (short wait, case-insensitive) */
@@ -649,25 +656,36 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       return 'skipped';
     }
     await this.checkRow(d.rowText);
-    // Some builds add the selected row to "Items Ready for Issue" directly;
-    // others need the explicit button - click it only when it exists.
-    const addToList = this.page.getByRole('button', { name: 'Add to Issue List' });
-    if (await addToList.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await addToList.first().click();
-    }
-    await this.page.waitForTimeout(2_000);
-
-    // Order-based issues open a "Partial Issue - Edit Item" dialog (pieces
-    // and weights prefilled) that must be confirmed with ITS OWN
-    // "Add to Issue List" button before the main Submit appears.
-    const partialDialog = this.page
-      .locator('[role="dialog"], .modal, ngb-modal-window, .offcanvas')
-      .filter({ hasText: 'Partial Issue' })
+    // Checking the row runs a spinner and then opens the edit-item /
+    // partial-issue dialog (pieces and weights prefilled). Newer builds render
+    // it with an EMPTY title (the old "Partial Issue" text is gone), so match
+    // it STRUCTURALLY by its own "Add to Issue List" footer button - and give
+    // it time to appear (it opens after a load spinner). While this aria-modal
+    // dialog is open it intercepts every click, so it MUST be confirmed before
+    // Submit.
+    await this.waitForSpinner();
+    const issueDialog = this.page
+      .locator('[role="dialog"], .modal.show, ngb-modal-window, .offcanvas.show')
+      .filter({ has: this.page.getByRole('button', { name: 'Add to Issue List' }) })
       .last();
-    if (await partialDialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await partialDialog.getByRole('button', { name: 'Add to Issue List' }).click();
-      await partialDialog.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    if (await issueDialog.isVisible({ timeout: 15_000 }).catch(() => false)) {
+      await issueDialog.getByRole('button', { name: 'Add to Issue List' }).last().click();
+      await issueDialog.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+      console.log('workerIssue: edit-item dialog confirmed (Add to Issue List)');
       await this.page.waitForTimeout(1_500);
+    } else {
+      // older builds: a page-level "Add to Issue List" button instead
+      const addToList = this.page.getByRole('button', { name: 'Add to Issue List' }).first();
+      if (await addToList.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await addToList.click();
+        await this.page.waitForTimeout(2_000);
+      }
+    }
+    // a still-open modal means the confirm click missed - fail loudly rather
+    // than let Submit spin against the overlay
+    const straggler = this.page.locator('ngb-modal-window').locator('visible=true').last();
+    if (await straggler.isVisible().catch(() => false)) {
+      throw new Error('workerIssue: the edit-item dialog is still open - Add to Issue List did not register');
     }
 
     await this.submitWorkerForm('worker issue');
@@ -677,6 +695,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
    *  is a silent no-op on invalid forms (checklist rule 6), and relying on
    *  the print dialog alone let a repair receipt slip through unsaved. */
   async submitWorkerForm(what) {
+    await this.waitForSpinner(); // the transparent ngx-spinner intercepts clicks
     const resp = this.page.waitForResponse(
       (r) => ['POST', 'PUT'].includes(r.request().method()) && /create|save|submit/i.test(r.url()) &&
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
