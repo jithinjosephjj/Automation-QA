@@ -1,0 +1,136 @@
+
+Running 6 tests using 1 worker
+
+workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (TimeoutError: locator.click: Timeout 15000ms exceeded.)
+workerIssue: edit-item dialog confirmed (Add to Issue List)
+worker issue save: 200 CreateWorkerIssue {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"27db1baa-bfbe-4a88-90ec-f804adb837c8","transactionLineRe
+Worker issue (job work) done at Casting
+  ok 1 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:238:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-08 worker issue - JOB WORK (Casting) (1.5m)
+workerIssue: no pending row for VNE8JZ - already issued, skipping
+Worker issue (sample) done at Casting
+  ok 2 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:245:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-09 worker issue - SAMPLE (Casting) (1.2m)
+workerReceipt: Production No -> J373.1
+workerReceipt: Move to Job Finalize (pre-add) checked = true
+workerReceipt: item added to the grid (summary count: 1)
+workerReceipt: Move to Job Finalize (post-add) checked = true
+worker receipt save: 200 CreateWorkerReceiptMode2 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"4783f7ed-5315-46bb-a14e-1a33227f47ff","p
+Worker receipt (job work settlement) done + moved to Job Finalize
+  ok 3 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:252:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (2.2m)
+  x  4 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) (1.6m)
+  x  5 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) (1.0m)
+  x  6 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer (1.3m)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) 
+
+    Error: Option "Sioniquser11" never appeared in dropdown labeled "Worker"
+
+       at ..\pages\StockInwardBasePage.js:204
+
+      202 |       await this.page.keyboard.press('Escape');
+      203 |     }
+    > 204 |     throw new Error(`Option "${optionText}" never appeared in dropdown labeled "${labelText}"`);
+          |           ^
+      205 |   }
+      206 |
+      207 |   /**
+        at ProductionWorkflowPage.pickByLabel (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:204:11)
+        at ProductionWorkflowPage.workerReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\ProductionWorkflowPage.js:869:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:278:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) 
+
+    TimeoutError: locator.waitFor: Timeout 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('row').filter({ hasText: /VNE8JZ/i }).first() to be visible
+
+
+       at ..\pages\SampleWorkflowPage.js:43
+
+      41 |   async checkRow(rowText) {
+      42 |     const row = this.rowMatcher(rowText).first();
+    > 43 |     await row.waitFor({ state: 'visible', timeout: 30_000 });
+         |               ^
+      44 |     const box = row.getByRole('checkbox').first();
+      45 |     if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
+      46 |     await this.page.waitForTimeout(1_500);
+        at SampleWorkflowPage.checkRow (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\SampleWorkflowPage.js:43:15)
+        at SampleWorkflowPage.sampleReceipt (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\SampleWorkflowPage.js:298:16)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:295:23
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer 
+
+    Error: Option "Luxurio" never appeared in Sample wizard dropdown "b2bCustomerID". Last option list: ["AP Vendor","Bhina Jewelery","Celestia Jewels","PR Jewllers","Vendor Jithu","Vendor Nithyananth"]
+
+       at ..\pages\StockInwardBasePage.js:145
+
+      143 |       await this.page.keyboard.press('Escape');
+      144 |     }
+    > 145 |     throw new Error(
+          |           ^
+      146 |       `Option "${optionText}" never appeared in ${this.tabName} wizard dropdown "${controlname}". Last option list: ${JSON.stringify(all)}`,
+      147 |     );
+      148 |   }
+        at SampleWorkflowPage.pick (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:145:11)
+        at SampleWorkflowPage.sampleDelivery (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\SampleWorkflowPage.js:314:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:311:24
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer 
+  3 passed (9.1m)

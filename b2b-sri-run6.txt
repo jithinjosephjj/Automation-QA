@@ -1,0 +1,22 @@
+
+Running 5 tests using 1 worker
+
+Process movement accepted (sample) at Casting
+  ok 1 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:226:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-07 process movement accept - SAMPLE (Casting) (58.6s)
+worker issue save: 200 CreateWorkerIssueSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"ae017c08-f933-43e7-a184-7ee5a1d6328c","transactionLineRe
+Worker issue (sample) done at Casting
+  ok 2 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:245:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-09 worker issue - SAMPLE (Casting) (51.5s)
+workerReceipt: finalize checkbox checked (/Finalize Sample/i)
+worker receipt save: 200 CreateWorkerReceiptSample {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"c04f46d9-0f9a-4870-8976-8c41fd4b7dc6","p
+Worker receipt (sample) done + finalized
+  ok 3 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) (1.5m)
+sample save: 200 CreateSampleReceipt {"code":1001,"message":"Saved successfully!","header":"Done","data":{"sampleReceiptID":"76877f36-ad9b-4d09-b446-4f5f8e93f79a","transactionRefernceID":"76877f36-ad9b-4d09-b446-4f5f8e93f79a","receiptNo":"wJune-63TestJune "}}
+Sample received back (doc: wJune-63TestJune )
+  ok 4 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) (55.8s)
+sample save: 200 CreateSampleDelivery {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"6b21a59e-d975-4edf-9f99-10c776711cde","transactionLineRefernceID":null,"receiptNo":"ff46"}}
+Sample delivered (doc: ff46)
+  ok 5 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer (1.2m)
+
+  Slow test file: [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js (5.5m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  5 passed (5.7m)
