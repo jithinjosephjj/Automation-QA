@@ -473,10 +473,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('process', d.process, { search: true });
     if (d.subProcess) await this.pick('subProcess', d.subProcess, { search: true }).catch(() => {});
     await this.pick('sourceType', d.sourceType || 'Job Work', { exact: true });
-    // the Sample source adds an Item Type filter
+    // the Sample source adds an Item Type filter - the grid loads ONLY after
+    // it is picked, so a silently-failed pick here means an empty grid and a
+    // FALSE "already accepted" skip. Log loudly when it fails.
     if (d.itemType) {
-      await this.pick('itemType', d.itemType, { exact: true }).catch(() =>
-        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() => {}));
+      await this.pick('itemType', d.itemType, { exact: true }).catch((e1) =>
+        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
+          console.log(`processMovementAccept: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`)));
     }
     await this.page.waitForTimeout(2_500);
     // grids key rows by doc numbers we may not hold - first pending row is
@@ -542,10 +545,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('masterDataValueID_WorkerType', 'Inhouse Worker', { exact: true });
     await this.pick('vendorID', d.worker, { search: true });
     await this.pick('masterDataValueID_ProductionSourceType', d.productionSource || 'Job Work', { exact: true });
-    // the Sample source adds an Item Type filter
+    // the Sample source adds an Item Type filter - the grid loads ONLY after
+    // it is picked; a silent failure here produces an empty grid and a FALSE
+    // "already issued" skip. Log loudly when it fails.
     if (d.itemType) {
-      await this.pick('itemType', d.itemType, { exact: true }).catch(() =>
-        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() => {}));
+      await this.pick('itemType', d.itemType, { exact: true }).catch((e1) =>
+        this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
+          console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`)));
     }
     await this.page.waitForTimeout(2_500);
   }
