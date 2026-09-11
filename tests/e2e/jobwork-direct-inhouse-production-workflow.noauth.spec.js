@@ -20,6 +20,7 @@ const state = makeState('e2e-jobwork-direct-state.json');
  *   3 process movement accept (Casting)
  *   4 worker issue (Casting, Sioniquser11)
  *   5 worker receipt (settlement, Move to Job Finalize)
+ *   6 job finalize + Generate Barcode (SINGLE TAG)
  *
  * Grids key rows by the JOB WORK NO. State: e2e-jobwork-direct-state.json.
  * MUST run headed - see README (Device Radar gate + Local Network Access).
@@ -127,6 +128,18 @@ test.describe('Job Work Direct - Inhouse - Production - Workflow', () => {
       },
     });
     expect(result, 'job work receivable at Worker Receipt (not skipped)').not.toBe('skipped');
+    if (production.lastProductionNo) state.writeState({ productionNo: production.lastProductionNo });
     console.log('Worker receipt (settlement) done + moved to Job Finalize');
+  });
+
+  test('TC-JW-DIR-06 finalize job and generate barcode', async ({ loginPage, production, page }) => {
+    test.setTimeout(420_000);
+    expect(rowKey(), 'run TC-JW-DIR-01 first').toBeTruthy();
+    await login(loginPage, page);
+    const result = await production.finalizeAndGenerateBarcode({ rowText: rowKey() });
+    expect(result, 'barcode generation response').toBeTruthy();
+    expect(result.message).toMatch(/saved successfully/i);
+    state.writeState({ tagReceiptNo: result.data && result.data.receiptNo });
+    console.log(`Barcode generated - tag receipt ${result.data && result.data.receiptNo}`);
   });
 });

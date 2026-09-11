@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+barcode generation: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"6ff697e2-e613-4a2b-ab84-4cb93b98ec71","transactionLineRefernceID":null,"receiptNo":"0045"}}
+Barcode generated - tag receipt 0045
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-inhouse-production-workflow.noauth.spec.js:135:3 › Job Work Direct - Inhouse - Production - Workflow › TC-JW-DIR-06 finalize job and generate barcode (39.9s)
+
+  1 passed (43.6s)
