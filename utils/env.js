@@ -11,7 +11,7 @@ function required(name, fallback) {
 module.exports = {
   URL: required('SIONIQ_URL', 'https://qa.sioniq.com'),
   USER: required('SIONIQ_USER', 'admin'),
-  PWD: required('SIONIQ_PWD'),
+  PWD: required('SIONIQ_PWD', '123'),
   BU: required('SIONIQ_BU', 'Cochin'),
   AUTH_FILE: 'auth/admin-cochin.json',
 };
