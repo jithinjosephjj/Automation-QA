@@ -1,0 +1,14 @@
+
+Running 2 tests using 1 worker
+
+direct jobwork: items summary after Add -> 
+direct jobwork save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"43c75ca3-3196-4e75-a237-26dacdae726d","receiptNo":"P169","receiptSerialNo":169,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Direct outsource job work created: P169
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:59:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-01 create the DIRECT outsource job work (1.6m)
+Metal inward saved: M229
+print preview: template rendered (inline surface)
+list view shows the saved record: M229
+  ok 2 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:73:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) (1.3m)
+
+  2 passed (2.9m)

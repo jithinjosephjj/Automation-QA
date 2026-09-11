@@ -1,0 +1,48 @@
+
+Running 2 tests using 1 worker
+
+lot save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"lotGenerationID":"0db1823b-0886-4a7d-855e-bf91e7700f0d","receiptNo":"NN131"}}
+print preview: template rendered (inline surface)
+Lot generated: NN131
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:116:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward (1.1m)
+  x  2 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:134:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) (1.4m)
+
+
+  1) [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:134:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 
+
+    Error: Option "NN131" never appeared in Barcode wizard dropdown "lotGenerationID". Last option list: ["NN120","NN119","NN110","NN102","NNN96","NNN95","NNN93","NNN92","NNN91","NNN90","NNN88","NNN86"]
+
+       at ..\pages\StockInwardBasePage.js:145
+
+      143 |       await this.page.keyboard.press('Escape');
+      144 |     }
+    > 145 |     throw new Error(
+          |           ^
+      146 |       `Option "${optionText}" never appeared in ${this.tabName} wizard dropdown "${controlname}". Last option list: ${JSON.stringify(all)}`,
+      147 |     );
+      148 |   }
+        at BarcodeGenerationPage.pick (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:145:11)
+        at BarcodeGenerationPage.generateTag (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BarcodeGenerationPage.js:45:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:145:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:134:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 
+  1 passed (2.6m)

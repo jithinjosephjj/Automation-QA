@@ -53,10 +53,11 @@ class MetalInwardPage extends StockInwardBasePage {
    * recording 31-08-2026): Sub Transaction Type "Jobwork" + Inward Type
    * "Order" receive the goods of an outsourced job work back into stock.
    */
-  async fillJobworkBasicDetails({ businessUnit = 'Cochin', vendor = 'RAJA', invoiceNo, invoiceDate } = {}) {
+  async fillJobworkBasicDetails({ businessUnit = 'Cochin', vendor = 'RAJA', inwardType = 'Order', invoiceNo, invoiceDate } = {}) {
     await this.pick('subTransactionType', 'Jobwork');
     await this.pick('businessUnit', businessUnit, { exact: true });
-    await this.pick('inwardType', 'Order', { exact: true });
+    // "Order" for jobworks raised from an order; "Direct" for direct jobworks
+    await this.pick('inwardType', inwardType, { exact: true });
     await this.pick('purchaseType', 'Direct', { exact: true });
     await this.page.waitForTimeout(2_000); // vendor list refetches per the types
     await this.pick('vendor', vendor);

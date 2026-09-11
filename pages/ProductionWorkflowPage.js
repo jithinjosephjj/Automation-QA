@@ -601,11 +601,30 @@ class ProductionWorkflowPage extends StockInwardBasePage {
    * review step and Submit (save verified; a Print dialog follows).
    */
   async createDirectInhouseJobWork(d) {
+    return this.createDirectJobWork({ ...d, mode: 'Inhouse' });
+  }
+
+  /** Outsource variant: JobWork Mode "Outsource" swaps Production Unit for a
+   *  Vendor pick + the mandatory Vendor Making Type (same as the Order flow). */
+  async createDirectOutsourceJobWork(d) {
+    return this.createDirectJobWork({ ...d, mode: 'Outsource' });
+  }
+
+  async createDirectJobWork(d) {
     await this.openRoute('/prc/view-samplejobwork-issue');
     await this.clickAdd();
     await this.pick('generationType', 'Direct', { exact: true });
     await this.pick('jobworkMode', d.mode || 'Inhouse', { exact: true });
-    await this.pick('productionUnit', d.productionUnit || 'Cochin', { exact: true });
+    if (d.mode === 'Outsource') {
+      await this.pick('vendor', d.vendor || 'RAJA');
+      const vmt = d.vendorMakingType || 'Job work';
+      await this.pick('vendorMakingType', vmt)
+        .catch(() => this.pickByLabel('Vendor Making Type', vmt))
+        .catch(() => this.pickByLabel('Vendor Making Type:', vmt))
+        .catch(() => this.pickByLabel('Vendor Making Type', 'Jobwork'));
+    } else {
+      await this.pick('productionUnit', d.productionUnit || 'Cochin', { exact: true });
+    }
     await this.pick('itemType', d.itemType || 'Metal', { exact: true });
     // Order Type / Making Type may default (Stock / Regular) - set only when
     // empty or different. Wizard labels carry TRAILING COLONS ("SM Code:"),

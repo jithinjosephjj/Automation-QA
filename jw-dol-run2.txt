@@ -1,0 +1,120 @@
+
+Running 3 tests using 1 worker
+
+  x  1 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:66:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) (41.8s)
+  x  2 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:105:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward (934ms)
+  x  3 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:123:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) (910ms)
+
+
+  1) [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:66:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('sioniq-ng-select[controlname="jobWorkItemNo"] ng-select').first().locator('.ng-select-container')
+
+
+       at ..\pages\StockInwardBasePage.js:115
+
+      113 |     for (let attempt = 1; attempt <= 4; attempt++) {
+      114 |       await this.closeStalePanels();
+    > 115 |       await host.locator('.ng-select-container').click();
+          |                                                  ^
+      116 |       if (search) {
+      117 |         await host.locator('input[role="combobox"]').fill(optionText);
+      118 |         await this.page.waitForTimeout(2_000); // server-side filter debounce
+        at MetalInwardPage.pick (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:115:50)
+        at MetalInwardPage.addJobworkItem (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\MetalInwardPage.js:80:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:85:21
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-c4b0b-back-jobwork-return-Direct--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-c4b0b-back-jobwork-return-Direct--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-outsour-c4b0b-back-jobwork-return-Direct--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-c4b0b-back-jobwork-return-Direct--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-outsour-c4b0b-back-jobwork-return-Direct--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:105:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward 
+
+    Error: run TC-JW-DOL-02 first
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      106 |     test.setTimeout(600_000);
+      107 |     const { inwardVoucherNo } = state.readState();
+    > 108 |     expect(inwardVoucherNo, 'run TC-JW-DOL-02 first').toBeTruthy();
+          |                                                       ^
+      109 |     await login(loginPage, page);
+      110 |
+      111 |     const lotNo = await lotGeneration.generateLot({
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:108:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-55d95-erate-a-lot-from-the-inward-no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-55d95-erate-a-lot-from-the-inward-no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-outsour-55d95-erate-a-lot-from-the-inward-no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-55d95-erate-a-lot-from-the-inward-no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-outsour-55d95-erate-a-lot-from-the-inward-no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:123:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 
+
+    Error: run TC-JW-DOL-03 first
+
+    expect(received).toBeTruthy()
+
+    Received: undefined
+
+      124 |     test.setTimeout(600_000);
+      125 |     const { lotNo } = state.readState();
+    > 126 |     expect(lotNo, 'run TC-JW-DOL-03 first').toBeTruthy();
+          |                                             ^
+      127 |
+      128 |     // per the QA lead's recording this step runs as a DIFFERENT user
+      129 |     await loginPage.open();
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:126:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:66:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) 
+    [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:105:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward 
+    [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:123:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 

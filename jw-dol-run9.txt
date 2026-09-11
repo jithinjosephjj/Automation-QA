@@ -1,0 +1,24 @@
+
+Running 4 tests using 1 worker
+
+direct jobwork: items summary after Add -> 
+direct jobwork save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"f8aa36d4-e1c7-4677-ad6f-ec72015b7b59","receiptNo":"P172","receiptSerialNo":172,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Direct outsource job work created: P172
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:60:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-01 create the DIRECT outsource job work (1.5m)
+jobwork item P172.001 auto-filled article: Gold,Ring-Tendulkar
+Metal inward saved: M232
+print preview: template rendered (inline surface)
+list view shows the saved record: M232
+  ok 2 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:74:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) (1.1m)
+lot save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"lotGenerationID":"c8029625-cb7d-46fe-8e0c-727492534fb2","receiptNo":"NN135"}}
+print preview: template rendered (inline surface)
+Lot generated: NN135
+  ok 3 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:114:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward (1.1m)
+barcode form: serial=NN135-1, article=Gold,Ring-Tendulkar, entry=SINGLE TAG
+barcode tag save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"02776265-42eb-4cc1-8b7b-374f07a46b6e","transactionLineRefernceID":"95007991-a770-4229-b928-0a96df040400","receiptNo":"2026-06-2300007"}}
+Generated Tags row: 1 2026-06-2300007 Gold,Ring-Tendulkar Ring 22 Karat Gold SINGLE TAG 1 50.000 0.000 0.000 0.000 50.000 8,000,000.00 0.00 0.00 0.00 0.00 8,000,000.00 0.00 8,000,000.00 0.00 8,000,000.00
+Barcode tag generated: 2026-06-2300007
+  ok 4 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:132:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) (50.9s)
+
+  4 passed (4.7m)

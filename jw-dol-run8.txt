@@ -1,0 +1,62 @@
+
+Running 4 tests using 1 worker
+
+direct jobwork: items summary after Add -> 
+direct jobwork save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"dea0fe6c-689c-4fb2-9fec-f5c5cfe6b7ff","receiptNo":"P171","receiptSerialNo":171,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Direct outsource job work created: P171
+  ok 1 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:60:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-01 create the DIRECT outsource job work (1.5m)
+Metal inward saved: M231
+print preview: template rendered (inline surface)
+list view shows the saved record: M231
+  ok 2 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:74:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-02 metal inward receives the goods back (jobwork return, Direct) (1.3m)
+lot save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"lotGenerationID":"98cccf61-71af-4aab-bb99-474e3c11e9fb","receiptNo":"NN134"}}
+print preview: template rendered (inline surface)
+Lot generated: NN134
+  ok 3 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:124:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-03 generate a lot from the inward (1.1m)
+  x  4 [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:142:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) (1.2m)
+
+
+  1) [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:142:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for locator('sioniq-ng-select[controlname="lotGenerationID"] ng-select').first().locator('.ng-select-container')
+
+
+       at ..\pages\StockInwardBasePage.js:115
+
+      113 |     for (let attempt = 1; attempt <= 4; attempt++) {
+      114 |       await this.closeStalePanels();
+    > 115 |       await host.locator('.ng-select-container').click();
+          |                                                  ^
+      116 |       if (search) {
+      117 |         await host.locator('input[role="combobox"]').fill(optionText);
+      118 |         await this.page.waitForTimeout(2_000); // server-side filter debounce
+        at BarcodeGenerationPage.pick (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\StockInwardBasePage.js:115:50)
+        at BarcodeGenerationPage.generateTag (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BarcodeGenerationPage.js:45:5)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:153:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-jobwork-direct-outsour-28b42-arcode-for-the-lot-as-suja--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Slow test file: [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js (5.2m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    [no-auth] › tests\e2e\jobwork-direct-outsource-lot-barcode-workflow.noauth.spec.js:142:3 › Job Work Direct - Outsource - Lot - Barcode - Workflow › TC-JW-DOL-04 generate barcode for the lot (as suja) 
+  3 passed (5.3m)
