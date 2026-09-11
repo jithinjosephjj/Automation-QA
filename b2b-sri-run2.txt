@@ -1,0 +1,341 @@
+
+Running 10 tests using 1 worker
+
+job assignment save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":[{"transactionRefernceID":"9435bd1c-e402-46d0-a3bb-43f837ba398f","transactionLineRefernceID":null,"receiptNo":"J371"}]}
+Job work assigned to Casting Process / Casting Inspection
+  ok  1 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:184:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-04 assign the JOB WORK to Casting Process / Casting Inspection (57.9s)
+job assignment save: 200 {"code":1001,"message":"{0} Saved Successfully!","header":"Done","data":[{"transactionRefernceID":"c84d2c69-32d8-4797-b9c6-2cb9dd5c6310","transactionLineRefernceID":null,"receiptNo":"J372"}]}
+Sample assigned to Casting Process / Casting Inspection
+  ok  2 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:199:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-05 assign the SAMPLE to Casting Process / Casting Inspection (1.4m)
+login attempt 2: retrying after "TimeoutError: locator.waitFor: Timeout 45000ms exceeded." - reloading /login
+  x   3 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:214:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-06 process movement accept - JOB WORK (Casting) (1.9m)
+  x   4 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:226:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-07 process movement accept - SAMPLE (Casting) (1.3s)
+  x   5 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:238:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-08 worker issue - JOB WORK (Casting) (997ms)
+  x   6 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:245:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-09 worker issue - SAMPLE (Casting) (997ms)
+  x   7 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:252:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-10 worker receipt - JOB WORK settlement (Move to Job Finalize) (1.1s)
+  x   8 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) (973ms)
+  x   9 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) (962ms)
+  x  10 [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer (997ms)
+
+
+  1) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:214:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-06 process movement accept - JOB WORK (Casting) 
+
+    Error: page.reload: net::ERR_INTERNET_DISCONNECTED
+    Call log:
+      - waiting for navigation until "domcontentloaded"
+
+
+       at ..\pages\LoginPage.js:67
+
+      65 |       if (attempt > 1) {
+      66 |         console.log(`login attempt ${attempt}: retrying after "${lastProblem}" - reloading /login`);
+    > 67 |         await this.page.reload({ waitUntil: 'domcontentloaded' });
+         |                         ^
+      68 |         await this.username.waitFor({ state: 'visible', timeout: 30_000 });
+      69 |         await this.page.waitForTimeout(1_500);
+      70 |       }
+        at LoginPage.login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:67:25)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:71:3)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:216:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-357c8--accept---JOB-WORK-Casting--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-357c8--accept---JOB-WORK-Casting--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-357c8--accept---JOB-WORK-Casting--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-357c8--accept---JOB-WORK-Casting--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-357c8--accept---JOB-WORK-Casting--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:226:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-07 process movement accept - SAMPLE (Casting) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:228:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-5dd5f-nt-accept---SAMPLE-Casting--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-5dd5f-nt-accept---SAMPLE-Casting--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-5dd5f-nt-accept---SAMPLE-Casting--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-5dd5f-nt-accept---SAMPLE-Casting--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-5dd5f-nt-accept---SAMPLE-Casting--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:238:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-08 worker issue - JOB WORK (Casting) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:240:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8490e-r-issue---JOB-WORK-Casting--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8490e-r-issue---JOB-WORK-Casting--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-8490e-r-issue---JOB-WORK-Casting--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8490e-r-issue---JOB-WORK-Casting--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-8490e-r-issue---JOB-WORK-Casting--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:245:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-09 worker issue - SAMPLE (Casting) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:247:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-c986b-ker-issue---SAMPLE-Casting--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-c986b-ker-issue---SAMPLE-Casting--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-c986b-ker-issue---SAMPLE-Casting--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-c986b-ker-issue---SAMPLE-Casting--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-c986b-ker-issue---SAMPLE-Casting--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:252:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:254:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-ca077-ement-Move-to-Job-Finalize--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-ca077-ement-Move-to-Job-Finalize--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-ca077-ement-Move-to-Job-Finalize--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-ca077-ement-Move-to-Job-Finalize--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-ca077-ement-Move-to-Job-Finalize--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:277:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-48793-t---SAMPLE-Finalize-Sample--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:293:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-8bef4-ir-page-Sample-tab-inhouse--no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer 
+
+    Error: page.goto: net::ERR_INTERNET_DISCONNECTED at https://qa.sioniq.com/login
+    Call log:
+      - navigating to "https://qa.sioniq.com/login", waiting until "domcontentloaded"
+
+
+       at ..\pages\BasePage.js:17
+
+      15 |
+      16 |   async goto(path) {
+    > 17 |     await this.page.goto(path, { waitUntil: 'domcontentloaded' });
+         |                     ^
+      18 |     await this.waitForIdle();
+      19 |   }
+      20 |
+        at LoginPage.goto (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\BasePage.js:17:21)
+        at LoginPage.open (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\pages\LoginPage.js:35:16)
+        at login (D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:70:19)
+        at D:\OneDrive - Sioniq Tech Private Limited\QA Automation\Playwright Automation\tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:309:11
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\e2e-b2b-sample-registratio-a7b29-le-delivery-to-the-customer-no-auth\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8 failed
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:214:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-06 process movement accept - JOB WORK (Casting) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:226:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-07 process movement accept - SAMPLE (Casting) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:238:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-08 worker issue - JOB WORK (Casting) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:245:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-09 worker issue - SAMPLE (Casting) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:252:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-10 worker receipt - JOB WORK settlement (Move to Job Finalize) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:275:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-11 worker receipt - SAMPLE (Finalize Sample) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:289:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-12 sample receipt (Repair page, Sample tab, inhouse) 
+    [no-auth] › tests\e2e\b2b-sample-registration-inhouse-production-workflow.noauth.spec.js:305:3 › B2B Sample Registration - Inhouse - Production - Workflow › TC-B2B-SRI-13 sample delivery to the customer 
+  2 passed (4.8m)
