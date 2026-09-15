@@ -1,0 +1,19 @@
+{
+  "crm": {
+    "label": "CRM",
+    "results": [
+      {
+        "route": "/crm/customer-list",
+        "loadOk": true,
+        "chars": 4231,
+        "uc": false,
+        "stuckSpinner": false,
+        "consoleErrors": 2,
+        "addFound": true,
+        "addOpened": true,
+        "problem": "",
+        "title": "Customer Registration"
+      }
+    ]
+  }
+}

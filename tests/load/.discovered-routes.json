@@ -1,0 +1,660 @@
+{
+  "other": [
+    {
+      "title": "",
+      "route": "/"
+    },
+    {
+      "title": "Intellegence Insights",
+      "route": "/app-reports-home"
+    },
+    {
+      "title": "Barcode Design",
+      "route": "/barcode-template-list"
+    },
+    {
+      "title": "Print Builder",
+      "route": "/invoice-dashboard"
+    },
+    {
+      "title": "Report Builder",
+      "route": "/app-report-dashboard"
+    },
+    {
+      "title": "Locker Day Book",
+      "route": "/rpt/app-reports-home/locker-day-book-standard"
+    },
+    {
+      "title": "Production Day Book",
+      "route": "/rpt/app-reports-home/product-day-book-standard"
+    },
+    {
+      "title": "B2B Day Book Standard",
+      "route": "/rpt/app-reports-home/b2b-day-book-standard"
+    }
+  ],
+  "dsb": [
+    {
+      "title": "",
+      "route": "/dsb/e-commerce"
+    }
+  ],
+  "adm": [
+    {
+      "title": "",
+      "route": "/adm/app-approval"
+    },
+    {
+      "title": "Settings",
+      "route": "/adm/system-settings"
+    },
+    {
+      "title": "Inventory Configuration",
+      "route": "/adm/app-inventory-configuration-setup"
+    },
+    {
+      "title": "import template validation",
+      "route": "/adm/app-view-import-validation"
+    },
+    {
+      "title": "Transaction Group Configuration",
+      "route": "/adm/view-transaction-group-configuration"
+    },
+    {
+      "title": "Central Data Configuration",
+      "route": "/adm/central-data-repo-config"
+    },
+    {
+      "title": "Discount Configuration",
+      "route": "/adm/view-discount-configuration-setup"
+    },
+    {
+      "title": "Discount Scenario",
+      "route": "/adm/app-view-discount-scenario"
+    },
+    {
+      "title": "Payment Mode Category",
+      "route": "/adm/view-payment-mode-category"
+    },
+    {
+      "title": "DataSet Column Configuration",
+      "route": "/adm/dataset-column-configuration"
+    },
+    {
+      "title": "Payment Mode Sub Category",
+      "route": "/adm/view-payment-mode-sub-category"
+    },
+    {
+      "title": "Transaction Post Process Configuration",
+      "route": "/adm/app-view-transaction-post-process"
+    },
+    {
+      "title": "Report Setup",
+      "route": "/adm/app-report-setup"
+    },
+    {
+      "title": "Transaction Type",
+      "route": "/adm/transaction-type-setup"
+    },
+    {
+      "title": "Password Policy",
+      "route": "/adm/view-pwd-policy"
+    },
+    {
+      "title": "Roles",
+      "route": "/adm/view-roles"
+    },
+    {
+      "title": "Users",
+      "route": "/adm/user-setup"
+    },
+    {
+      "title": "Business Unit",
+      "route": "/adm/view-location"
+    },
+    {
+      "title": "Organization Unit",
+      "route": "/adm/app-add-location-brand"
+    },
+    {
+      "title": "Customer Classification",
+      "route": "/adm/app-view-customer-classification"
+    },
+    {
+      "title": "Area",
+      "route": "/adm/view-geographical-setup"
+    },
+    {
+      "title": "Action ShortCut Key",
+      "route": "/adm/app-action-shortcutkey"
+    },
+    {
+      "title": "Print Configuration",
+      "route": "/adm/app-print-configuration-list"
+    },
+    {
+      "title": "Master Data",
+      "route": "/adm/client-defined-masterdata"
+    },
+    {
+      "title": "Functionality Settings",
+      "route": "/adm/view-functionality-settings"
+    },
+    {
+      "title": "Format Template Builder",
+      "route": "/adm/view-format-template-builder"
+    },
+    {
+      "title": "Documents",
+      "route": "/adm/document-type"
+    },
+    {
+      "title": "File Upload Settings",
+      "route": "/adm/view-file-upload-settings-v2"
+    },
+    {
+      "title": "Storage Provider",
+      "route": "/adm/view-storage-provider"
+    },
+    {
+      "title": "Number Series",
+      "route": "/adm/app-number-series-setup-list"
+    },
+    {
+      "title": "Setting Value",
+      "route": "/adm/keysettings-value"
+    },
+    {
+      "title": "FTP",
+      "route": "/adm/view-ftp-settings"
+    },
+    {
+      "title": "Printer",
+      "route": "/adm/app-printer-setup"
+    },
+    {
+      "title": "Day End",
+      "route": "/adm/dayend-setup"
+    },
+    {
+      "title": "Rate Master",
+      "route": "/adm/view-metal-rate-master"
+    }
+  ],
+  "ite": [
+    {
+      "title": "Attribute",
+      "route": "/ite/ExtendedAttribute"
+    },
+    {
+      "title": "Attribute Value",
+      "route": "/ite/attribute-value"
+    },
+    {
+      "title": "Attribute Assignment Tran Type",
+      "route": "/ite/CustomControlTransactionTypeMapping"
+    },
+    {
+      "title": "Attribute Assignment Sub Type",
+      "route": "/ite/Custom-Control-Transaction-Sub-Type-Mapping"
+    },
+    {
+      "title": "Approval Category",
+      "route": "/ite/Approval-Category"
+    },
+    {
+      "title": "Approval Rule",
+      "route": "/ite/Approval-RuleMaster"
+    },
+    {
+      "title": "Approval Work Flow",
+      "route": "/ite/Approval-Work-Flow"
+    },
+    {
+      "title": "Approval Delegation",
+      "route": "/ite/Approval-Delegation"
+    },
+    {
+      "title": "Approval Committee",
+      "route": "/ite/Approval-Committee"
+    },
+    {
+      "title": "Contact Directory",
+      "route": "/ite/ContactDirectory"
+    },
+    {
+      "title": "Notification Rule",
+      "route": "/ite/NotificationTransactionRule"
+    },
+    {
+      "title": "Notification Work Flow",
+      "route": "/ite/Notification-Work-Flow"
+    },
+    {
+      "title": "Charges",
+      "route": "/ite/Additional-Charges"
+    },
+    {
+      "title": "Charges Template",
+      "route": "/ite/Additional-Charges-Template"
+    },
+    {
+      "title": "Charges Vendor Template",
+      "route": "/ite/Additional-Charges-Vendor-Template"
+    },
+    {
+      "title": "Pilot App Authenticator",
+      "route": "/ite/mobile-app-settings"
+    }
+  ],
+  "prc": [
+    {
+      "title": "Vendor Setup",
+      "route": "/prc/list-vendor-setup"
+    },
+    {
+      "title": "Vendor",
+      "route": "/prc/vendor-list"
+    },
+    {
+      "title": "Procurement Template",
+      "route": "/prc/view-template-master-list"
+    },
+    {
+      "title": "Vendor Wastage",
+      "route": "/prc/add-vendor-wastage"
+    },
+    {
+      "title": "Vendor Stone Rates",
+      "route": "/prc/add-vendor-stone-rate"
+    },
+    {
+      "title": "Alloy",
+      "route": "/prc/view-alloy"
+    },
+    {
+      "title": "Repair Wastage",
+      "route": "/prc/app-repair-wastage"
+    },
+    {
+      "title": "Alloy Inward",
+      "route": "/prc/view-alloy-inward"
+    },
+    {
+      "title": "Stone Assorting",
+      "route": "/prc/app-stone-assorting-list"
+    },
+    {
+      "title": "Stone Transaction",
+      "route": "/prc/app-stone-transaction"
+    },
+    {
+      "title": "Receipt",
+      "route": "/prc/app-repair-setup"
+    },
+    {
+      "title": "Internal Transfer",
+      "route": "/prc/internal-stock-list"
+    },
+    {
+      "title": "Issue",
+      "route": "/prc/view-samplejobwork-issue"
+    },
+    {
+      "title": "Purchase Return",
+      "route": "/prc/view-purchase-return"
+    },
+    {
+      "title": "Goods Receipt",
+      "route": "/prc/view-goods-receipt"
+    },
+    {
+      "title": "Logistic In / Out",
+      "route": "/prc/view-logistics"
+    },
+    {
+      "title": "Bullion Booking",
+      "route": "/prc/app-bullion-list"
+    },
+    {
+      "title": "Bullion Issue",
+      "route": "/prc/view-bullion-issue"
+    },
+    {
+      "title": "Stock Inward",
+      "route": "/prc/stock-inward-setup"
+    }
+  ],
+  "inv": [
+    {
+      "title": "Certification Stone Setup",
+      "route": "/inv/view-certification-stone-set-up"
+    },
+    {
+      "title": "Set Tag",
+      "route": "/inv/list-set-tag-setup"
+    },
+    {
+      "title": "Ageing Interval",
+      "route": "/inv/view-ageing-interval"
+    },
+    {
+      "title": "Counter",
+      "route": "/inv/counter-setup"
+    },
+    {
+      "title": "Barcode Series SetUp",
+      "route": "/inv/view-barcode-series-setup"
+    },
+    {
+      "title": "Vendor Design",
+      "route": "/inv/view-vendor-design-code-catalog"
+    },
+    {
+      "title": "Design Code",
+      "route": "/inv/design-code-variant-setup"
+    },
+    {
+      "title": "Description",
+      "route": "/inv/app-description-setup"
+    },
+    {
+      "title": "Article Setup",
+      "route": "/inv/view-article-setup"
+    },
+    {
+      "title": "Article",
+      "route": "/inv/list-article-setup"
+    },
+    {
+      "title": "Purity",
+      "route": "/inv/list-purity-setup"
+    },
+    {
+      "title": "Stone Setup",
+      "route": "/inv/app-side-stonesetup"
+    },
+    {
+      "title": "Stone",
+      "route": "/inv/view-stone-list"
+    },
+    {
+      "title": "UOM",
+      "route": "/inv/uom-setup"
+    },
+    {
+      "title": "Receipt",
+      "route": "/inv/app-receipt-list"
+    },
+    {
+      "title": "Lot Generation",
+      "route": "/inv/view-lot-generation"
+    },
+    {
+      "title": "Barcode",
+      "route": "/inv/view-barcode-generation"
+    },
+    {
+      "title": "Issue",
+      "route": "/inv/app-issue-list"
+    }
+  ],
+  "prd": [
+    {
+      "title": "Metal Stone Settings",
+      "route": "/prd/view-metal-stone-setting"
+    },
+    {
+      "title": "Smith / Karigar",
+      "route": "/prd/view-worker"
+    },
+    {
+      "title": "Category",
+      "route": "/prd/production-category-setup"
+    },
+    {
+      "title": "Wastage Loss",
+      "route": "/prd/wastage-loss-setup"
+    },
+    {
+      "title": "Wax To Metal Convert",
+      "route": "/prd/view-wax-to-metal-conversion-factor"
+    },
+    {
+      "title": "CAD",
+      "route": "/prd/app-cad-setup"
+    },
+    {
+      "title": "Concept",
+      "route": "/prd/view-concept"
+    },
+    {
+      "title": "Uploads",
+      "route": "/prd/view-uploads"
+    },
+    {
+      "title": "Approval",
+      "route": "/prd/view-approval"
+    },
+    {
+      "title": "Master Design",
+      "route": "/prd/view-master-design"
+    },
+    {
+      "title": "Job Assignment",
+      "route": "/prd/app-view-production-job-assignment"
+    },
+    {
+      "title": "Process Movement",
+      "route": "/prd/app-process-movement-setup"
+    },
+    {
+      "title": "Worker Settlement",
+      "route": "/prd/app-view-worker-settlement"
+    },
+    {
+      "title": "Job Works",
+      "route": "/prd/view-job-work"
+    },
+    {
+      "title": "Issue / Receipt",
+      "route": "/prd/app-worker-issue-receipt-setup"
+    },
+    {
+      "title": "Material Transaction",
+      "route": "/prd/production-material-transaction-list"
+    },
+    {
+      "title": "Job Finalize",
+      "route": "/prd/app-job-finalize-list"
+    }
+  ],
+  "sls": [
+    {
+      "title": "MRP Discount",
+      "route": "/sls/app-mrp-discount-setup"
+    },
+    {
+      "title": "Vendor Line Mapping",
+      "route": "/sls/app-add-vendor-line-mapping"
+    },
+    {
+      "title": "Template Master",
+      "route": "/sls/sales-template-setup"
+    },
+    {
+      "title": "Wastage",
+      "route": "/sls/customer-wastage"
+    },
+    {
+      "title": "Stone Rates",
+      "route": "/sls/customer-stone-rate"
+    },
+    {
+      "title": "Repair Registration",
+      "route": "/sls/view-repair-registration"
+    },
+    {
+      "title": "Approval Issue",
+      "route": "/sls/view-b2b-approval-issue"
+    },
+    {
+      "title": "Sample",
+      "route": "/sls/app-sample-setup"
+    },
+    {
+      "title": "Repair Delivery",
+      "route": "/sls/view-repair-delivery"
+    },
+    {
+      "title": "Sales Return",
+      "route": "/sls/view-b2b-metal-sales-return"
+    },
+    {
+      "title": "Approval Receipt",
+      "route": "/sls/view-approval-receipt"
+    },
+    {
+      "title": "Order",
+      "route": "/sls/order-booking"
+    },
+    {
+      "title": "Invoice",
+      "route": "/sls/app-invoice-setup"
+    },
+    {
+      "title": "Counter Accept",
+      "route": "/sls/view-counter-accept-reject"
+    },
+    {
+      "title": "Counter Transfer",
+      "route": "/sls/view-counter-transfer"
+    },
+    {
+      "title": "Counter Allocation",
+      "route": "/sls/view-counter-allocation"
+    },
+    {
+      "title": "Transfers",
+      "route": "/sls/view-transfer"
+    }
+  ],
+  "pos": [
+    {
+      "title": "Credit Limit Setup",
+      "route": "/pos/credit-limit"
+    },
+    {
+      "title": "Component Wastage Override",
+      "route": "/pos/wastage-component-override"
+    },
+    {
+      "title": "Unregister Purchase",
+      "route": "/pos/app-unregister-purchase"
+    },
+    {
+      "title": "Retail Wastage",
+      "route": "/pos/app-template-mapping-setup"
+    },
+    {
+      "title": "Stone Rates",
+      "route": "/pos/app-stone-rate-list"
+    },
+    {
+      "title": "Discounts",
+      "route": "/pos/app-discountsetup"
+    },
+    {
+      "title": "Estimations",
+      "route": "/pos/view-order-estimation"
+    },
+    {
+      "title": "Registrations",
+      "route": "/pos/view-order-advance-registration"
+    }
+  ],
+  "fin": [
+    {
+      "title": "Pos Card Machine Registration",
+      "route": "/fin/view-pos-card-machine-registration"
+    },
+    {
+      "title": "Sub Payment Mode",
+      "route": "/fin/view-sub-payment-mode"
+    },
+    {
+      "title": "Payment Mode",
+      "route": "/fin/view-payment-mode"
+    },
+    {
+      "title": "UPI Generation",
+      "route": "/fin/view-upi-generation"
+    },
+    {
+      "title": "Financial Year",
+      "route": "/fin/view-financial-year-setup"
+    },
+    {
+      "title": "Currency",
+      "route": "/fin/currency-setup"
+    },
+    {
+      "title": "Bank",
+      "route": "/fin/app-banksetup"
+    },
+    {
+      "title": "Accounts",
+      "route": "/fin/app-account-list"
+    },
+    {
+      "title": "Account Stock Group",
+      "route": "/fin/account-stock-group"
+    },
+    {
+      "title": "Tax Engine",
+      "route": "/fin/view-tax-setup"
+    }
+  ],
+  "ema": [
+    {
+      "title": "LayawayPlan",
+      "route": "/ema/view-layaway-plan"
+    },
+    {
+      "title": "Plan & Group",
+      "route": "/ema/view-advance-plan"
+    },
+    {
+      "title": "Benefit",
+      "route": "/ema/app-benefit-template-setup"
+    },
+    {
+      "title": "Incentive",
+      "route": "/ema/view-incentive-role"
+    },
+    {
+      "title": "Enrollment & Collections",
+      "route": "/ema/app-enrollment-collection-setup"
+    },
+    {
+      "title": "Closing & Payments",
+      "route": "/ema/view-adp-closing"
+    }
+  ],
+  "hrm": [
+    {
+      "title": "Department",
+      "route": "/hrm/department-setup"
+    },
+    {
+      "title": "Employee",
+      "route": "/hrm/employee-setup"
+    }
+  ],
+  "crm": [
+    {
+      "title": "Customer Registration",
+      "route": "/crm/customer-list"
+    }
+  ]
+}

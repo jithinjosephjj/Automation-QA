@@ -13,11 +13,13 @@
     "report": "playwright show-report",
     "codegen": "playwright codegen https://qa.sioniq.com/",
     "trace": "playwright show-trace",
-    "install:browsers": "playwright install chromium"
+    "install:browsers": "playwright install chromium",
+    "test:load": "playwright test tests/load --headed --project=no-auth"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.20.2",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0"
   }
 }
