@@ -206,41 +206,52 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     console.log(`Sample assigned to ${DATA.round.process} / ${DATA.round.subProcess}`);
   });
 
+  // NOTE (QA lead 15-09-2026): the accept/issue steps must NOT continue on a
+  // silent "nothing pending" skip - a mid-load grid check once false-skipped
+  // the sample accept and the workflow ran on unaccepted. Each step now
+  // asserts the action really happened; a fresh run starts from clean state,
+  // so "already done" skips are failures here, not resume conveniences.
   test('TC-B2B-SUP-06 process movement accept - JOB WORK (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     await login(loginPage, page);
-    await production.processMovementAccept({
+    const result = await production.processMovementAccept({
       process: DATA.round.process,
       sourceType: 'Job Work',
       itemType: 'Metal',
       rowText: jobWorkKey(),
     });
+    expect(result, 'job work pending at Process Movement Accept (not skipped)').toBe('accepted');
     console.log('Process movement accepted (job work) at Casting');
   });
 
   test('TC-B2B-SUP-07 process movement accept - SAMPLE (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     await login(loginPage, page);
-    await production.processMovementAccept({
+    const result = await production.processMovementAccept({
       process: DATA.round.process,
       sourceType: 'Sample',
       itemType: 'Metal',
       rowText: rowKey(),
     });
+    // the workflow may ONLY move on to Worker Issue after the sample is
+    // genuinely accepted at Casting - never on a skip
+    expect(result, 'sample must be ACCEPTED at Casting before worker issue (not skipped)').toBe('accepted');
     console.log('Process movement accepted (sample) at Casting');
   });
 
   test('TC-B2B-SUP-08 worker issue - JOB WORK (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
-    await production.workerIssue({ ...DATA.round, productionSource: 'Job Work', itemType: 'Metal', rowText: jobWorkKey() });
+    const result = await production.workerIssue({ ...DATA.round, productionSource: 'Job Work', itemType: 'Metal', rowText: jobWorkKey() });
+    expect(result, 'job work issuable at Worker Issue (not skipped)').not.toBe('skipped');
     console.log('Worker issue (job work) done at Casting');
   });
 
   test('TC-B2B-SUP-09 worker issue - SAMPLE (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
-    await production.workerIssue({ ...DATA.round, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() });
+    const result = await production.workerIssue({ ...DATA.round, productionSource: 'Sample', itemType: 'Metal', rowText: rowKey() });
+    expect(result, 'sample issuable at Worker Issue (not skipped)').not.toBe('skipped');
     console.log('Worker issue (sample) done at Casting');
   });
 

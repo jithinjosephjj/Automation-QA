@@ -481,17 +481,40 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
           console.log(`processMovementAccept: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`)));
     }
-    await this.page.waitForTimeout(2_500);
+    // The pending grid loads AFTER the filters via a slow XHR behind the
+    // ngx-spinner. NEVER decide "nothing pending" while the loader is still
+    // up (QA lead 15-09-2026: a mid-load check false-skipped the sample
+    // accept and the workflow continued unaccepted) - wait the loader out,
+    // then give the grid a bounded window to render its rows.
+    await this.waitForSpinner();
+    const gridDeadline = Date.now() + 25_000;
+    while (Date.now() < gridDeadline) {
+      if (await this.rowExists(d.rowText, 1_500)) break;
+      const anyRow = await this.page.getByRole('row').filter({ has: this.page.getByRole('checkbox') }).last()
+        .isVisible().catch(() => false);
+      if (anyRow) break;
+      await this.waitForSpinner();
+      await this.page.waitForTimeout(1_000);
+    }
     // grids key rows by doc numbers we may not hold - first pending row is
     // ours (grid pre-filtered by process + source)
     if (!(await this.selectRowOrFirst(d.rowText))) {
       console.log(`processMovementAccept: nothing pending at ${d.process} - already accepted, skipping`);
       return 'skipped';
     }
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /accept|save|create/i.test(r.url()) &&
+        !/GetAll|Pagination|KeepAlive|GetMasterData|Translation/i.test(r.url()),
+      { timeout: 30_000 },
+    ).catch(() => null);
     await this.page.getByRole('button', { name: 'Accept' }).click();
+    const r = await resp;
+    if (r) console.log(`processMovementAccept: accept save ${r.status()} ${r.url().split('/').pop()}`);
+    else console.log('processMovementAccept: WARNING - no accept save response captured');
     await this.waitForIdle();
     await this.page.waitForTimeout(3_000);
     await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    return 'accepted';
   }
 
   async processMovementTransfer(d) {
@@ -560,7 +583,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         .catch(() => this.pickByLabel('Item Type', d.itemType, { exact: true }))
         .catch((e1) => console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`));
     }
-    await this.page.waitForTimeout(4_000); // the pending grid loads noticeably after the last filter
+    // the pending grid loads noticeably after the last filter, behind the
+    // ngx-spinner - wait the loader out before anyone judges the grid
+    await this.waitForSpinner();
+    await this.page.waitForTimeout(4_000);
+    await this.waitForSpinner();
   }
 
   /** Does a grid row containing rowText exist? (short wait, case-insensitive) */
