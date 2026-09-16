@@ -123,20 +123,25 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
   }
 
   /**
-   * Goods Receipt against the logistics inward. Tare goes in through the
-   * "+" Tare Weight dialog (QA lead: 2g); Gross = with-tare - tare, Net =
-   * Gross - Stone Weight, both calculated.
+   * Goods Receipt. Generation Type "Logistic Inward" receives against a
+   * logistics RC (logistic vendor + RC picks); "Direct" (user screenshot,
+   * 16-09-2026) is a standalone receipt with a free-text Description and
+   * manual metal picks. Tare goes in through the "+" Tare Weight dialog;
+   * Gross = with-tare - tare, Net = Gross - Stone Weight, both calculated.
    */
-  async goodsReceipt({ vendor, generationType = 'Logistic Inward', logisticVendor, logisticRcNo, materialType = 'Metal', metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', quantity, grossWithTare, tareWeight, stoneWeight }) {
+  async goodsReceipt({ vendor, generationType = 'Logistic Inward', logisticVendor, logisticRcNo, materialType = 'Metal', description, metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', quantity, grossWithTare, tareWeight, stoneWeight }) {
     await this.goto('/prc/view-goods-receipt');
     await this.waitForIdle();
     await this.clickVisibleAdd();
 
     await this.pick('vendor', vendor);
     await this.pick('generationType', generationType, { exact: true });
-    await this.pickTolerant('Logistic vendor', logisticVendor, { exact: true });
-    await this.pickTolerant('Logistic vendor Rc No', this.docCore(logisticRcNo));
+    if (generationType === 'Logistic Inward') {
+      await this.pickTolerant('Logistic vendor', logisticVendor, { exact: true });
+      await this.pickTolerant('Logistic vendor Rc No', this.docCore(logisticRcNo));
+    }
     await this.pick('materialtype', materialType, { exact: true });
+    if (description !== undefined) await this.fillByCaption('Description', description);
     await this.waitForIdle();
     await this.page.waitForTimeout(2_000);
 
