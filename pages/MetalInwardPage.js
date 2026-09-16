@@ -148,7 +148,9 @@ class MetalInwardPage extends StockInwardBasePage {
 
     await this.noOfPcs.fill(String(noOfPcs));
     await this.fillByLabel('Gross Weight With Tare', grossWeightWithTare);
-    await this.fillByLabel('Rate', rate);
+    // Rate exists on the Invoice item form only - the GRN form has NO Rate
+    // field (goods are received unpriced), so callers omit it there.
+    if (rate !== undefined) await this.fillByLabel('Rate', rate);
   }
 }
 
