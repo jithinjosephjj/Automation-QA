@@ -65,11 +65,13 @@ class LotGenerationPage extends StockInwardBasePage {
       (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && /lot/i.test(r.url()) && !/GetAll|Pagination|KeepAlive/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await this.submitBtn.click();
     const r = await resp;
     if (!r) throw new Error('Lot Submit fired no save request - form silently blocked (check Add To Lot registered the item)');
     const body = await r.json().catch(() => null);
     console.log('lot save:', r.status(), JSON.stringify(body).slice(0, 250));
+    await this.reportSaveToast('lot generation', toast);
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Lot save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }

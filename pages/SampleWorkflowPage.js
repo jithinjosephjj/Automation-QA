@@ -53,6 +53,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await button.click();
     const r = await resp;
     if (!r) throw new Error('Submit fired no save request - form silently blocked');
@@ -61,6 +62,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
+    await this.reportSaveToast(`sample ${r.url().split('/').pop()}`, toast);
     return body;
   }
 

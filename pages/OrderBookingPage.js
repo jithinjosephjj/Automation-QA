@@ -98,10 +98,12 @@ class OrderBookingPage extends StockInwardBasePage {
     };
     this.page.on('request', listener);
     this.page.on('response', respListener);
+    const toast = this.watchSaveToast(30_000); // armed with the click
     await this.submitBtn.click();
     await this.page.waitForTimeout(20_000);
     this.page.off('request', listener);
     this.page.off('response', respListener);
+    await this.reportSaveToast('order submit', toast, 2_000);
 
     const diag = await this.page.evaluate(() => {
       const txt = (el) => ((el && el.innerText) || '').trim().replace(/\s+/g, ' ');

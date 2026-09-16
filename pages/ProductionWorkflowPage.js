@@ -412,6 +412,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
       { timeout: 30_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(40_000); // armed with the click
     await this.page.getByRole('button', { name: 'Submit' }).click();
     const r = await resp;
     if (!r) {
@@ -423,6 +424,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     }
     const body = await r.json().catch(() => null);
     console.log('job assignment save:', r.status(), JSON.stringify(body).slice(0, 200));
+    await this.reportSaveToast('job assignment', toast);
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Job assignment save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
@@ -528,10 +530,12 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         !/GetAll|Pagination|KeepAlive|GetMasterData|Translation/i.test(r.url()),
       { timeout: 30_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(40_000); // armed with the click
     await this.page.getByRole('button', { name: 'Accept' }).click();
     const r = await resp;
     if (r) console.log(`processMovementAccept: accept save ${r.status()} ${r.url().split('/').pop()}`);
     else console.log('processMovementAccept: WARNING - no accept save response captured');
+    await this.reportSaveToast(`movement accept ${d.process}/${d.sourceType || 'Job Work'}`, toast);
     await this.waitForIdle();
     await this.page.waitForTimeout(3_000);
     await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
@@ -766,6 +770,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await this.submitBtn.click();
     const r = await resp;
     if (!r) {
@@ -777,6 +782,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     }
     const body = await r.json().catch(() => null);
     console.log('direct jobwork save:', r.status(), JSON.stringify(body).slice(0, 200));
+    await this.reportSaveToast('direct job work', toast);
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`direct jobwork save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
@@ -815,11 +821,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await this.page.getByRole('button', { name: 'Submit' }).click();
     const r = await resp;
     if (!r) throw new Error('Issue Submit fired no save request - form silently blocked');
     const body = await r.json().catch(() => null);
     console.log(`${(d.mode || 'inhouse').toLowerCase()} job work save:`, r.status(), JSON.stringify(body).slice(0, 200));
+    await this.reportSaveToast('job work issue', toast);
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Issue save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
@@ -900,6 +908,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
       { timeout: 60_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(70_000); // armed with the click
     await this.page.getByRole('button', { name: 'Submit' }).click();
     const r = await resp;
     if (!r) {
@@ -914,6 +923,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`${what} save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
+    await this.reportSaveToast(what, toast);
     await this.printDialog.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
     await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
     await this.waitForIdle();
@@ -1315,8 +1325,10 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       (r) => r.request().method() === 'POST' && /barcode|generate|tag/i.test(r.url()) && !/GetAll|Pagination|Sizes/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await this.page.getByRole('button', { name: 'Submit & Generate' }).click();
     const r = await resp;
+    await this.reportSaveToast('finalize barcode generation', toast);
     if (r) {
       const body = await r.json().catch(() => null);
       console.log('barcode generation:', r.status(), JSON.stringify(body).slice(0, 250));

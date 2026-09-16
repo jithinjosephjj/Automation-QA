@@ -97,6 +97,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    const toast = this.watchSaveToast(130_000); // armed with the click
     await this.submitBtn.click();
     const r = await resp;
     if (!r) {
@@ -108,6 +109,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     const body = await r.json().catch(() => null);
     console.log('barcode tag save:', r.status(), JSON.stringify(body).slice(0, 300));
+    await this.reportSaveToast('barcode tag generation', toast);
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Barcode save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }

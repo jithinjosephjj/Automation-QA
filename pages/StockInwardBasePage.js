@@ -269,6 +269,45 @@ class StockInwardBasePage extends BasePage {
    * The save endpoints differ per screen (StockInwardMetal, AlloyInward, ...)
    * but all contain "Inward"; override submitApiPattern to narrow it.
    */
+  /**
+   * Arm a watcher for the post-save SUCCESS TOAST ("Saved successfully!").
+   * Must be armed BEFORE the save click - toasts auto-dismiss within seconds,
+   * so checking after long post-save waits produces false misses.
+   */
+  watchSaveToast(timeout = 15_000) {
+    const toast = this.page.getByText(/saved successfully/i).first()
+      .or(this.page.locator('.toast-success, .p-toast-message-success, ngb-toast.bg-success').first());
+    return toast.first().waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false);
+  }
+
+  /**
+   * Await an armed toast watcher and REPORT a miss: the API save succeeded
+   * but the UI showed no success validation - that is a UI DEFECT (QA lead,
+   * 16-09-2026). Logged with a TOAST-BUG prefix and appended to
+   * toast-misses.jsonl for the run report. Never fails the flow - the record
+   * IS saved.
+   */
+  async reportSaveToast(what, watcher, grace = 8_000) {
+    // the watcher was armed at click time; give it a bounded grace window
+    // after the save instead of waiting out its full timeout on a miss
+    const shown = await Promise.race([
+      watcher,
+      new Promise((res) => setTimeout(() => res(false), grace)),
+    ]);
+    if (shown) {
+      console.log(`toast: success validation shown after ${what}`);
+      return true;
+    }
+    console.log(`TOAST-BUG: NO success-validation toast after "${what}" - the record SAVED (API success) but the UI gave no confirmation. Raise as a defect.`);
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      fs.appendFileSync(path.join(process.cwd(), 'toast-misses.jsonl'),
+        `${JSON.stringify({ when: new Date().toISOString(), action: what, url: this.page.url() })}\n`);
+    } catch (e) { /* reporting must never break the flow */ }
+    return false;
+  }
+
   async submit() {
     const pattern = this.submitApiPattern || /Inward/i;
     // Grid refreshes and keep-alives are POSTs too - never count them as the
@@ -278,8 +317,10 @@ class StockInwardBasePage extends BasePage {
       (r) => pattern.test(r.url()) && !noise.test(r.url()) && r.request().method() === 'POST' && r.status() === 200,
       { timeout: 120_000 },
     );
+    const toast = this.watchSaveToast(130_000); // armed with the click; the save itself can take >60s
     await this.submitBtn.click();
     const r = await resp;
+    await this.reportSaveToast(`${this.tabName} submit`, toast);
     return r.json().catch(() => null);
   }
 
