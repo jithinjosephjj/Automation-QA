@@ -60,8 +60,11 @@ async function login(loginPage, page) {
 }
 
 function rowKey() {
+  // BOTH keys: most grids show the job work no (P-series), but the
+  // accept-after-transfer grid keys rows by the PRODUCTION no (J-series)
+  // only - matching either prevents the wrong-row selection of 16-09-2026
   const s = state.readState();
-  return s.jobWorkNo || s.orderNo;
+  return [s.jobWorkNo || s.orderNo, s.productionNo].filter(Boolean);
 }
 
 test.describe('B2B Order - Inhouse - Production - Workflow', () => {
@@ -137,7 +140,7 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
     const { jobWorkNo } = state.readState();
     expect(jobWorkNo, 'run TC-B2B-PRD-02 first').toBeTruthy();
     await login(loginPage, page);
-    await production.assignJob({
+    const productionNo = await production.assignJob({
       generationType: 'Order',
       itemType: 'Metal',
       location: 'Cochin',
@@ -145,6 +148,9 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
       subProcess: DATA.round1.subProcess,
       rowText: rowKey(),
     });
+    // the J-series production no keys the accept-after-transfer grid
+    if (productionNo) state.writeState({ productionNo });
+    console.log(`Production no allotted: ${productionNo}`);
     console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
   });
 

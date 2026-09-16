@@ -429,13 +429,34 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.waitForIdle();
     await this.page.waitForTimeout(3_000);
     await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    // the allotted PRODUCTION number (J-series): downstream grids - the
+    // accept-after-transfer one especially - key rows by IT, not the job no
+    const prodNo = body && body.data && body.data[0] && body.data[0].receiptNo;
+    if (prodNo) this.lastAssignedProductionNo = prodNo;
+    return prodNo || null;
   }
 
   /** Case-insensitive row matcher (grids re-case document numbers: the API
-   *  returns "wJune-..." while the grid prints "WJune-..."). */
+   *  returns "wJune-..." while the grid prints "WJune-..."). Accepts a single
+   *  key or an ARRAY of alternative keys (job work no + production no): grids
+   *  key rows differently per screen - the accept-after-transfer grid shows
+   *  ONLY the J-number, most others show the P-number. */
   rowMatcher(rowText) {
-    const esc = String(rowText).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const keys = (Array.isArray(rowText) ? rowText : [rowText]).filter(Boolean);
+    const esc = keys.map((k) => String(k).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     return this.page.getByRole('row').filter({ hasText: new RegExp(esc, 'i') });
+  }
+
+  /** Narrow a pending grid via its own Search box (rows can sit on page 2+).
+   *  Searches the FIRST key only - grid search is a single text match. */
+  async narrowGrid(rowText) {
+    const key = Array.isArray(rowText) ? rowText.find(Boolean) : rowText;
+    if (!key) return;
+    const search = this.page.locator('input[placeholder*="Search" i]').locator('visible=true').first();
+    if (await search.count().catch(() => 0)) {
+      await search.fill(String(key)).catch(() => {});
+      await this.page.waitForTimeout(2_500);
+    }
   }
 
   /** Check the selection checkbox of the grid row containing rowText. */
@@ -447,22 +468,22 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   }
 
   /**
-   * Select the row containing rowText, falling back to the first pending row
-   * (these grids are pre-filtered by process/worker/source, and some key
-   * their rows by internal doc numbers we do not capture).
-   * Returns false when the grid holds no selectable rows at all.
+   * Select the row matching rowText (a key or array of alternative keys).
+   * The old "fall back to the first pending row" behaviour is GONE: on
+   * 16-09-2026 it silently received, transferred and accepted the WRONG
+   * documents (P179/P178 chains) whenever the target sat on page 2 or the
+   * grid keyed rows by a number we did not pass. Now the grid is narrowed
+   * via its Search box and ONLY the matching row is selected; no match
+   * returns false so the caller can skip/fail explicitly.
    */
   async selectRowOrFirst(rowText) {
+    await this.narrowGrid(rowText);
     if (await this.rowExists(rowText, 10_000)) {
       await this.checkRow(rowText);
       return true;
     }
-    const anyRow = this.page.getByRole('row').filter({ has: this.page.getByRole('checkbox') }).last();
-    if (!(await anyRow.isVisible().catch(() => false))) return false;
-    console.log(`row "${rowText}" not found - selecting the first pending row (grid pre-filtered)`);
-    const box = anyRow.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
-    return true;
+    console.log(`row "${Array.isArray(rowText) ? rowText.join('|') : rowText}" not found in the grid - NOT selecting any other row`);
+    return false;
   }
 
   // ---------- 4/6. Process Movement ----------
@@ -828,8 +849,9 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       }
       throw e;
     }
+    await this.narrowGrid(d.rowText);
     if (!(await this.rowExists(d.rowText))) {
-      console.log(`workerIssue: no pending row for ${d.rowText} - already issued, skipping`);
+      console.log(`workerIssue: no pending row for ${Array.isArray(d.rowText) ? d.rowText.join('|') : d.rowText} - already issued, skipping`);
       return 'skipped';
     }
     await this.checkRow(d.rowText);
@@ -1204,6 +1226,12 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           await clickFinalize();
           console.log(`workerReceipt: Move to Job Finalize (post-add) checked = ${await finalizeState()}`);
         }
+        // saving a settlement WITHOUT the flag silently drops the job from
+        // the Job Finalize queue and only the barcode step fails, 30 minutes
+        // later (P178, 16-09-2026) - fail HERE instead
+        if (d.item.moveToJobFinalize && (await finalizeState()) !== true) {
+          throw new Error('workerReceipt: Move to Job Finalize did not stick (checkbox not checked) - saving would drop the job from the Job Finalize queue');
+        }
       }
     } else {
       // ---- plain receipt: pending grid, selection is MANDATORY ----
@@ -1254,6 +1282,17 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.openRoute('/prd/app-job-finalize-list');
     await this.waitForIdle();
     await this.page.waitForTimeout(2_000);
+    // the Finalize Queue pages (15/page over 2+ pages, newest first) - narrow
+    // it by the queue's own Search box so the row is found regardless of page
+    const search = this.page.getByRole('textbox', { name: 'Search' })
+      .or(this.page.locator('input[placeholder*="Search" i]')).locator('visible=true').last();
+    if (await search.count().catch(() => 0)) {
+      await search.fill(String(d.rowText)).catch(() => {});
+      await this.page.waitForTimeout(2_500);
+    }
+    if (!(await this.rowExists(d.rowText, 15_000))) {
+      throw new Error(`finalize: job "${d.rowText}" is NOT in the Job Finalize queue - the settlement receipt likely saved without "Move to Job Finalize" checked`);
+    }
     await this.checkRow(d.rowText);
     await this.page.getByRole('button', { name: 'Generate Barcode' }).click();
     await this.waitForIdle();

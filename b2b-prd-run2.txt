@@ -1,0 +1,44 @@
+
+Running 8 tests using 1 worker
+
+Add Files: image attached and dialog closed
+order submit fired: POST https://qa.sioniq.com/sioniq/OrderBooking/CreateOrderBooking | POST https://qa.sioniq.com/sioniq/PrintAndBarcodeBuilder/GetPrintTemplateByConfiguration
+order submit responses: [{"status":200,"url":"https://qa.sioniq.com/sioniq/OrderBooking/CreateOrderBooking","body":{"code":1001,"message":"Saved successfully!","header":"Done","data":{"orderBookingID":"c68b7b20-c662-450c-bbbf-22ebb2247788","receiptNo":"B155","status":false}},"payload":"{\"status\":true,\"orderBookingID\":\"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\"receiptNo\":\"DJZNAT\",\"receiptSerialNo\":384203,\"vendor
+order submit diag: {"toast":"","invalidNg":["purposeType","customer","itemType","makingType","smcode","salesExecutive","deliveryNote","referenceType"]}
+B2B job work order created: B155
+  ok 1 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:71:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-01 create the B2B job work order (1.8m)
+inhouse job work save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"jobWorkID":"7b517590-6424-476f-a8f7-1340b2bd2836","receiptNo":"P180","receiptSerialNo":180,"masterDataValueID_JobWorkGenerationTyp
+print preview: template rendered (inline surface)
+Inhouse job work created: P180
+  ok 2 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:121:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-02 create inhouse job work from the order (Procurement > Issue) (1.4m)
+job assignment save: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":[{"transactionRefernceID":"74e64968-43ce-4fcb-bd0a-705578761c67","transactionLineRefernceID":null,"receiptNo":"J391"}]}
+Production no allotted: J391
+Job assigned to Design And CAD / CAD Modeling
+  ok 3 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:138:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-03 assign the job to Design And CAD / CAD Modeling (1.0m)
+processMovementAccept: accept save 200 CreateProductionProcessMovementAccept
+Process movement accepted at Design And CAD
+  ok 4 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:157:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-04 process movement accept (Design And CAD) (43.7s)
+workerIssue: edit-item dialog confirmed (Add to Issue List)
+worker issue save: 200 CreateWorkerIssue {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"dcd06cc7-a16e-4dd8-840b-62d51201cb99","transactionLineRe
+worker receipt save: 200 CreateWorkerReceiptMode1 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"5751fed8-cc40-4a80-999c-d14393df87e4","p
+Worker issue + receipt (CAD) done
+  ok 5 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:164:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-05 worker issue and receipt (CAD Modeling, Prabhat) (2.3m)
+processMovementAccept: accept save 200 CreateProductionProcessMovementAccept
+Transferred to Casting and accepted
+  ok 6 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:173:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-06 transfer to Casting Process and accept (1.4m)
+workerIssue: edit-item dialog confirmed (Add to Issue List)
+worker issue save: 200 CreateWorkerIssue {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"86b3b9ca-1add-4792-a35b-a5dddc60ba25","transactionLineRe
+workerReceipt: Production No -> J391.1
+workerReceipt: Move to Job Finalize (pre-add) checked = true
+workerReceipt: item added to the grid (summary count: 1)
+workerReceipt: Move to Job Finalize (post-add) checked = true
+worker receipt save: 200 CreateWorkerReceiptMode2 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"productionProcessWorkerReceiptBatchID":"38c7339f-e37f-4845-be5b-4150ed2d83af","p
+Worker issue + receipt (Casting) with item done - moved to Job Finalize
+  ok 7 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:187:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-07 worker issue and receipt with item (Casting, Sioniquser11) (2.5m)
+barcode generation: 200 {"code":1001,"message":"Saved successfully!","header":"Done","data":{"transactionRefernceID":"5daf81b3-0d6c-4527-a491-32df71293e3f","transactionLineRefernceID":null,"receiptNo":"0048"}}
+Barcode generated - tag receipt 0048
+  ok 8 [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js:197:3 › B2B Order - Inhouse - Production - Workflow › TC-B2B-PRD-08 finalize job and generate barcode (34.9s)
+
+  Slow test file: [no-auth] › tests\e2e\b2b-order-inhouse-production-workflow.noauth.spec.js (11.7m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  8 passed (12.0m)
