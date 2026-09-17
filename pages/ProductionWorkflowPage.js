@@ -463,17 +463,48 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       + ' and not(ancestor::*[contains(@class, "topbar") or contains(@class, "navbar") or contains(@id, "topbar")])]',
     ).locator('visible=true').first();
     if (await search.count().catch(() => 0)) {
+      // fill ONLY - NEVER press Enter here: on the Process Movement grids
+      // Enter resets/reloads the whole panel and the rows never come back
+      // (17-09-2026, "screen loading" then empty grid). Typing alone filters
+      // where the grid supports it.
       await search.fill(String(key)).catch(() => {});
-      await this.page.waitForTimeout(2_500);
+      // the filter fires behind the ngx-spinner and the grid RE-RENDERS -
+      // wait the loader out fully or the next click races it
+      await this.page.waitForTimeout(1_000);
+      await this.waitForSpinner();
+      await this.waitForIdle();
+      await this.page.waitForTimeout(1_500);
+      // NOT every grid indexes the doc number (Worker Issue does not, QA
+      // 17-09-2026) - there the search filters our row OUT. If no matching
+      // row survived, CLEAR the search and fall back to the unfiltered grid.
+      if (!(await this.rowExists(rowText, 3_000))) {
+        console.log(`narrowGrid: search "${key}" matched nothing - clearing (this grid may not index the doc number)`);
+        await search.fill('').catch(() => {});
+        await this.page.waitForTimeout(1_000);
+        await this.waitForSpinner();
+        await this.waitForIdle();
+        await this.page.waitForTimeout(1_500);
+      }
     }
   }
 
-  /** Check the selection checkbox of the grid row containing rowText. */
+  /** Check the selection checkbox of the grid row containing rowText.
+   *  RETRIES until the check actually sticks: after a grid search the rows
+   *  re-render behind the spinner and a click landing mid-render is silently
+   *  swallowed ("Clicking the checkbox did not change its state", 17-09-2026). */
   async checkRow(rowText) {
-    const row = this.rowMatcher(rowText).first();
-    await row.waitFor({ state: 'visible', timeout: 30_000 });
-    const box = row.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
+    await this.rowMatcher(rowText).first().waitFor({ state: 'visible', timeout: 30_000 });
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      await this.waitForSpinner();
+      // re-resolve the row each attempt - the node may have been replaced
+      const box = this.rowMatcher(rowText).first().getByRole('checkbox').first();
+      if (await box.isChecked().catch(() => false)) return;
+      await box.check({ force: true, timeout: 10_000 }).catch(() => {});
+      await this.page.waitForTimeout(800);
+      if (await box.isChecked().catch(() => false)) return;
+      console.log(`checkRow: check did not stick (attempt ${attempt}) - grid likely re-rendered, retrying`);
+    }
+    throw new Error(`row checkbox for "${Array.isArray(rowText) ? rowText.join('|') : rowText}" never took the check after 4 attempts`);
   }
 
   /**
