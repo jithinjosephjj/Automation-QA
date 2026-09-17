@@ -130,7 +130,12 @@ class OrderBookingPage extends StockInwardBasePage {
       await this.addItemBtn.click();
       const deadline = Date.now() + 15_000;
       while (Date.now() < deadline) {
+        // [class*=summary].first() is NOT always the Stock Order Summary (at
+        // Kakkanad another summary-classed panel renders first) - accept the
+        // count from the summary panel OR anywhere on the page
         if ((await this.summaryText()).includes(`No. of Items : ${expectedItems}`)) return;
+        const body = await this.page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+        if (body.includes(`No. of Items : ${expectedItems}`)) return;
         await this.page.waitForTimeout(500);
       }
     }

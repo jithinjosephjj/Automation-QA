@@ -22,6 +22,7 @@ const { CertificationWorkflowPage } = require('../pages/CertificationWorkflowPag
 const { StoneAssortedWorkflowPage } = require('../pages/StoneAssortedWorkflowPage');
 const { BullionBookingPage } = require('../pages/BullionBookingPage');
 const { LogisticsSalesWorkflowPage } = require('../pages/LogisticsSalesWorkflowPage');
+const { TransfersPage } = require('../pages/TransfersPage');
 const { CustomerRegistrationPage } = require('../pages/CustomerRegistrationPage');
 const { DepartmentProcessPage } = require('../pages/DepartmentProcessPage');
 
@@ -122,6 +123,10 @@ const test = base.test.extend({
 
   logisticsSales: async ({ page }, use) => {
     await use(new LogisticsSalesWorkflowPage(page));
+  },
+
+  transfers: async ({ page }, use) => {
+    await use(new TransfersPage(page));
   },
 
   customerRegistration: async ({ page }, use) => {

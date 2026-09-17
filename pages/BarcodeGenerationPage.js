@@ -131,7 +131,13 @@ class BarcodeGenerationPage extends StockInwardBasePage {
    * date-serial token of the newest matching row.
    */
   async verifyGeneratedTag(rowText) {
-    await this.page.getByRole('button', { name: 'Generated Tags' }).click();
+    // "Generated Tags" is no longer a role=button (Sept-2026 UI) - accept a
+    // button, a tab or the plain clickable text
+    const view = this.page.getByRole('button', { name: 'Generated Tags' })
+      .or(this.page.getByRole('tab', { name: 'Generated Tags' }))
+      .or(this.page.getByText(/^\s*Generated Tags\s*$/))
+      .locator('visible=true').first();
+    await view.click();
     await this.waitForIdle();
     for (let i = 0; i < 5; i++) {
       await this.page.waitForTimeout(2_500);
@@ -143,7 +149,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
         return m ? m[0] : text.split(' ')[1];
       }
       await this.page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-      await this.page.getByRole('button', { name: 'Generated Tags' }).click().catch(() => {});
+      await view.click().catch(() => {});
     }
     throw new Error(`Generated Tags never listed a row matching "${rowText}"`);
   }

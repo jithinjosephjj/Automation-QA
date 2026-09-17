@@ -1288,6 +1288,33 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   }
 
   // ---------- 8. Job Finalize ----------
+  /**
+   * The Job Finalize page's "Generated Tags" view (this is where generated
+   * tags are listed - the Barcode page's own list is lot progress only).
+   * Returns the newest matching row's tag number - the YYYY-MM-DDserial
+   * token (e.g. "2026-06-2300017" for P183/J393.1).
+   */
+  async readGeneratedTag(rowText) {
+    await this.openRoute('/prd/app-job-finalize-list');
+    await this.waitForIdle();
+    const view = this.page.getByText(/^\s*Generated Tags\s*$/).locator('visible=true').first();
+    await view.click({ timeout: 20_000 });
+    await this.waitForIdle();
+    for (let i = 0; i < 5; i++) {
+      await this.page.waitForTimeout(2_500);
+      const row = this.rowMatcher(rowText).first();
+      if (await row.isVisible().catch(() => false)) {
+        const text = ((await row.innerText()) || '').replace(/\s+/g, ' ').trim();
+        console.log(`Generated Tags row: ${text}`);
+        const m = text.match(/\d{4}-\d{2}-\d{2}\d+/);
+        return m ? m[0] : text.split(' ')[1];
+      }
+      await this.page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+      await view.click().catch(() => {});
+    }
+    throw new Error(`Generated Tags (Job Finalize page) never listed a row matching ${JSON.stringify(rowText)}`);
+  }
+
   async finalizeAndGenerateBarcode(d) {
     await this.openRoute('/prd/app-job-finalize-list');
     await this.waitForIdle();
