@@ -17,6 +17,10 @@ module.exports = defineConfig({
 
   use: {
     baseURL: process.env.SIONIQ_URL || 'https://qa.sioniq.com',
+    // The suite is HEADED-ONLY (Device Radar gate blocks headless logins), so
+    // pin it here instead of relying on the --headed flag - VS Code extension
+    // runs otherwise launch headless and every test dies at the login gate.
+    headless: false,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

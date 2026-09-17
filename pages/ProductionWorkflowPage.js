@@ -450,11 +450,18 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   }
 
   /** Narrow a pending grid via its own Search box (rows can sit on page 2+).
-   *  Searches the FIRST key only - grid search is a single text match. */
+   *  Searches the FIRST key only - grid search is a single text match.
+   *  ONLY the grid's box qualifies - the GLOBAL top-nav search also carries a
+   *  "Search" placeholder and matched first (17-09-2026: P190 typed into the
+   *  nav bar), so anything inside the header/topbar/navbar is excluded. */
   async narrowGrid(rowText) {
     const key = Array.isArray(rowText) ? rowText.find(Boolean) : rowText;
     if (!key) return;
-    const search = this.page.locator('input[placeholder*="Search" i]').locator('visible=true').first();
+    const search = this.page.locator(
+      'xpath=//input[contains(translate(@placeholder, "SEARCH", "search"), "search")'
+      + ' and not(ancestor::header)'
+      + ' and not(ancestor::*[contains(@class, "topbar") or contains(@class, "navbar") or contains(@id, "topbar")])]',
+    ).locator('visible=true').first();
     if (await search.count().catch(() => 0)) {
       await search.fill(String(key)).catch(() => {});
       await this.page.waitForTimeout(2_500);
@@ -1320,13 +1327,9 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.waitForIdle();
     await this.page.waitForTimeout(2_000);
     // the Finalize Queue pages (15/page over 2+ pages, newest first) - narrow
-    // it by the queue's own Search box so the row is found regardless of page
-    const search = this.page.getByRole('textbox', { name: 'Search' })
-      .or(this.page.locator('input[placeholder*="Search" i]')).locator('visible=true').last();
-    if (await search.count().catch(() => 0)) {
-      await search.fill(String(d.rowText)).catch(() => {});
-      await this.page.waitForTimeout(2_500);
-    }
+    // it by the queue's own Search box (nav-search-safe) so the row is found
+    // regardless of page
+    await this.narrowGrid(d.rowText);
     if (!(await this.rowExists(d.rowText, 15_000))) {
       throw new Error(`finalize: job "${d.rowText}" is NOT in the Job Finalize queue - the settlement receipt likely saved without "Move to Job Finalize" checked`);
     }
