@@ -127,6 +127,42 @@ class MetalInwardPage extends StockInwardBasePage {
       '| making charges', mc);
   }
 
+  /**
+   * Env-configured MANDATORY custom dropdowns (Kakkanad shows description
+   * selects on the item step, 18-09-2026) block Add Item silently while
+   * empty. Fill every still-empty select the form marks invalid with its
+   * first offered option - locations without such fields are a no-op.
+   */
+  async fillMandatoryEmptySelects() {
+    for (let round = 0; round < 3; round++) {
+      const invalid = this.page
+        .locator('sioniq-ng-select')
+        .filter({ has: this.page.locator('ng-select.ng-invalid') })
+        .locator('visible=true');
+      const n = await invalid.count();
+      let picked = false;
+      for (let i = 0; i < n; i++) {
+        const wrap = invalid.nth(i);
+        const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        if (val) continue;
+        const name = (await wrap.getAttribute('controlname').catch(() => '')) || '(unnamed)';
+        await wrap.locator('ng-select .ng-select-container').first().click().catch(() => {});
+        await this.page.waitForTimeout(900);
+        const opt = this.page.locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasNotText: /No items found|Type to search/i }).first();
+        if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          console.log(`mandatory custom select "${name}" -> ${((await opt.textContent()) || '').trim()}`);
+          await opt.click().catch(() => {});
+          picked = true;
+          await this.page.waitForTimeout(800);
+        } else {
+          await this.page.keyboard.press('Escape').catch(() => {});
+        }
+      }
+      if (!picked) break;
+    }
+  }
+
   /** Distinctive middle segment of a composed doc no (series permute). */
   shortCore(docNo) {
     const s = String(docNo).replace(/w?june/gi, '').replace(/d4\d{4}\/\d{4}/gi, '');
