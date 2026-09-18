@@ -1,4 +1,5 @@
 const { StockInwardBasePage } = require('./StockInwardBasePage');
+const { DEMO_FILES } = require('../utils/demo-files');
 
 /**
  * Employee — HRMS > Setup > Employee. Route: /hrm/employee-setup.
@@ -42,8 +43,29 @@ class EmployeePage extends StockInwardBasePage {
     await this.page.keyboard.press('Escape'); // close the date-picker popup
   }
 
+  /**
+   * Profile picture (mapped live 18-09-2026): the avatar tile
+   * (.profile-image-wrapper) hides an input[type=file] accepting image/*.
+   * Selecting a file pops a "Profile Preview" dialog (max 2MB) whose Save
+   * uploads the image immediately (files.sioniqerp.com) and paints the
+   * avatar - verify both, or the picture silently never attaches.
+   */
+  async uploadProfilePicture(filePath = DEMO_FILES.profile) {
+    await this.page.locator('.profile-image-wrapper input[type="file"]').setInputFiles(filePath);
+    const dlg = this.page.locator('.modal, [role="dialog"]').filter({ hasText: 'Profile Preview' }).last();
+    await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+    await dlg.getByRole('button', { name: 'Save' }).click();
+    await dlg.waitFor({ state: 'hidden', timeout: 15_000 });
+    const avatar = this.page.locator('.profile-image-wrapper img');
+    await avatar.waitFor({ state: 'visible', timeout: 15_000 });
+    console.log('employee: profile picture uploaded and applied to the avatar');
+  }
+
   /** Fill the whole employee form in dependency order. */
   async fillEmployee(u) {
+    // profile picture first - from the demo folder's profile image
+    await this.uploadProfilePicture(u.profileImage);
+
     await this.firstName.fill(u.firstName);
     await this.lastName.fill(u.lastName);
     await this.displayName.fill(u.displayName);

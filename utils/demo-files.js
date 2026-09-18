@@ -50,6 +50,8 @@ const DEMO_FILES = {
   image1: images[0] || fallback('demo-image-1.jpg'),
   image2: images[1] || fallback('demo-image-2.png'),
   image3: images[2] || fallback('demo-image-3.jpg'),
+  // the employee profile picture - the profile-named image in the demo folder
+  profile: images.find((p) => /profile/i.test(p)) || images[0] || fallback('demo-image-1.jpg'),
   pdf: pdfs[0] || fallback('demo-document.pdf'),
   excel: excels[0] || fallback('demo-sheet.xlsx'),
 };
