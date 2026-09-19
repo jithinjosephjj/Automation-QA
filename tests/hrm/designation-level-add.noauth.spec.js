@@ -27,10 +27,7 @@ const DEPARTMENT = 'Production';
 test.describe('HRM Department - Designation & Level add', () => {
   test('TC-HRM-DSG-01 add a Designation', async ({ loginPage, departmentProcess, page }) => {
     test.setTimeout(240_000);
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     await departmentProcess.open();
     await departmentProcess.selectTab('Designation');
@@ -50,10 +47,7 @@ test.describe('HRM Department - Designation & Level add', () => {
 
   test('TC-HRM-LVL-01 add a Level (with its designation prerequisite)', async ({ loginPage, departmentProcess, page }) => {
     test.setTimeout(300_000);
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     await departmentProcess.open();
 

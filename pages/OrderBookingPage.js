@@ -58,7 +58,7 @@ class OrderBookingPage extends StockInwardBasePage {
     await this.pick('referenceType', referenceType);
     await this.pick('groupCategory', groupCategory, { exact: true });
     await this.pick('category', category, { exact: true });
-    await this.page.waitForTimeout(2_000); // let the article list refilter
+    await this.settle(2_000); // let the article list refilter
     // NO typed search here: the search path returns options missing the
     // joined fields (HSN, short names) and the save then 400s.
     await this.pick('article', article);
@@ -100,7 +100,7 @@ class OrderBookingPage extends StockInwardBasePage {
     this.page.on('response', respListener);
     const toast = this.watchSaveToast(30_000); // armed with the click
     await this.submitBtn.click();
-    await this.page.waitForTimeout(20_000);
+    await this.settle(20_000);
     this.page.off('request', listener);
     this.page.off('response', respListener);
     await this.reportSaveToast('order submit', toast, 2_000);
@@ -125,7 +125,7 @@ class OrderBookingPage extends StockInwardBasePage {
     // Rate and the pricing strip land asynchronously after Gross Weight -
     // clicking Add Items while that fetch is in flight gets rejected.
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     for (let attempt = 1; attempt <= 2; attempt++) {
       await this.addItemBtn.click();
       const deadline = Date.now() + 15_000;

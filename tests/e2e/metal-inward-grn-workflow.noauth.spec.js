@@ -32,10 +32,7 @@ test.describe('Metal Inward - GRN workflow', () => {
     test.setTimeout(420_000);
 
     // ---- login ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Procurement > Operations > Stock Inward, Metal tab ----
     await metalInward.open();
@@ -100,7 +97,7 @@ test.describe('Metal Inward - GRN workflow', () => {
     expect(Number.isNaN(makingCharges)).toBe(false);
 
     // ---- Add Item (proof via the summary panel) ----
-    await metalInward.addItemBtn.click();
+    await metalInward.addItem();
     await expect
       .poll(async () => metalInward.summaryText(), { timeout: 20_000 })
       .toContain('No. of Pieces : 1');
@@ -140,7 +137,7 @@ test.describe('Metal Inward - GRN workflow', () => {
     // the Print dialog's report template must render
     const preview = await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-mi-grn-01-report-preview.png' });
     console.log(`print preview: ${preview}`);
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
 
     // ---- the saved record shows in the list view ----
     await metalInward.verifyRowInList(rcNo);

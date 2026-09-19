@@ -22,10 +22,7 @@ test.describe('Stone Inward - add record', () => {
     test.setTimeout(420_000);
 
     // ---- login ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Step 1 of TC: Stock Inward, Stone tab ----
     await stoneInward.open();
@@ -97,7 +94,7 @@ test.describe('Stone Inward - add record', () => {
     expect(stoneAmount).toBeCloseTo(rateWeight * rate, 1);
 
     // ---- Step 31: Add Items ----
-    await stoneInward.addItemBtn.click();
+    await stoneInward.addItem();
     // (the Stone summary prints "Vendor Name :RAJA" - colon spacing varies per tab)
     await expect
       .poll(async () => stoneInward.summaryText(), { timeout: 20_000 })

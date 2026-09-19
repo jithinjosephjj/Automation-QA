@@ -18,14 +18,14 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     await this.waitForIdle();
     await this.page.getByRole('tab', { name: 'Remodel', exact: true }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   async clickVisibleAdd() {
     await this.waitForSpinner();
     await this.page.locator('button:has(i.ri-add-fill)').locator('visible=true').first().click({ timeout: 60_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   rowMatcher(rowText) {
@@ -37,8 +37,8 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     const row = this.rowMatcher(rowText).first();
     await row.waitFor({ state: 'visible', timeout: 30_000 });
     const box = row.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
-    await this.page.waitForTimeout(1_500);
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
+    await this.settle(1_500);
   }
 
   /** Fill still-empty visible selects generically: each wanted text goes into
@@ -51,10 +51,13 @@ class RemodelWorkflowPage extends StockInwardBasePage {
       let pickedAny = false;
       for (let i = 0; i < n; i++) {
         const wrap = wraps.nth(i);
-        const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        // an empty select has NO .ng-value node - a blind textContent() on it
+        // auto-waits the whole action timeout (15 s) for nothing
+        const value = wrap.locator('.ng-value');
+        const val = (await value.count()) ? ((await value.first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
         if (val) continue;
-        await wrap.locator('ng-select .ng-select-container').first().click().catch(() => {});
-        await this.page.waitForTimeout(1_500);
+        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(1_500);
         let hit = false;
         for (const want of wanted) {
           const re = new RegExp(`^\\s*${String(want).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`);
@@ -63,7 +66,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
             await opt.click();
             hit = true;
             pickedAny = true;
-            await this.page.waitForTimeout(2_000);
+            await this.settle(2_000);
             break;
           }
         }
@@ -79,17 +82,25 @@ class RemodelWorkflowPage extends StockInwardBasePage {
         !/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
+    let saved = false;
+    resp.then(() => { saved = true; });
     await button.click();
-    // post-Submit dialogs: an Add commit and/or a confirming second Submit
-    await this.page.waitForTimeout(2_500);
-    const midAdd = this.page.locator('button').filter({ hasText: /Add\s*\d+/ }).locator('visible=true').last();
-    if (await midAdd.isVisible().catch(() => false)) {
-      await midAdd.click().catch(() => {});
-      console.log('remodel: post-submit Add pressed');
-      await this.page.waitForTimeout(1_500);
+    // post-Submit dialogs: an Add commit and/or a confirming second Submit -
+    // only while the save has NOT fired yet (the page's own Submit stays on
+    // screen during the save; clicking it again used to wait out 15 s)
+    await this.settle(2_500);
+    if (!saved) {
+      const midAdd = this.page.locator('button').filter({ hasText: /Add\s*\d+/ }).locator('visible=true').last();
+      if (await midAdd.isVisible().catch(() => false)) {
+        await midAdd.click({ timeout: 3_000 }).catch(() => {});
+        console.log('remodel: post-submit Add pressed');
+        await this.settle(1_500);
+      }
     }
-    const again = this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last();
-    if (await again.isVisible().catch(() => false)) await again.click().catch(() => {});
+    if (!saved) {
+      const again = this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last();
+      if (await again.isVisible().catch(() => false)) await again.click({ timeout: 3_000 }).catch(() => {});
+    }
     const r = await resp;
     if (!r) throw new Error('Submit fired no save request - form silently blocked');
     const body = await r.json().catch(() => null);
@@ -102,13 +113,13 @@ class RemodelWorkflowPage extends StockInwardBasePage {
 
   async previewAndClose() {
     this.printPreviewError = null;
-    const dialogVisible = await this.printDialog.waitFor({ state: 'visible', timeout: 10_000 })
+    const dialogVisible = await this.printDialog.waitFor({ state: 'visible', timeout: 4_000 })
       .then(() => true).catch(() => false);
     if (dialogVisible) {
       await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     }
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.closeVisibleDialog();
+    await this.settle(1_000);
   }
 
   /**
@@ -125,7 +136,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     await this.pick('masterDataValueID_StockSourceType', sourceType, { exact: true });
     await this.fillEmptySelects([transactionType]);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(inwardNo);
     // the commit button sits below the grid and its NAME CARRIES THE
@@ -133,7 +144,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     const add = this.page.locator('button').filter({ hasText: /Add\s*\d+/ }).locator('visible=true').last();
     await add.scrollIntoViewIfNeeded();
     await add.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('remodel issue: selected stock committed via Add');
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
@@ -170,12 +181,12 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     const rstOpt = (await rcOpt.isVisible().catch(() => false)) ? rcOpt : anyOpt;
     console.log('remodel receipt: Receipt Selection Type ->', ((await rstOpt.textContent()) || '').trim());
     await rstOpt.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     // Issue Stock Source Type = Inward (QA lead)
     await this.pickByLabel('Issue Stock Source Type', 'Inward', { exact: true })
       .catch(() => this.fillEmptySelects(['Inward']));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(issueNo); // Issued Details grid
     // the "Selected Record Item Wise Data" grid renders below with the
@@ -184,8 +195,8 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     await itemRow.waitFor({ state: 'visible', timeout: 20_000 });
     await itemRow.scrollIntoViewIfNeeded();
     const itemBox = itemRow.getByRole('checkbox').first();
-    if (!(await itemBox.isChecked().catch(() => false))) await itemBox.check({ force: true });
-    await this.page.waitForTimeout(1_500);
+    if (!(await itemBox.isChecked({ timeout: 2_000 }).catch(() => false))) await itemBox.check({ force: true });
+    await this.settle(1_500);
 
     // checking the item row pops a "Remodel Details" overlay with the full
     // pre-filled item (weights, making charges, wastage config) - confirm it
@@ -198,7 +209,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
       await details.getByRole('button', { name: 'Submit' }).last().click();
       await details.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
       console.log('remodel receipt: Remodel Details overlay confirmed');
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
 
     // a "+ Add" stages the item when the page offers it
@@ -210,7 +221,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await add.scrollIntoViewIfNeeded();
       await add.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       console.log('remodel receipt: item staged via Add');
     }
     // select the staged row (LAST matching) when an added grid renders one
@@ -218,8 +229,8 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     if (await stagedRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await stagedRow.scrollIntoViewIfNeeded();
       const stagedBox = stagedRow.getByRole('checkbox').first();
-      if (!(await stagedBox.isChecked().catch(() => false))) await stagedBox.check({ force: true }).catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      if (!(await stagedBox.isChecked({ timeout: 2_000 }).catch(() => false))) await stagedBox.check({ force: true, timeout: 3_000 }).catch(() => {});
+      await this.settle(1_000);
     }
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());

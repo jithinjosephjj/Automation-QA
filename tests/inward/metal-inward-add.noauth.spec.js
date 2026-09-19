@@ -30,10 +30,7 @@ test.describe('Metal Inward - add record', () => {
     test.setTimeout(420_000);
 
     // ---- login (Device Radar agent must be running on this machine) ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Step 1 of TC: open Procurement > Operations > Stock Inward ----
     await metalInward.open();
@@ -99,7 +96,7 @@ test.describe('Metal Inward - add record', () => {
     expect(await metalInward.numberOf('Making Charges')).toBeGreaterThan(0);
 
     // ---- Step 47: Add Item ----
-    await metalInward.addItemBtn.click();
+    await metalInward.addItem();
     await expect
       .poll(async () => metalInward.summaryText(), { timeout: 20_000 })
       .toContain('No. of Pieces : 10');

@@ -39,10 +39,7 @@ test.describe('HRM Department - Procurement Processes (Allow Sub Process = false
     test(`${tcId} ${p.name}`, async ({ loginPage, departmentProcess, page }) => {
       test.setTimeout(240_000);
 
-      await loginPage.open();
-      await loginPage.login();
-      await loginPage.throwIfGated();
-      await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+      await loginPage.ensureLoggedIn();
 
       await departmentProcess.open();
       await departmentProcess.selectTab('Process');

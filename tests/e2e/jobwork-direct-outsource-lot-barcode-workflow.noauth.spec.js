@@ -50,10 +50,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
@@ -107,7 +104,7 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
     console.log(`Metal inward saved: ${inwardVoucherNo}`);
 
     await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-jw-dol-02-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await metalInward.verifyRowInList(inwardVoucherNo);
   });
 
@@ -135,10 +132,7 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
     expect(lotNo, 'run TC-JW-DOL-03 first').toBeTruthy();
 
     // per the QA lead's recording this step runs as a DIFFERENT user
-    await loginPage.open();
-    await loginPage.login(DATA.barcode.user);
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn(DATA.barcode.user);
 
     const saved = await barcodeGeneration.generateTag({
       stockIdentityType: DATA.barcode.stockIdentityType,

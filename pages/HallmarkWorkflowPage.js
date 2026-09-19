@@ -17,7 +17,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
     await this.waitForIdle();
     await this.page.getByRole('tab', { name: 'Hallmark' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /**
@@ -33,7 +33,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
     await this.pick('masterDataValueID_StockSourceType', sourceType, { exact: true });
     await this.fillEmptySelects([transactionType]);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(inwardNo);
     // this tab's commit button is "Add Items" (remodel's is "Add <count>")
@@ -44,7 +44,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
       .last();
     await add.scrollIntoViewIfNeeded();
     await add.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('hallmark issue: selected stock committed via Add');
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
@@ -79,12 +79,12 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
       const opt = (await rcOpt.isVisible().catch(() => false)) ? rcOpt : anyOpt;
       console.log('hallmark receipt: Receipt Selection Type ->', ((await opt.textContent()) || '').trim());
       await opt.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     await this.pickByLabel('Issue Stock Source Type', 'Inward', { exact: true })
       .catch(() => this.fillEmptySelects(['Inward']));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(issueNo);
     // item-wise grid row (when rendered) - may pop a Details overlay
@@ -92,8 +92,8 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
     if (await itemRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await itemRow.scrollIntoViewIfNeeded();
       const itemBox = itemRow.getByRole('checkbox').first();
-      if (!(await itemBox.isChecked().catch(() => false))) await itemBox.check({ force: true });
-      await this.page.waitForTimeout(1_500);
+      if (!(await itemBox.isChecked({ timeout: 2_000 }).catch(() => false))) await itemBox.check({ force: true });
+      await this.settle(1_500);
       const details = this.page
         .locator('.offcanvas, .modal, ngb-modal-window, [role="dialog"]')
         .filter({ hasText: /Details/ })
@@ -102,7 +102,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
         await details.getByRole('button', { name: 'Submit' }).last().click();
         await details.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
         console.log('hallmark receipt: Details overlay confirmed');
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
     }
     const add = this.page.locator('button')
@@ -113,15 +113,15 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
     if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await add.scrollIntoViewIfNeeded();
       await add.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       console.log('hallmark receipt: item staged via Add');
     }
     const stagedRow = this.rowMatcher(issueNo).last();
     if (await stagedRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await stagedRow.scrollIntoViewIfNeeded();
       const stagedBox = stagedRow.getByRole('checkbox').first();
-      if (!(await stagedBox.isChecked().catch(() => false))) await stagedBox.check({ force: true }).catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      if (!(await stagedBox.isChecked({ timeout: 2_000 }).catch(() => false))) await stagedBox.check({ force: true, timeout: 3_000 }).catch(() => {});
+      await this.settle(1_000);
     }
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());

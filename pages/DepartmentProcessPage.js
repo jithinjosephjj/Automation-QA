@@ -46,7 +46,7 @@ class DepartmentProcessPage extends StockInwardBasePage {
     await this.waitForSpinner();
     await this.page.getByRole('tab', { name: new RegExp(`^${tabName}$`) }).first().click({ timeout: 20_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /** Open the Add offcanvas for the current tab. Waits on the panel's Submit
@@ -89,10 +89,10 @@ class DepartmentProcessPage extends StockInwardBasePage {
       : new RegExp(escapeRe(optionText), 'i');
     for (let attempt = 1; attempt <= 4; attempt++) {
       await this.closeDropdown();
-      await wrap.locator('.ng-select-container').click().catch(() => {});
+      await wrap.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
       if (search) {
         await wrap.locator('input[role="combobox"]').fill(optionText).catch(() => {});
-        await this.page.waitForTimeout(1_800);
+        await this.settle(1_800);
       }
       const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Select all/i });
       const target = first ? opts.first() : opts.filter({ hasText: pattern }).first();
@@ -112,12 +112,12 @@ class DepartmentProcessPage extends StockInwardBasePage {
   async ensureCheck(id, checked = true) {
     const box = this.panel.locator(`#${id}`).first();
     if (!(await box.count())) return;
-    const state = await box.isChecked().catch(() => null);
+    const state = await box.isChecked({ timeout: 2_000 }).catch(() => null);
     if (state === checked) return;
     // styled checkboxes swallow clicks - try the label, then force the input
     const label = this.panel.locator(`label[for="${id}"]`).first();
     if (await label.count()) await label.click({ timeout: 4_000 }).catch(() => {});
-    if ((await box.isChecked().catch(() => !checked)) !== checked) {
+    if ((await box.isChecked({ timeout: 2_000 }).catch(() => !checked)) !== checked) {
       await (checked ? box.check({ force: true }) : box.uncheck({ force: true })).catch(() => {});
     }
   }
@@ -134,7 +134,7 @@ class DepartmentProcessPage extends StockInwardBasePage {
     if (!(await wrap.count())) return false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       await this.closeDropdown();
-      await wrap.locator('.ng-select-container').click().catch(() => {});
+      await wrap.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
       await this.page.waitForTimeout(600);
       const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i });
       const target = first
@@ -164,13 +164,13 @@ class DepartmentProcessPage extends StockInwardBasePage {
       let pickedAny = false;
       for (let i = 0; i < n; i++) {
         const wrap = wraps.nth(i);
-        const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        const val = ((await wrap.locator('.ng-value').first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim();
         if (val) continue;
-        await wrap.locator('ng-select .ng-select-container').first().click().catch(() => {});
-        await this.page.waitForTimeout(1_000);
+        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(1_000);
         const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Select all/i }).first();
         if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          await opt.click().catch(() => {});
+          await opt.click({ timeout: 3_000 }).catch(() => {});
           pickedAny = true;
           await this.page.waitForTimeout(800);
           await this.closeDropdown(); // multi-selects keep the panel open
@@ -227,7 +227,7 @@ class DepartmentProcessPage extends StockInwardBasePage {
   /** Current selected label of an offcanvas select ('' when empty). */
   async panelValue(controlname) {
     const v = this.panel.locator(`sioniq-ng-select[controlname="${controlname}"] .ng-value`).first();
-    return ((await v.textContent().catch(() => '')) || '').replace(/×/g, '').trim();
+    return ((await v.textContent({ timeout: 2_000 }).catch(() => '')) || '').replace(/×/g, '').trim();
   }
 
   /**
@@ -315,7 +315,7 @@ class DepartmentProcessPage extends StockInwardBasePage {
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`${label} save rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
     }
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     // the offcanvas RESETS to a blank "Add new record" form after save rather
     // than closing - close it (via the X, never Escape) so the list / tabs are
     // reachable again
@@ -357,16 +357,16 @@ class DepartmentProcessPage extends StockInwardBasePage {
     if (await search.count()) {
       await search.fill('');
       await search.fill(name);
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     for (let i = 0; i < 5; i++) {
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       if ((await this.gridRows.filter({ hasText: name }).count()) > 0) {
         console.log(`grid shows: ${name}`);
         return true;
       }
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
     throw new Error(`Saved record "${name}" never appeared in the list`);
   }

@@ -46,10 +46,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
@@ -73,7 +70,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
     await expect(stoneInward.select('refType')).toBeVisible({ timeout: 30_000 });
 
     await stoneInward.fillItem(DATA.inward.item);
-    await stoneInward.addItemBtn.click();
+    await stoneInward.addItem();
     await expect
       .poll(async () => stoneInward.summaryText(), { timeout: 20_000 })
       .toMatch(/Vendor Name\s*:\s*RAJA/);
@@ -90,7 +87,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
     console.log(`Stone inward saved: ${inwardVoucherNo} (invoice ${invoiceNo})`);
 
     await stoneInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-sal-01-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await stoneInward.verifyRowInList(inwardVoucherNo);
   });
 
@@ -151,10 +148,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
     const { lotNo } = state.readState();
     expect(lotNo, 'run TC-SAL-04 first').toBeTruthy();
 
-    await loginPage.open();
-    await loginPage.login(DATA.barcode.user);
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn(DATA.barcode.user);
 
     const saved = await barcodeGeneration.generateTag({
       itemType: DATA.barcode.itemType,

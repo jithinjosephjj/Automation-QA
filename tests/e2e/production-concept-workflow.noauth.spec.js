@@ -18,7 +18,7 @@ const { readState, writeState } = require('../../utils/e2e-state');
  *   05 Worker Issue + Receipt round 1 (CAD Modeling, worker Prabhat).
  *   06 Process Movement Transfer (-> Casting Process / Casting Inspection)
  *      then Accept (Casting Process).
- *   07 Worker Issue + Receipt round 2 (Casting, worker Sioniquser11; item
+ *   07 Worker Issue + Receipt round 2 (Casting, worker Sioniquser16; item
  *      Gold,Ring-Tendulkar / 91.60 / 5.000g / Move to Job Finalize).
  *   08 Job Finalize: select the job and Generate Barcode.
  *
@@ -38,7 +38,7 @@ const DATA = {
   },
   worker: 'Worker Naveen',
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   item: {
     articleSearch: 'tendu',
     article: 'Gold,Ring-Tendulkar',
@@ -50,10 +50,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 /** The grid-row key: job work no when we have it, else the concept no. */
@@ -156,7 +153,7 @@ test.describe('Production - Concept - Workflow', () => {
     console.log('Process movement accepted at Casting Process');
   });
 
-  test('TC-PRD-E2E-07 worker issue and receipt with item (Casting, Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-PRD-E2E-07 worker issue and receipt with item (Casting, Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
     const header = {

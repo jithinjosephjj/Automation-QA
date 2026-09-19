@@ -59,7 +59,7 @@ class MetalInwardPage extends StockInwardBasePage {
     // "Order" for jobworks raised from an order; "Direct" for direct jobworks
     await this.pick('inwardType', inwardType, { exact: true });
     await this.pick('purchaseType', 'Direct', { exact: true });
-    await this.page.waitForTimeout(2_000); // vendor list refetches per the types
+    await this.settle(2_000); // vendor list refetches per the types
     await this.pick('vendor', vendor);
     if (invoiceNo) await this.invoiceNo.fill(invoiceNo);
     if (invoiceDate) {
@@ -78,7 +78,7 @@ class MetalInwardPage extends StockInwardBasePage {
    */
   async addJobworkItem(jobWorkItemNo) {
     await this.pick('jobWorkItemNo', jobWorkItemNo);
-    await this.page.waitForTimeout(2_500); // let the auto-fill settle
+    await this.settle(2_500); // let the auto-fill settle
     const article = await this.selectValue('article');
     console.log(`jobwork item ${jobWorkItemNo} auto-filled article: ${article}`);
     await this.addItemBtn.click();
@@ -99,7 +99,7 @@ class MetalInwardPage extends StockInwardBasePage {
   async fillItemFromGoodsReceipt({ goodsReceiptNo, entryMode = 'SINGLE TAG', referenceType = 'Combination', article = 'Tendulkar', purity = '91.60', noOfPcs, grossWeightWithTare, makingType = 'Direct', makingCharges = 1200 }) {
     await this.pickByLabel('Goods Receipt', this.shortCore(goodsReceiptNo))
       .catch(() => this.pick('goodsReceipt', this.shortCore(goodsReceiptNo)));
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // the GR pick does NOT auto-fill the item (unlike the jobwork one-pick):
     // entry data and the gross-with-tare weight are entered manually; rate
@@ -110,20 +110,20 @@ class MetalInwardPage extends StockInwardBasePage {
     if (!(await this.selectValue('purity'))) await this.pick('purity', purity);
     if (noOfPcs !== undefined && !(await this.noOfPcs.inputValue())) await this.noOfPcs.fill(String(noOfPcs));
     const gwt = this.inputByLabel('Gross Weight With Tare');
-    if (grossWeightWithTare !== undefined && !Number(await gwt.inputValue().catch(() => 0))) {
+    if (grossWeightWithTare !== undefined && !Number(await gwt.inputValue({ timeout: 2_000 }).catch(() => 0))) {
       await this.fillByLabel('Gross Weight With Tare', grossWeightWithTare);
     }
     if (!(await this.selectValue('makingType').catch(() => 'skip'))) {
       await this.pick('makingType', makingType).catch(() => {});
     }
-    const mc = await this.makingCharges.inputValue().catch(() => 'skip');
+    const mc = await this.makingCharges.inputValue({ timeout: 2_000 }).catch(() => 'skip');
     if (makingCharges !== undefined && !mc) {
       await this.makingCharges.fill(String(makingCharges));
       await this.makingCharges.blur();
     }
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('GR item state: article', await this.selectValue('article').catch(() => ''),
-      '| gross with tare', await gwt.inputValue().catch(() => '?'),
+      '| gross with tare', await gwt.inputValue({ timeout: 2_000 }).catch(() => '?'),
       '| making charges', mc);
   }
 
@@ -134,27 +134,33 @@ class MetalInwardPage extends StockInwardBasePage {
    * first offered option - locations without such fields are a no-op.
    */
   async fillMandatoryEmptySelects() {
-    for (let round = 0; round < 3; round++) {
-      const invalid = this.page
-        .locator('sioniq-ng-select')
-        .filter({ has: this.page.locator('ng-select.ng-invalid') })
-        .locator('visible=true');
+    // the invalid list SHRINKS as selects get filled, so always take the
+    // first still-invalid one instead of indexing a snapshot
+    const invalid = this.page
+      .locator('sioniq-ng-select')
+      .filter({ has: this.page.locator('ng-select.ng-invalid') })
+      .locator('visible=true');
+    for (let round = 0; round < 8; round++) {
       const n = await invalid.count();
       let picked = false;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n && !picked; i++) {
         const wrap = invalid.nth(i);
-        const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        if ((await invalid.count()) <= i) break;
+        // an empty select has NO .ng-value node - never call textContent() on
+        // it blind, that auto-waits the full action timeout (15 s) for nothing
+        const value = wrap.locator('.ng-value');
+        const val = (await value.count()) ? ((await value.first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
         if (val) continue;
-        const name = (await wrap.getAttribute('controlname').catch(() => '')) || '(unnamed)';
-        await wrap.locator('ng-select .ng-select-container').first().click().catch(() => {});
-        await this.page.waitForTimeout(900);
+        const name = (await wrap.getAttribute('controlname', { timeout: 2_000 }).catch(() => '')) || '(unnamed)';
+        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(900);
         const opt = this.page.locator('.ng-dropdown-panel .ng-option')
           .filter({ hasNotText: /No items found|Type to search/i }).first();
         if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           console.log(`mandatory custom select "${name}" -> ${((await opt.textContent()) || '').trim()}`);
-          await opt.click().catch(() => {});
+          await opt.click({ timeout: 3_000 }).catch(() => {});
           picked = true;
-          await this.page.waitForTimeout(800);
+          await this.settle(800);
         } else {
           await this.page.keyboard.press('Escape').catch(() => {});
         }
@@ -186,7 +192,13 @@ class MetalInwardPage extends StockInwardBasePage {
     await this.fillByLabel('Gross Weight With Tare', grossWeightWithTare);
     // Rate exists on the Invoice item form only - the GRN form has NO Rate
     // field (goods are received unpriced), so callers omit it there.
-    if (rate !== undefined) await this.fillByLabel('Rate', rate);
+    if (rate !== undefined) {
+      await this.fillByLabel('Rate', rate);
+      this.lastItemRate = rate; // the review step's Pure Rate falls back to it
+    }
+    // mandatory custom description dropdowns (app change, Sept 2026): Add Item
+    // silently does nothing while any of them is empty
+    await this.fillMandatoryEmptySelects();
   }
 }
 

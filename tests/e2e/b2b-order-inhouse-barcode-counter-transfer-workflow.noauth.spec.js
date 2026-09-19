@@ -19,7 +19,7 @@ const state = makeState('e2e-b2b-order-tag-transfer-state.json');
  *             TC-B2B-JFT-02  Job Work from the order, INHOUSE, PU Cochin
  *   Cochin    TC-B2B-JFT-03  Job Assignment -> Casting Process / Casting Inspection
  *             TC-B2B-JFT-04  Process Movement accept
- *             TC-B2B-JFT-05  Worker Issue (Sioniquser11)
+ *             TC-B2B-JFT-05  Worker Issue (Sioniquser16)
  *             TC-B2B-JFT-06  Worker Receipt (item form, Move to Job Finalize)
  *             TC-B2B-JFT-07  Job Finalize -> Generate Barcode
  *             TC-B2B-JFT-08  Generated Tags - read the tag number
@@ -67,7 +67,7 @@ const DATA = {
   // 17-09-2026) - qa has a single production unit; the chain still runs
   // logged into Kakkanad throughout
   productionUnit: 'Cochin',
-  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   item: {
     articleSearch: 'tendu',
     article: 'Gold,Ring-Tendulkar',
@@ -83,10 +83,7 @@ const DATA = {
 };
 
 async function login(loginPage, page, creds = KAKKANAD) {
-  await loginPage.open();
-  await loginPage.login(creds);
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn(creds);
 }
 
 function rowKey() {
@@ -203,7 +200,7 @@ test.describe('B2B Order - Job Finalize Tag - Counter - Transfer Kakkanad to Coc
     console.log('Process movement accepted at Casting');
   });
 
-  test('TC-B2B-JFT-05 Cochin: worker issue (Casting, Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-JFT-05 Cochin: worker issue (Casting, Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     expect(rowKey().length, 'run TC-B2B-JFT-02 first').toBeGreaterThan(0);
     await login(loginPage, page, COCHIN);

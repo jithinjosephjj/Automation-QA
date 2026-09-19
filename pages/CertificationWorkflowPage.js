@@ -34,7 +34,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
       const n = await rows.count().catch(() => 0);
       const parts = [];
       for (let i = 0; i < n; i++) {
-        parts.push(((await rows.nth(i).innerText().catch(() => '')) || ''));
+        parts.push(((await rows.nth(i).innerText({ timeout: 2_000 }).catch(() => '')) || ''));
       }
       // checking a row can open a details panel (Stone Assorting's "Add
       // Stone Details") that detaches the grid row - the values then live
@@ -43,7 +43,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
         .locator('.offcanvas, .modal, ngb-modal-window, [role="dialog"]')
         .locator('visible=true')
         .last();
-      parts.push(((await panel.innerText().catch(() => '')) || ''));
+      parts.push(((await panel.innerText({ timeout: 2_000 }).catch(() => '')) || ''));
       // panel values (weights) sit in disabled inputs - innerText misses them
       const inputVals = await panel.locator('input')
         .evaluateAll((els) => els.map((e) => e.value).filter(Boolean))
@@ -54,7 +54,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
         console.log(`row/panel verified for ${key}:`, txt.slice(0, 220));
         return;
       }
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
     const missing = patterns.filter((re) => !re.test(txt));
     throw new Error(`grid row for "${key}" does not show ${missing.join(', ')}. Rows: "${txt}"`);
@@ -88,12 +88,12 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
       await sel.locator('.ng-select-container').click();
       if (search) {
         await sel.locator('input[role="combobox"]').fill(String(optionText)).catch(() => {});
-        await this.page.waitForTimeout(2_000); // server-side filter debounce
+        await this.settle(2_000); // server-side filter debounce
       }
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
       if (found && (await wanted.first().click({ timeout: 10_000 }).then(() => true).catch(() => false))) {
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
         return;
       }
       await this.page.keyboard.press('Escape');
@@ -108,7 +108,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     await tab.waitFor({ state: 'visible', timeout: 60_000 });
     await tab.click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /**
@@ -125,7 +125,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     await this.pick('masterDataValueID_StockSourceType', sourceType, { exact: true });
     await this.fillEmptySelects([transactionType]);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(inwardNo);
     if (expectInRow) await this.verifyRowText(inwardNo, expectInRow);
@@ -136,7 +136,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
       .last();
     await add.scrollIntoViewIfNeeded();
     await add.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('certification issue: selected stock committed via Add');
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
@@ -168,7 +168,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
       const opt = (await rcOpt.isVisible().catch(() => false)) ? rcOpt : anyOpt;
       console.log('certification receipt: Receipt Selection Type ->', ((await opt.textContent()) || '').trim());
       await opt.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
 
     await this.page.getByPlaceholder('Enter Invoice Number').fill(invoiceNo);
@@ -185,7 +185,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     // sioniq-ng-select wrapper - address it structurally by caption text
     await this.pickByCaption('Issue Stock Source Type', 'Inward');
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(issueNo);
     if (expectInRow) await this.verifyRowText(issueNo, expectInRow);
@@ -194,8 +194,8 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     if (await itemRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await itemRow.scrollIntoViewIfNeeded();
       const itemBox = itemRow.getByRole('checkbox').first();
-      if (!(await itemBox.isChecked().catch(() => false))) await itemBox.check({ force: true });
-      await this.page.waitForTimeout(1_500);
+      if (!(await itemBox.isChecked({ timeout: 2_000 }).catch(() => false))) await itemBox.check({ force: true });
+      await this.settle(1_500);
       const details = this.page
         .locator('.offcanvas, .modal, ngb-modal-window, [role="dialog"]')
         .filter({ hasText: /Details/ })
@@ -204,7 +204,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
         await details.getByRole('button', { name: 'Submit' }).last().click();
         await details.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
         console.log('certification receipt: Details overlay confirmed');
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
     }
     const add = this.page.locator('button')
@@ -215,15 +215,15 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await add.scrollIntoViewIfNeeded();
       await add.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       console.log('certification receipt: item staged via Add');
     }
     const stagedRow = this.rowMatcher(issueNo).last();
     if (await stagedRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await stagedRow.scrollIntoViewIfNeeded();
       const stagedBox = stagedRow.getByRole('checkbox').first();
-      if (!(await stagedBox.isChecked().catch(() => false))) await stagedBox.check({ force: true }).catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      if (!(await stagedBox.isChecked({ timeout: 2_000 }).catch(() => false))) await stagedBox.check({ force: true, timeout: 3_000 }).catch(() => {});
+      await this.settle(1_000);
     }
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());

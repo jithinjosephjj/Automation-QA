@@ -29,10 +29,7 @@ test.describe('B2B Order Booking - add record', () => {
     test.setTimeout(420_000);
 
     // ---- login ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Sales & Distribution > B2B > Order, B2B Order Booking tab ----
     await b2bOrderBooking.open();

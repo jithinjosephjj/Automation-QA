@@ -11,3 +11,5 @@ results.json
 olg-*.txt
 *-run.txt
 probe-out.txt
+
+auth/sessions/

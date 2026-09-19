@@ -29,16 +29,16 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     const search = this.page.getByRole('combobox', { name: 'Search' });
     await search.click();
     await search.fill('stone as');
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     await search.press('ArrowDown');
     await search.press('Enter');
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     console.log('stone assorting page:', this.page.url());
     if (tab) {
       await this.page.getByRole('tab', { name: tab }).click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
   }
 
@@ -55,26 +55,26 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
       const n = await wraps.count();
       for (let i = 0; i < n; i++) {
         const w = wraps.nth(i);
-        const val = ((await w.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        const val = ((await w.locator('.ng-value').first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim();
         if (val) continue;
         if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
           await this.page.keyboard.press('Escape');
           await this.page.waitForTimeout(300);
         }
-        await w.locator('.ng-select-container').click().catch(() => {});
+        await w.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
         if (search) {
           await w.locator('input[role="combobox"]').fill(search).catch(() => {});
         }
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
         const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: pattern }).first();
         if (await opt.isVisible().catch(() => false)) {
           await opt.click();
-          await this.page.waitForTimeout(2_000);
+          await this.settle(2_000);
           return;
         }
         await this.page.keyboard.press('Escape');
       }
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     throw new Error(`No empty raw ng-select offered an option matching ${pattern}`);
   }
@@ -83,15 +83,15 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
   async closeThenNext({ next = true } = {}) {
     const close = this.page.getByText('Close', { exact: true }).locator('visible=true').last();
     if (await close.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await close.click().catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      await close.click({ timeout: 3_000 }).catch(() => {});
+      await this.settle(1_000);
     }
     if (next) {
       const nextBtn = this.page.getByRole('button', { name: /Next/ }).locator('visible=true').last();
       if (await nextBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await nextBtn.click();
         await this.waitForIdle();
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
     }
   }
@@ -106,14 +106,14 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.pickEmptyRaw(transactionType);
     await this.pickEmptyRaw(vendor);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // the inward grid pages (dozens of records, not strictly newest-first)
     // - narrow it via the form's own RC No typeahead before picking the row
     await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true })
       .catch((e) => console.log('assorting issue: RC No pick skipped -', String(e).slice(0, 100)));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     await this.checkRow(inwardNo).catch(() => this.checkRow(this.docCore(inwardNo)));
     if (expectInRow) await this.verifyRowText(inwardNo, expectInRow);
     await this.pickEmptyRaw(new RegExp(employee, 'i'), { search: employee.slice(0, 4) });
@@ -124,7 +124,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
       .last();
     await add.scrollIntoViewIfNeeded();
     await add.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('assorted issue: inward committed via Add');
     await this.closeThenNext({ next: true });
 
@@ -142,7 +142,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
 
     await this.pickEmptyRaw(new RegExp(employee, 'i'), { search: employee.slice(0, 4) });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(this.docCore(issueNo));
     if (expectInRow) await this.verifyRowText(this.docCore(issueNo), expectInRow);
@@ -152,7 +152,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
       .last();
     await add.scrollIntoViewIfNeeded();
     await add.click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     console.log('assorted receipt: issue committed via Add Items');
     await this.closeThenNext({ next: false });
 

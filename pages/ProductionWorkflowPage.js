@@ -23,14 +23,14 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.goto(route);
     await this.waitForIdle();
     if (readyLocator) await readyLocator.waitFor({ state: 'visible', timeout: 30_000 });
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   async clickAdd() {
     await this.page.locator('.ngx-spinner-overlay').last().waitFor({ state: 'hidden', timeout: 60_000 }).catch(() => {});
     await this.addBtn.click({ timeout: 60_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /** Sub-tab links on the Concept page (Concept / Uploads / Approval). */
@@ -39,7 +39,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (name !== 'Concept') {
       await this.page.locator('a').filter({ hasText: new RegExp(`^${name}$`) }).last().click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
   }
 
@@ -52,13 +52,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   async attachImage(filePath) {
     const fileInput = this.page.locator('input[type="file"]').first();
     await fileInput.setInputFiles(filePath);
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // commit the image to the form's image list when the button is present
     const addImage = this.page.getByRole('button', { name: 'Add Image' });
     if (await addImage.isVisible().catch(() => false)) {
       await addImage.click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
 
     const preview = this.page.locator('.image-card, img[src^="blob:"], img[src^="data:"]').last();
@@ -72,7 +72,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.page.getByRole('button', { name: 'Submit' }).click();
     await this.printDialog.waitFor({ state: 'visible', timeout: 120_000 });
     const docNo = await this.voucherNumber();
-    await this.page.locator('.btn-close').last().click().catch(() => {});
+    await this.closeVisibleDialog();
     await this.printDialog.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
     return docNo;
   }
@@ -103,7 +103,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.attachImage(DEMO_FILES.image2);
     await this.page.getByRole('button', { name: 'Submit' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(3_000);
+    await this.settle(3_000);
   }
 
   // ---------- 1c. Concept Approval ----------
@@ -115,7 +115,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('concept', d.concept, { exact: true });
     // select the uploaded image card
     await this.page.locator('.image-card > .invisible-click').first().click();
-    await this.page.waitForTimeout(1_000);
+    await this.settle(1_000);
     // approval status dropdown appears with the remaining empty select
     await this.pickByLabel('Status', 'Concept Approved').catch(async () => {
       // fallback: the last still-empty ng-select on the form
@@ -126,7 +126,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.page.getByRole('textbox', { name: 'Enter Remarks' }).fill(d.remarks);
     await this.page.getByRole('button', { name: 'Submit' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(3_000);
+    await this.settle(3_000);
   }
 
   // ---------- 1 (Master Design variant) ----------
@@ -140,7 +140,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.openRoute('/prd/view-master-design');
     await this.clickAdd();
     await this.pick('creationType', d.creationType || 'Create Master Design', { exact: true });
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     if (d.itemType) await this.pick('itemType', d.itemType, { exact: true });
     await this.pick('weightRangeType', d.weightType || 'Net Weight', { exact: true });
 
@@ -155,7 +155,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const pickArticleIn = async (sel) => {
       await sel.locator('.ng-select-container').click();
       await sel.locator('input[role="combobox"]').fill(articleText).catch(() => {});
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: articleText }).first();
       await opt.waitFor({ state: 'visible', timeout: 15_000 });
       await opt.click();
@@ -166,11 +166,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     } catch {
       // trigger validation to expose the mandatory article select, then fix it
       await this.page.getByRole('button', { name: 'Submit' }).click();
-      await this.page.waitForTimeout(3_000);
+      await this.settle(3_000);
       const flagged = this.page.locator('ng-select.ng-invalid, ng-select.is-invalid').locator('visible=true').first();
       await pickArticleIn(flagged);
     }
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // "Description Fields" section: a mandatory preset dropdown (label is a
     // configured custom field, e.g. "Descriptionttest") - option "Test 2".
@@ -184,7 +184,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       const dOpt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.description }).first();
       await dOpt.waitFor({ state: 'visible', timeout: 15_000 });
       await dOpt.click();
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
     }
 
     await this.attachImage(d.imagePath);
@@ -214,14 +214,14 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (!designNo && (await this.printDialog.isVisible({ timeout: 5_000 }).catch(() => false))) {
       designNo = await this.voucherNumber();
     }
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.closeVisibleDialog();
 
     // The save response carries no design number - read the Design Code from
     // the list view's newest row (newest-first: "1 RDDDD4 Metal ...").
     if (!designNo) {
       await this.openRoute('/prd/view-master-design');
-      await this.page.waitForTimeout(2_000);
-      const firstRow = await this.page.locator('table tbody tr').first().innerText().catch(() => '');
+      await this.settle(2_000);
+      const firstRow = await this.page.locator('table tbody tr').first().innerText({ timeout: 2_000 }).catch(() => '');
       designNo = (firstRow.trim().split(/\s+/)[1] || '').trim();
       console.log(`design number from list top row: ${designNo}`);
     }
@@ -242,7 +242,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.openRoute('/prd/view-job-work');
     await this.clickAdd();
     await this.pick('generationType', generationType, { exact: true });
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     if (generationType === 'Master Design') {
       // KNOWN APP BUG (QA lead, 29-08-2026): selecting a design in the
@@ -251,9 +251,9 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       // design CARD from the full grid - newest design is the first card.
       const firstCard = this.page.locator('.invisible-click').first();
       await firstCard.waitFor({ state: 'visible', timeout: 30_000 });
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       await firstCard.click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       // the card carries its own Qty number input (defaults to 1) - set it
       // explicitly; do NOT touch the "Qty (applies to all)" header field
       // (filling it blocked Submit in testing)
@@ -268,10 +268,10 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         const sel = this.page.locator('ng-select').filter({ hasText: 'Please Select' }).first();
         await sel.locator('.ng-select-container').click();
         await sel.locator('input[role="combobox"]').fill(refNo);
-        await this.page.waitForTimeout(2_500);
+        await this.settle(2_500);
         await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: refNo }).first().click();
       });
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       const selector = this.page.locator('label.invisible-click, .image-card > .invisible-click');
       if (await selector.count()) await selector.first().click();
       const remarks = this.page.locator('input[type="text"]:visible, textarea:visible').filter({ hasNot: this.page.locator('[role="combobox"]') }).last();
@@ -298,7 +298,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       throw new Error('Job work Submit fired no save request - form silently blocked (check for the filter bug)');
     }
     // close a print dialog if one opened
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     return jobWorkNo;
   }
 
@@ -366,7 +366,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .locator('xpath=following::ng-select[3]');
         await sel.locator('.ng-select-container').click();
         await sel.locator('input[role="combobox"]').fill(sampleNo).catch(() => {});
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
         const opt = this.page
           .locator('.ng-dropdown-panel .ng-option')
           .filter({ hasText: new RegExp(sampleNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })
@@ -375,7 +375,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         await opt.click();
       }).catch((e) => console.log(`assignJob: sample no filter skipped (${String(e).split('\n')[0]})`));
     }
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // grid row for our concept/job/sample - check it
     await this.checkRow(d.rowText);
@@ -384,7 +384,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const update = this.page.getByRole('button', { name: /Update$/ }).locator('visible=true').first();
     if (await update.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await update.click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       // samples created ON the order pop an "Edit Item Details" overlay that
       // must be confirmed with its own footer Update before the process
       // picks are reachable
@@ -396,7 +396,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         await editPanel.getByRole('button', { name: /Update$/ }).last().click();
         await editPanel.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
         console.log('assignJob: Edit Item Details panel confirmed');
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
     }
 
@@ -429,8 +429,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       throw new Error(`Job assignment save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
     await this.waitForIdle();
-    await this.page.waitForTimeout(3_000);
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.settle(3_000);
+    await this.closeVisibleDialog();
     // the allotted PRODUCTION number (J-series): downstream grids - the
     // accept-after-transfer one especially - key rows by IT, not the job no
     const prodNo = body && body.data && body.data[0] && body.data[0].receiptNo;
@@ -470,20 +470,20 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await search.fill(String(key)).catch(() => {});
       // the filter fires behind the ngx-spinner and the grid RE-RENDERS -
       // wait the loader out fully or the next click races it
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
       await this.waitForSpinner();
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       // NOT every grid indexes the doc number (Worker Issue does not, QA
       // 17-09-2026) - there the search filters our row OUT. If no matching
       // row survived, CLEAR the search and fall back to the unfiltered grid.
       if (!(await this.rowExists(rowText, 3_000))) {
         console.log(`narrowGrid: search "${key}" matched nothing - clearing (this grid may not index the doc number)`);
         await search.fill('').catch(() => {});
-        await this.page.waitForTimeout(1_000);
+        await this.settle(1_000);
         await this.waitForSpinner();
         await this.waitForIdle();
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
     }
   }
@@ -498,10 +498,10 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await this.waitForSpinner();
       // re-resolve the row each attempt - the node may have been replaced
       const box = this.rowMatcher(rowText).first().getByRole('checkbox').first();
-      if (await box.isChecked().catch(() => false)) return;
+      if (await box.isChecked({ timeout: 2_000 }).catch(() => false)) return;
       await box.check({ force: true, timeout: 10_000 }).catch(() => {});
       await this.page.waitForTimeout(800);
-      if (await box.isChecked().catch(() => false)) return;
+      if (await box.isChecked({ timeout: 2_000 }).catch(() => false)) return;
       console.log(`checkRow: check did not stick (attempt ${attempt}) - grid likely re-rendered, retrying`);
     }
     throw new Error(`row checkbox for "${Array.isArray(rowText) ? rowText.join('|') : rowText}" never took the check after 4 attempts`);
@@ -529,7 +529,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   // ---------- 4/6. Process Movement ----------
   async processMovementAccept(d) {
     await this.openRoute('/prd/app-process-movement-setup');
-    await this.page.getByRole('tab', { name: 'Accept' }).click().catch(() => {});
+    await this.page.getByRole('tab', { name: 'Accept' }).click({ timeout: 3_000 }).catch(() => {});
     await this.clickAdd();
     await this.pick('process', d.process, { search: true });
     if (d.subProcess) await this.pick('subProcess', d.subProcess, { search: true }).catch(() => {});
@@ -555,7 +555,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         .isVisible().catch(() => false);
       if (anyRow) break;
       await this.waitForSpinner();
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
     }
     // grids key rows by doc numbers we may not hold - first pending row is
     // ours (grid pre-filtered by process + source)
@@ -575,8 +575,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     else console.log('processMovementAccept: WARNING - no accept save response captured');
     await this.reportSaveToast(`movement accept ${d.process}/${d.sourceType || 'Job Work'}`, toast);
     await this.waitForIdle();
-    await this.page.waitForTimeout(3_000);
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.settle(3_000);
+    await this.closeVisibleDialog();
     return 'accepted';
   }
 
@@ -601,7 +601,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (d.productionNo) {
       await this.pickByLabel('Production No With Sub No', d.productionNo, { search: true, closePanel: true }).catch(() => {});
     }
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     if (!(await this.selectRowOrFirst(d.rowText))) {
       console.log(`processMovementTransfer: nothing pending at ${d.fromProcess} - already transferred, skipping`);
@@ -612,8 +612,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pickByLabel('To Sub Process', d.toSubProcess);
     await this.page.getByRole('button', { name: 'Submit' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(3_000);
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.settle(3_000);
+    await this.closeVisibleDialog();
   }
 
   // ---------- 5/7. Worker Issue / Receipt ----------
@@ -621,7 +621,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.openRoute('/prd/app-worker-issue-receipt-setup');
     await this.page.getByRole('tab', { name: tab }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     await this.clickAdd();
   }
 
@@ -639,7 +639,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     // because a silent failure produces an empty grid and a FALSE
     // "already issued" skip.
     if (d.itemType) {
-      await this.page.waitForTimeout(1_500); // the select renders after the source pick
+      await this.settle(1_500); // the select renders after the source pick
       const itCtl = (await this.page.locator('sioniq-ng-select[controlname="masterDataValueID_JewelleryItemType"]').count())
         ? 'masterDataValueID_JewelleryItemType' : 'itemType';
       await this.pick(itCtl, d.itemType, { exact: true })
@@ -649,7 +649,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     // the pending grid loads noticeably after the last filter, behind the
     // ngx-spinner - wait the loader out before anyone judges the grid
     await this.waitForSpinner();
-    await this.page.waitForTimeout(4_000);
+    await this.settle(4_000);
     await this.waitForSpinner();
   }
 
@@ -756,7 +756,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
 
     await this.nextBtn.click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     // verify the wizard actually advanced - Next is a silent no-op on invalid
     // forms; surface the invalid controls instead of timing out downstream
     const onItems = await this.page.locator('label').filter({ hasText: /^Article:?$/ }).first()
@@ -780,22 +780,22 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await pickLbl('Reference type', d.item.referenceType || 'Combination', { exact: true });
     if (d.item.groupCategory) await pickLbl('Group Category', d.item.groupCategory, { exact: true }).catch(() => {});
     if (d.item.category) await pickLbl('Category', d.item.category, { exact: true }).catch(() => {});
-    await this.page.waitForTimeout(2_000); // let the article list refilter
+    await this.settle(2_000); // let the article list refilter
     await pickLbl('Article', d.item.article, { search: true });
     await pickLbl('Purity', d.item.purity);
     const pieceWeight = this.inputByLabel('Piece Weight', { exact: false });
     await pieceWeight.fill(String(d.item.pieceWeight ?? d.item.grossWeight));
     await pieceWeight.blur();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     const addItems = this.page.locator('button').filter({ hasText: /^\s*Add Items?\s*$/ })
       .locator('visible=true').last();
     await addItems.waitFor({ state: 'visible', timeout: 15_000 });
     await addItems.click();
     // the item must land before moving on - the summary panel's No. of Items
     // is the reliable signal
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     const items = await this.page.getByText(/No\.?\s*of\s*Items/i).locator('xpath=ancestor::*[1]')
-      .textContent().catch(() => '');
+      .textContent({ timeout: 2_000 }).catch(() => '');
     console.log(`direct jobwork: items summary after Add -> ${String(items).replace(/\s+/g, ' ').trim()}`);
 
     // Review & Submit
@@ -828,7 +828,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     this.printPreviewError = null;
     await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
     await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     return jobWorkNo;
   }
 
@@ -849,7 +849,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await this.pick('productionUnit', d.productionUnit || 'Cochin', { exact: true });
     }
     await this.pick('itemType', d.itemType || 'Metal', { exact: true });
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     if (!(await this.selectRowOrFirst(d.orderNo))) {
       throw new Error(`no pending order row found for ${d.orderNo} on the Issue grid`);
@@ -878,7 +878,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
     await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     // close the post-save Print dialog
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     return jobWorkNo;
   }
 
@@ -917,13 +917,13 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await issueDialog.getByRole('button', { name: 'Add to Issue List' }).last().click();
       await issueDialog.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
       console.log('workerIssue: edit-item dialog confirmed (Add to Issue List)');
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     } else {
       // older builds: a page-level "Add to Issue List" button instead
       const addToList = this.page.getByRole('button', { name: 'Add to Issue List' }).first();
       if (await addToList.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await addToList.click();
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
       }
     }
     // a still-open modal means the confirm click missed - fail loudly rather
@@ -963,7 +963,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     }
     await this.reportSaveToast(what, toast);
     await this.printDialog.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     await this.waitForIdle();
   }
 
@@ -971,7 +971,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   async checkFinalizeBox(pattern) {
     const box = this.page.getByRole('checkbox', { name: pattern }).first();
     if (await box.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
+      if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
       console.log(`workerReceipt: finalize checkbox checked (${pattern})`);
       return true;
     }
@@ -1041,7 +1041,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const addBtn = anchor.locator('xpath=following::button[1]');
     await addBtn.click({ timeout: 10_000 }).catch(() =>
       anchor.locator('xpath=ancestor::div[2]//button').first().click({ timeout: 10_000 }));
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // the "+" opens the CUSTOMER SAMPLE picker (verified 10-09-2026): a dialog
     // with Stone Sample and Metal Sample grids, a Used Sample Weight Summary
@@ -1058,7 +1058,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (!rowText || !(await row.count().catch(() => 0))) row = rows.first();
     await row.waitFor({ state: 'visible', timeout: 15_000 });
     const box = row.locator('input[type=checkbox]').first();
-    await box.check({ force: true }).catch(() => box.click({ force: true }));
+    await box.check({ force: true, timeout: 3_000 }).catch(() => box.click({ force: true }));
     await this.page.waitForTimeout(800);
 
     // consume amount goes into the row's Gross Weight input - the 2nd text
@@ -1068,18 +1068,18 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const inputs = row.locator('input:not([type=checkbox])');
     const gross = (await inputs.count()) > 1 ? inputs.nth(1) : inputs.first();
     const summaryText = async () =>
-      ((await scope.getByText(/Total Used Sample Wt/i).locator('xpath=ancestor::*[1]').textContent().catch(() => '')) || '');
+      ((await scope.getByText(/Total Used Sample Wt/i).locator('xpath=ancestor::*[1]').textContent({ timeout: 2_000 }).catch(() => '')) || '');
     let consumed = 0;
     for (let attempt = 1; attempt <= 3 && !consumed; attempt++) {
-      await gross.click().catch(() => {});
+      await gross.click({ timeout: 3_000 }).catch(() => {});
       await gross.fill(String(value)).catch(() => {});
       await gross.press('Tab').catch(() => gross.blur().catch(() => {}));
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
       const m = (await summaryText()).match(/Total Used Sample Wt\s*:?\s*([\d.]+)/i);
       consumed = m ? parseFloat(m[1]) : 0;
       if (!consumed) {
         // some grids only enable the input after the checkbox change settles
-        await box.check({ force: true }).catch(() => {});
+        await box.check({ force: true, timeout: 3_000 }).catch(() => {});
         await this.page.waitForTimeout(700);
       }
     }
@@ -1101,7 +1101,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const closed = await openModal.waitFor({ state: 'hidden', timeout: 10_000 }).then(() => true).catch(() => false);
     if (!closed) throw new Error('Use Sample Weight: the Customer Sample picker did not close after Submit');
     console.log('workerReceipt: Customer Sample picker submitted and closed');
-    await this.page.waitForTimeout(1_000);
+    await this.settle(1_000);
   }
 
   async workerReceipt(d) {
@@ -1126,7 +1126,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
         this.pick('itemType', d.itemType, { exact: true }).catch(() => {}));
     }
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     if (d.item) {
       // ---- Settlement Wise receipt (Casting): an ITEM FORM, not a grid ----
       // "Add Item Details" section: Production No -> article/purity/weight,
@@ -1156,7 +1156,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       }
       if (!picked) throw new Error('Production No dropdown never offered a pending production number');
       console.log(`workerReceipt: Production No -> ${this.lastProductionNo}`);
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
 
       // article/purity/weight are per-flow: jobwork receipts need them typed,
       // repair receipts auto-fill from the production no - fill only what the
@@ -1166,7 +1166,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         if (await article.isVisible({ timeout: 5_000 }).catch(() => false)) {
           await article.locator('.ng-select-container').click();
           await article.locator('input[role="combobox"]').fill(d.item.articleSearch);
-          await this.page.waitForTimeout(2_500);
+          await this.settle(2_500);
           await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.item.article }).first().click();
         }
       }
@@ -1178,7 +1178,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .locator('xpath=following::input[1]');
         await weight.fill(String(d.item.weight)).catch(() => {});
         await weight.blur().catch(() => {});
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
 
       // demo image via the item form's Add Files control
@@ -1199,9 +1199,9 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .locator('xpath=..');
         const cb = holder.locator('input[type=checkbox], [role="checkbox"], .p-checkbox').first();
         if (!(await cb.count())) return null;
-        const c = await cb.isChecked().catch(() => null);
+        const c = await cb.isChecked({ timeout: 2_000 }).catch(() => null);
         if (c !== null) return c;
-        const aria = await cb.getAttribute('aria-checked').catch(() => null);
+        const aria = await cb.getAttribute('aria-checked', { timeout: 2_000 }).catch(() => null);
         return aria === null ? null : aria === 'true';
       };
       const clickFinalize = async () => {
@@ -1243,7 +1243,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         // moves; fall back to the row check on pages without the counter.
         const itemsCount = async () => {
           const t = await this.page.getByText(/No\.?\s*of\s*Items/i).locator('xpath=ancestor::*[1]')
-            .textContent().catch(() => '');
+            .textContent({ timeout: 2_000 }).catch(() => '');
           const m = String(t).replace(/No\.?\s*of\s*Items/i, '').match(/(\d+)/);
           return m ? parseInt(m[1], 10) : null;
         };
@@ -1251,7 +1251,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         let added = false;
         for (let attempt = 1; attempt <= 3 && !added; attempt++) {
           await addItems.click();
-          await this.page.waitForTimeout(2_500);
+          await this.settle(2_500);
           const now = await itemsCount();
           if (before === null || now === null) break; // no counter on this page
           added = now > before;
@@ -1267,7 +1267,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
           .first();
         await addedRow.waitFor({ state: 'visible', timeout: 20_000 });
         console.log(`workerReceipt: item added to the grid (summary count: ${await itemsCount() ?? 'n/a'})`);
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
         // some builds enable the finalize toggle only once an item exists -
         // set it after the add when it did not stick before
         if (d.item.moveToJobFinalize && (await finalizeState()) !== true) {
@@ -1339,7 +1339,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await view.click({ timeout: 20_000 });
     await this.waitForIdle();
     for (let i = 0; i < 5; i++) {
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       const row = this.rowMatcher(rowText).first();
       if (await row.isVisible().catch(() => false)) {
         const text = ((await row.innerText()) || '').replace(/\s+/g, ' ').trim();
@@ -1348,7 +1348,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         return m ? m[0] : text.split(' ')[1];
       }
       await this.page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-      await view.click().catch(() => {});
+      await view.click({ timeout: 3_000 }).catch(() => {});
     }
     throw new Error(`Generated Tags (Job Finalize page) never listed a row matching ${JSON.stringify(rowText)}`);
   }
@@ -1356,7 +1356,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   async finalizeAndGenerateBarcode(d) {
     await this.openRoute('/prd/app-job-finalize-list');
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     // the Finalize Queue pages (15/page over 2+ pages, newest first) - narrow
     // it by the queue's own Search box (nav-search-safe) so the row is found
     // regardless of page
@@ -1367,7 +1367,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.checkRow(d.rowText);
     await this.page.getByRole('button', { name: 'Generate Barcode' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // Generate Barcode panel: Generate Type (SET TAG / SINGLE TAG) is
     // mandatory, then Submit & Generate creates the tag.
@@ -1380,7 +1380,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.generateType || 'SINGLE TAG' }).first();
     await opt.waitFor({ state: 'visible', timeout: 15_000 });
     await opt.click();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     const resp = this.page.waitForResponse(
       (r) => r.request().method() === 'POST' && /barcode|generate|tag/i.test(r.url()) && !/GetAll|Pagination|Sizes/i.test(r.url()),

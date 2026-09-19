@@ -22,7 +22,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
     if (tabName) {
       await this.page.getByRole('tab', { name: tabName }).click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
     }
   }
 
@@ -30,7 +30,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
     await this.waitForSpinner();
     await this.page.locator('button:has(i.ri-add-fill)').locator('visible=true').first().click({ timeout: 60_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   /**
@@ -52,8 +52,8 @@ class RepairWorkflowPage extends StockInwardBasePage {
     const row = this.rowMatcher(rowText).first();
     await row.waitFor({ state: 'visible', timeout: 30_000 });
     const box = row.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
-    await this.page.waitForTimeout(1_500);
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
+    await this.settle(1_500);
   }
 
   async clickAndCaptureSave(button, { pattern = /create|save|submit/i } = {}) {
@@ -80,8 +80,8 @@ class RepairWorkflowPage extends StockInwardBasePage {
     if (dialogVisible) {
       await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     }
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.closeVisibleDialog();
+    await this.settle(1_000);
   }
 
   /**
@@ -107,19 +107,19 @@ class RepairWorkflowPage extends StockInwardBasePage {
 
     await this.page.getByRole('button', { name: 'Next' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     // step 2 - item form
     await this.pick('groupCategory', item.groupCategory, { exact: true });
     await this.pick('category', item.category, { exact: true });
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     await this.pick('article', item.article);
     await this.pick('purity', item.purity);
     await this.fillByLabel('Expec Add Weight', item.expectedAddWeight);
     await this.fillByLabel('Expec Loss Weight', item.expectedLossWeight);
     await this.fillByLabel('No Of Pcs', item.pieces ?? 1).catch(() => {});
     await this.fillByLabel('Gross Weight', item.grossWeight);
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // demo image via the item step's Add Files control
     if (image) await this.attachFileViaAddFiles(image);
@@ -175,7 +175,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
     await this.page.getByRole('textbox').first().fill(givenBy);
     await this.page.getByRole('textbox').nth(1).fill(contactNumber);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(repairNo);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }));
@@ -209,7 +209,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
       await this.pick('vendorID', vendor, { search: true });
     }
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // fill the remaining empty selects generically (retry rounds - later
     // selects render only after earlier picks): the production unit (Inhouse
@@ -223,20 +223,20 @@ class RepairWorkflowPage extends StockInwardBasePage {
       let pickedAny = false;
       for (let i = 0; i < n; i++) {
         const wrap = wraps.nth(i);
-        const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        const val = ((await wrap.locator('.ng-value').first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim();
         if (val) continue;
-        await wrap.locator('ng-select .ng-select-container').first().click().catch(() => {});
-        await this.page.waitForTimeout(1_500);
+        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(1_500);
         const repairOpt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: escRe }).first();
         const unitOpt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: unitRe }).first();
         if (await repairOpt.isVisible().catch(() => false)) {
           await repairOpt.click();
           pickedAny = true;
-          await this.page.waitForTimeout(2_000);
+          await this.settle(2_000);
         } else if (mode === 'Inhouse' && (await unitOpt.isVisible().catch(() => false))) {
           await unitOpt.click();
           pickedAny = true;
-          await this.page.waitForTimeout(2_000);
+          await this.settle(2_000);
         } else {
           await this.page.keyboard.press('Escape');
         }
@@ -254,7 +254,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
     const addBtn = this.page.getByRole('button', { name: /Add$/ }).locator('visible=true').last();
     if (await addBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await addBtn.click();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       console.log('repair receipt: item committed via Add');
     }
 
@@ -273,7 +273,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
 
     await this.pick('vendorID', customer, { exact: true });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(repairNo);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }));

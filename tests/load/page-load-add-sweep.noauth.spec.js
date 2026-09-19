@@ -49,10 +49,7 @@ const MIN_CHARS = 150; // rendered-content floor
 const CONSOLE_WARN_AT = 6; // known baseline is 3 errors/page - warn above this
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 function readJson(file, fallback) {

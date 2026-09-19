@@ -22,7 +22,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     await this.waitForIdle();
     await this.page.getByRole('tab', { name: tabName }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /** Every tab renders its OWN add button - click the visible one. */
@@ -30,7 +30,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     await this.waitForSpinner();
     await this.page.locator('button:has(i.ri-add-fill)').locator('visible=true').first().click({ timeout: 60_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   rowMatcher(rowText) {
@@ -42,8 +42,8 @@ class SampleWorkflowPage extends StockInwardBasePage {
     const row = this.rowMatcher(rowText).first();
     await row.waitFor({ state: 'visible', timeout: 30_000 });
     const box = row.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
-    await this.page.waitForTimeout(1_500);
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
+    await this.settle(1_500);
   }
 
   /** Capture the save response for a submit-like button click. */
@@ -74,8 +74,8 @@ class SampleWorkflowPage extends StockInwardBasePage {
     if (dialogVisible) {
       await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
     }
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.closeVisibleDialog();
+    await this.settle(1_000);
   }
 
   /**
@@ -86,7 +86,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
    */
   async latestSampleNo() {
     await this.openTab('/sls/app-sample-setup', 'Sample Registration');
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
     const row = this.page.locator('table tbody tr').first();
     await row.waitFor({ state: 'visible', timeout: 30_000 });
     const text = ((await row.innerText()) || '').replace(/\s+/g, ' ').trim();
@@ -122,7 +122,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
       }
       await rc.locator('.ng-select-container').click();
       await rc.locator('input[role="combobox"]').fill(orderNo);
-      await this.page.waitForTimeout(2_000 + attempt * 2_000);
+      await this.settle(2_000 + attempt * 2_000);
       const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: orderNo }).first();
       if (await opt.isVisible().catch(() => false)) {
         await opt.click();
@@ -131,13 +131,13 @@ class SampleWorkflowPage extends StockInwardBasePage {
     }
     if (!picked) throw new Error(`RC No. typeahead never offered "${orderNo}"`);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // checking the order's row in the Sample Details grid opens the SAME
     // "Add Sample" panel as the order flow - Sample Information arrives
     // preset from the order; only "Build Sample Items" needs entry
     await this.checkRow(orderNo);
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.pickByLabel('Group Category', sample.groupCategory || 'Gold', { exact: true }).catch(() => {});
     await this.pickByLabel('Category', sample.category || 'Ring', { exact: true }).catch(() => {});
@@ -150,7 +150,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     const rate = this.page.locator('#rate');
     await rate.fill(String(sample.rate));
     await rate.blur();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // demo image via the PANEL's own Add Files control
     if (image) await this.attachFileViaAddFiles(image, { last: true });
@@ -164,13 +164,13 @@ class SampleWorkflowPage extends StockInwardBasePage {
     console.log('registration panel: sample listed under Items Added');
     await this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last().click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     const next = this.page.getByRole('button', { name: 'Next' }).locator('visible=true').last();
     if (await next.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await next.click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     const body = await this.clickAndCaptureSave(
       this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last(),
@@ -205,13 +205,13 @@ class SampleWorkflowPage extends StockInwardBasePage {
     // hidden; drive it via its <label for="active">). Off by default.
     if (usedInProduction !== undefined) {
       const box = this.page.locator('#active');
-      const on = await box.isChecked().catch(() => false);
+      const on = await box.isChecked({ timeout: 2_000 }).catch(() => false);
       if (on !== usedInProduction) {
         await this.page.locator('label[for="active"]').click({ timeout: 5_000 })
           .catch(() => box.click({ force: true }));
         await this.page.waitForTimeout(500);
       }
-      console.log(`sample issue: Used In Production = ${await box.isChecked().catch(() => '?')}`);
+      console.log(`sample issue: Used In Production = ${await box.isChecked({ timeout: 2_000 }).catch(() => '?')}`);
     }
 
     await this.pick('itemType', itemType, { exact: true });
@@ -235,18 +235,18 @@ class SampleWorkflowPage extends StockInwardBasePage {
     await this.page.getByRole('textbox').first().fill(receivedFrom);
     await this.page.getByRole('textbox').nth(1).fill(contactNumber);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(sampleNo);
     // "Add Item" opens an Add Item Details panel with the sample pre-listed;
     // its green commit button's accessible name starts with an ICON GLYPH
     // (private-use char, not whitespace) - match by the trailing "Add" only
     await this.page.getByRole('button', { name: 'Add Item' }).click();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     // demo image via the Add Item Details panel's own Add Files control
     if (image) await this.attachFileViaAddFiles(image, { last: true });
     await this.page.getByRole('button', { name: /Add$/ }).last().click();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     await this.page.getByRole('button', { name: 'Next' }).click();
     await this.waitForIdle();
 
@@ -295,7 +295,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     }
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(sampleNo);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit Receipt' }));
@@ -316,7 +316,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     await this.pick('b2bCustomerID', customer, { exact: true });
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.pick('masterDataValueID_DispatchType', dispatchType); // NOT exact - trailing spaces
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     // the employee select renders after the dispatch type - it is the last
     // still-empty visible select on the form
@@ -325,9 +325,12 @@ class SampleWorkflowPage extends StockInwardBasePage {
     let picked = false;
     for (let i = n - 1; i >= 0 && !picked; i--) {
       const wrap = wraps.nth(i);
-      const val = ((await wrap.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+      const val = ((await wrap.locator('.ng-value').first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim();
       if (val) continue;
       await wrap.locator('ng-select .ng-select-container').first().click();
+      // long employee lists are virtual-scrolled - type to filter the option in
+      await wrap.locator('input[role="combobox"]').first().fill(employee).catch(() => {});
+      await this.settle(1_000);
       const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: employee }).first();
       if (await opt.isVisible({ timeout: 10_000 }).catch(() => false)) {
         await opt.click();
@@ -338,7 +341,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     }
     if (!picked) throw new Error(`employee "${employee}" not offered in any empty delivery dropdown`);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(sampleNo);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }));

@@ -50,10 +50,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
@@ -84,7 +81,7 @@ test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
     await brandInward.fillItem(DATA.inward.item);
     // the summary panel is the Add Item proof (a rejected Add Item just
     // flags fields ng-invalid with no toast)
-    await brandInward.addItemBtn.click();
+    await brandInward.addItem();
     await expect
       .poll(async () => brandInward.summaryText(), { timeout: 20_000 })
       .toContain(`No. of Pieces : ${DATA.inward.item.noOfPcs}`);
@@ -104,7 +101,7 @@ test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
     console.log(`Brand inward saved: ${inwardVoucherNo}`);
 
     await brandInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-blb-01-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await brandInward.verifyRowInList(inwardVoucherNo);
   });
 
@@ -133,10 +130,7 @@ test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
     const { lotNo } = state.readState();
     expect(lotNo, 'run TC-BLB-02 first').toBeTruthy();
 
-    await loginPage.open();
-    await loginPage.login(DATA.barcode.user);
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn(DATA.barcode.user);
 
     const saved = await barcodeGeneration.generateTag({
       itemType: DATA.barcode.itemType,

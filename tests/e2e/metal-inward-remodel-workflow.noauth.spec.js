@@ -46,10 +46,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Metal Inward - Remodel - Workflow', () => {
@@ -72,7 +69,7 @@ test.describe('Metal Inward - Remodel - Workflow', () => {
     await metalInward.waitForIdle();
 
     await metalInward.fillItem(DATA.inward.item);
-    await metalInward.addItemBtn.click();
+    await metalInward.addItem();
     await metalInward.waitForIdle();
     await metalInward.nextBtn.click();
     await metalInward.waitForIdle();
@@ -88,7 +85,7 @@ test.describe('Metal Inward - Remodel - Workflow', () => {
 
     // print template check, then prove the record reached the list
     await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-rmd-01-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await metalInward.verifyRowInList(inwardVoucherNo);
   });
 

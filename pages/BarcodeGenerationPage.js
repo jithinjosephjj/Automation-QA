@@ -44,13 +44,13 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     await this.pick('vendorID', vendor);
     await this.pick('lotGenerationID', lotNo, { exact: true });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // the lot pick auto-fills Lot Serial No / BU / barcode type / entry mode /
     // article chain; make sure the serial actually landed before moving on
     if (!(await this.selectValue('lotGenerationMetalID'))) {
       await this.pickFirstOption('lotGenerationMetalID');
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     console.log(
       `barcode form: serial=${await this.selectValue('lotGenerationMetalID')}, ` +
@@ -91,7 +91,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       }
     }
     if (amount !== undefined) await this.fillByLabel('Amount', amount);
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     const resp = this.page.waitForResponse(
       (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation/i.test(r.url()),
@@ -113,7 +113,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Barcode save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
-    await this.page.locator('.btn-close').last().click({ timeout: 5_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     return body;
   }
 
@@ -140,7 +140,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     await view.click();
     await this.waitForIdle();
     for (let i = 0; i < 5; i++) {
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       const row = this.gridRows.filter({ hasText: rowText }).first();
       if (await row.isVisible().catch(() => false)) {
         const text = ((await row.innerText()) || '').replace(/\s+/g, ' ').trim();
@@ -149,7 +149,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
         return m ? m[0] : text.split(' ')[1];
       }
       await this.page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
-      await view.click().catch(() => {});
+      await view.click({ timeout: 3_000 }).catch(() => {});
     }
     throw new Error(`Generated Tags never listed a row matching "${rowText}"`);
   }

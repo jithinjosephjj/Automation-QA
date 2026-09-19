@@ -56,10 +56,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
@@ -87,7 +84,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     // TARE VERIFICATION on the form itself: Net = Gross - Tare
     expect(await stoneInward.numberOf('Stone Net Weight')).toBeCloseTo(WEIGHTS.net, 3);
 
-    await stoneInward.addItemBtn.click();
+    await stoneInward.addItem();
     await expect
       .poll(async () => stoneInward.summaryText(), { timeout: 20_000 })
       .toMatch(/Vendor Name\s*:\s*RAJA/);
@@ -110,7 +107,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     console.log(`Stone inward saved (tare 10g): ${inwardVoucherNo} (invoice ${invoiceNo})`);
 
     await stoneInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-sact-01-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await stoneInward.verifyRowInList(inwardVoucherNo);
   });
 

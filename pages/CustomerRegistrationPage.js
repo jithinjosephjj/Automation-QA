@@ -47,8 +47,8 @@ class CustomerRegistrationPage extends StockInwardBasePage {
     // Type is NOT touched in the recording - it defaults, so leave it unless
     // a value is explicitly provided.
     if (d.kind) {
-      await this.page.getByRole('button', { name: d.kind, exact: true }).click().catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      await this.page.getByRole('button', { name: d.kind, exact: true }).click({ timeout: 3_000 }).catch(() => {});
+      await this.settle(1_000);
     }
     if (d.customerType) await this.pick('masterDataValueID_CustomerType', d.customerType, { exact: true }).catch(() => {});
 
@@ -74,9 +74,9 @@ class CustomerRegistrationPage extends StockInwardBasePage {
       // no Browse click - the native picker would hang; set the hidden file
       // input directly, then Add Document
       await this.page.locator('input[type="file"]').last().setInputFiles(d.document.file);
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
       await this.page.getByRole('button', { name: 'Add Document' }).click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       console.log(`customer: document ${d.document.type} attached`);
       // re-select the type if Add Document cleared it (mandatory validation)
       const dtVal = await this.selectValue('documentTypeID').catch(() => '');
@@ -98,7 +98,7 @@ class CustomerRegistrationPage extends StockInwardBasePage {
       .catch(async () => { await addrLine.first().fill(line).catch(() => {}); });
     await this.pickAddress('zipCode', addr.zipCode, { firstIfMissing: true });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000); // let the cascade populate
+    await this.settle(2_000); // let the cascade populate
     for (const [cn, val] of [
       ['country', addr.country], ['state', addr.state], ['district', addr.district],
       ['city', addr.city], ['area', addr.area],
@@ -179,7 +179,7 @@ class CustomerRegistrationPage extends StockInwardBasePage {
       if (!(await next.isVisible({ timeout: 2_000 }).catch(() => false))) break;
       await next.click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     if (!(await commitBtn().isVisible({ timeout: 3_000 }).catch(() => false))) {
       throw new Error(`Customer wizard never reached Register; ${JSON.stringify(await this.invalidDiag())}`);
@@ -235,8 +235,8 @@ class CustomerRegistrationPage extends StockInwardBasePage {
     const dialogVisible = await this.printDialog.waitFor({ state: 'visible', timeout: 8_000 })
       .then(() => true).catch(() => false);
     if (dialogVisible) await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
-    await this.page.locator('.btn-close').last().click({ timeout: 8_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.closeVisibleDialog();
+    await this.settle(1_000);
   }
 }
 

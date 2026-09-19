@@ -20,18 +20,18 @@ Built to the conventions in `Playwright-Automation-Basics.pdf`.
 | Master add operations (tests/masters/master-add-operations) | **Passing headed** — TC-EMP-001 Employee → TC-USR-001 User → TC-SMH-001 Smith → TC-CNT-001 Locker Counter → TC-ELC-001 Locker Assignment, one Sioniquser&lt;N&gt; iteration per run |
 | Production E2E workflow (tests/e2e/production-concept-workflow, TC-PRD-E2E-01…08) | **All 8 steps passing headed** — Concept (create/upload/approve) → Job Work → Assignment → Movement Accept → Worker Issue/Receipt (CAD) → Transfer+Accept (Casting) → Issue/Receipt with item → Job Finalize + barcode. Integration chain: document numbers flow via e2e-production-state.json; every step resumes/skips what's already done |
 | Master Design E2E workflow (tests/e2e/production-master-design-workflow, TC-PRD-MD-01…08) | **All 8 steps passing headed** — same chain seeded from Master Design (design RDDDD# series); own state file. Known app bug encoded: filtering the Design Number dropdown on Job Work breaks Submit silently — the spec selects the design card from the full grid instead |
-| Order - Inhouse - Production workflow (tests/e2e/order-inhouse-production-workflow, TC-PRD-OB-01…08) | **All 8 steps passing headed** — Order Booking → inhouse Job Work (Procurement > Issue: Order/Inhouse/Cochin, PP## series) → same downstream to the barcode; own state file |
+| Order - Inhouse - Production workflow (tests/e2e/order-inhouse-production-workflow, TC-PRD-OB-01…08) | **Steps 01-04 + 07 passing, 05/06 skip falsely, 08 fails (19-09-2026)** — the Worker Issue/Receipt and Process Movement grids no longer show the new P## job (search matches nothing, unfiltered grid has no row), so the "already done" skips fire and the job never reaches Job Finalize. IDENTICAL on the pre-refactor code (differential run 19-09) — app/data drift to investigate with the QA lead, not a suite regression. Casting worker changed to Sioniquser16 (Sioniquser11 is no longer offered for Casting). Previously: all 8 steps passing headed — Order Booking → inhouse Job Work (Procurement > Issue: Order/Inhouse/Cochin, PP## series) → same downstream to the barcode; own state file |
 | Order - Outsource - Lot - Barcode workflow (tests/e2e/order-outsource-lot-barcode-workflow, TC-OLG-01…05) | **All 5 steps passing headed** — Stock Order → outsource Job Work (Issue: Order/Outsource/vendor RAJA, PP##) → Metal Inward jobwork return (Sub Txn "Jobwork" + Inward Type "Order"; one `jobWorkItemNo` pick fills the item, M##) → Lot Generation (/inv/view-lot-generation, employee Ubaid + BU Cochin, NNN##) → Barcode (/inv/view-barcode-generation **as user suja**; three mandatory description dropdowns; tag verified in Generated Tags); own state file e2e-order-lot-state.json |
 | B2B Order - Inhouse - Production workflow (tests/e2e/b2b-order-inhouse-production-workflow, TC-B2B-PRD-01…08) | **All 8 steps passing headed** — B2B Order Booking (customer Luxurio, Making Type "Job Work", BB## series) → inhouse Job Work (the Issue grid lists B2B orders under Generation Type "Order" too, PP##) → same downstream to the barcode; own state file e2e-b2border-state.json |
 | B2B Order - Outsource - Lot - Barcode workflow (tests/e2e/b2b-order-outsource-lot-barcode-workflow, TC-B2B-OLG-01…05) | **All 5 steps passing headed** — B2B Order Booking (Making Type "Job Work", BB##, + Add Files image) → outsource Job Work (vendor RAJA, PP##) → Metal Inward jobwork return (M##) → Lot Generation (NNN##) → Barcode **as user suja** (tag verified in Generated Tags); print-preview checks at every Print dialog; own state file e2e-b2b-order-lot-state.json |
-| B2B Sample - Outsource - Delivery workflow (tests/e2e/b2b-sample-outsource-delivery-workflow, TC-B2B-SD-01…04) | **All 4 steps passing headed** — B2B order + Add Sample panel (manual Rate, Yes-confirm) registers the sample under its OWN sample no → Sample Issue outsource (Issue page Sample tab, vendor RAJA) → Sample Receipt (/prc/app-repair-setup Sample tab, Submit Receipt) → Sample Delivery (/sls/app-sample-setup, dispatch Our Employee); grids key by the sample no, captured post-save; own state file e2e-b2b-sample-delivery-state.json |
+| B2B Sample - Outsource - Delivery workflow (tests/e2e/b2b-sample-outsource-delivery-workflow, TC-B2B-SD-01…04) | **All 4 steps passing headed (re-verified 19-09-2026; the order page tab is now named "B2B")** — B2B order + Add Sample panel (manual Rate, Yes-confirm) registers the sample under its OWN sample no → Sample Issue outsource (Issue page Sample tab, vendor RAJA) → Sample Receipt (/prc/app-repair-setup Sample tab, Submit Receipt) → Sample Delivery (/sls/app-sample-setup, dispatch Our Employee); grids key by the sample no, captured post-save; own state file e2e-b2b-sample-delivery-state.json |
 | B2B Sample Registration - Outsource workflow (tests/e2e/b2b-sample-registration-outsource-workflow, TC-B2B-SR-01…05) | **All 5 steps passing headed** — plain B2B order (no sample) → Sample Registration page registers a sample AGAINST the order no (RC No. typeahead + record-wise Add Sample panel, then wizard Next → Submit; CreateSample returns the sample no) → outsource issue → receipt → delivery; own state file e2e-b2b-samplereg-state.json |
 | B2B Sample Registration - Inhouse Production workflow (tests/e2e/b2b-sample-registration-inhouse-production-workflow, TC-B2B-SRI-01…09) | **All 9 steps passing headed** — B2B order → Sample Registration → inhouse Sample Issue (production unit Cochin) → Job Assignment (source "Sample" + Item Type/BU structural picks, save verified) → Process Movement → Worker Issue/Receipt ×2 (final Casting receipt checks **Finalize Sample**) → Sample Receipt (Repair page, Inhouse) → Sample Delivery. Samples have NO Job Finalize/barcode step. Own state file e2e-b2b-samplereg-inhouse-state.json |
 | B2B Sample - Inhouse Production workflow (tests/e2e/b2b-sample-inhouse-workflow, TC-B2B-SMP-01…08) | **All 8 steps passing headed** — B2B order WITH sample (Add Sample panel + 2 images) → inhouse Sample Issue → Job Assignment (source "Sample"; samples from the order pop an Edit Item Details overlay confirmed via its footer Update) → Process Movement → Worker Issue/Receipt ×2 (final receipt checks **Finalize Sample**) → Sample Receipt (Inhouse) → Sample Delivery. Unblocked 01-09-2026 (Worker Issue/Receipt sample bug fixed). Own state file e2e-b2b-sample-state.json |
 | B2B Repair - Outsource - Delivery workflow (tests/e2e/repair-outsource-workflow, TC-B2B-RPO-01…04) | **All 4 steps passing headed** — Repair Registration (customer Luxurio, Ring soldering, Expec Add/Loss weights per the repair-wastage config, REP series) → Repair Issue outsource (Issue page Repair tab, vendor, grid keyed "repairKey.1") → Repair Receipt (Outsource + Invoice + repair-no item picks + Add) → Repair Delivery (customer → row → Submit). Grids show "REP-…" while saves return the series prefix — matched on the shared core. Own state file e2e-b2b-repair-outsource-state.json |
 | B2B Repair - Inhouse Production workflow (tests/e2e/repair-inhouse-production-workflow, TC-B2B-RPI-01…08) | **All 8 steps passing headed** — Repair Registration (Bangle repair) → Repair Issue inhouse → Job Assignment (source "Repair" + Business Type B2B; NO Item Type select on this form) → Process Movement → Worker rounds (Casting receipt = item form: Production No → **Repair Finalize** → **Add** (not "Add Items") → row in grid → Submit) → Repair Receipt (grid row + Add) → Repair Delivery. Worker issue/receipt submits now VERIFY the save fired (a silent no-op receipt slipped through before). Own state file e2e-b2b-repair-inhouse-state.json |
 | Metal Inward - Remodel workflow (tests/e2e/metal-inward-remodel-workflow, TC-RMD-01…03) | **All 3 steps passing headed** — Metal Inward (stock, vendor Luxurio — a catalog vendor is required for remodel, random invoice no) → Remodel Issue (/inv/app-issue-list Remodel tab: type/vendor/Inward/Metal Inward → row → "Add N" count-named button → Submit, RR## series) → Remodel Receipt (/inv/app-receipt-list Remodel tab: type/vendor/random invoice no/credit days → Receipt Selection Type **RC Number** → Issue Stock Source Inward → RR row → item-wise row pops the **Remodel Details overlay** (confirm via its Submit) → + Add → Submit). Own state file e2e-remodel-state.json |
-| Metal Inward - Hallmark workflow (tests/e2e/metal-inward-hallmark-workflow, TC-HLM-01…03) | **All 3 steps passing headed** — Metal Inward (stock, vendor Luxurio, random invoice no) → Hallmark Issue (/inv/app-issue-list Hallmark tab: Hallmark Vendor + Stock Source Inward + From Transaction Type Metal Inward → inward row → "Add Items" → Submit) → Hallmark Receipt (/inv/app-receipt-list Hallmark tab: vendor + random invoice no + date → RC Number → issue row → Add → Submit). Own state file e2e-hallmark-state.json |
+| Metal Inward - Hallmark workflow (tests/e2e/metal-inward-hallmark-workflow, TC-HLM-01…03) | **All 3 steps passing headed, 3.0 min (was 4.4) on 19-09-2026** — Metal Inward (stock, vendor Luxurio, random invoice no) → Hallmark Issue (/inv/app-issue-list Hallmark tab: Hallmark Vendor + Stock Source Inward + From Transaction Type Metal Inward → inward row → "Add Items" → Submit) → Hallmark Receipt (/inv/app-receipt-list Hallmark tab: vendor + random invoice no + date → RC Number → issue row → Add → Submit). Own state file e2e-hallmark-state.json |
 | Stone Inward - Certification workflow (tests/e2e/stone-inward-certification-workflow, TC-CRT-01…03) | **All 3 steps passing headed** — Stone Inward (stock, vendor RAJA, article Jerald, **Assorted Stock ticked** — ONLY assorted stone inwards are certification-eligible; alphanumeric random invoice) → Certification Issue (/inv/app-issue-list Certification tab: Jewellery Item Type Stone + Certification Vendor Ram + Stock Source Inward + From Transaction Type Stone Inward → inward row → Add → Submit, short g## series) → Certification Receipt (/inv/app-receipt-list Certification tab: Item Type + Vendor + **RC Number** + random invoice no/date + Issue Stock Source Inward (caption is a plain div — structural pick; dismiss the flatpickr calendar first) → issue rows → "Add Selected to Receipt" → Submit, cc## series). Own state file e2e-certification-state.json |
 | Stone Assorting - Certification workflow (tests/e2e/stone-assorted-certification-workflow, TC-SAC-01…05) | **All 5 steps passing headed** — Stone Inward (RAJA/Jerald, NO assorted tick) → Stone Assorting Issue (/prc/app-stone-assorting-list via NAV SEARCH "stone as"; raw ng-selects without wrappers/labels: transaction type Stone Inward + purchase vendor RAJA → inward item row → assorter employee (Sioniquser##) → Add → Close → Next → Submit, permuted gg## series) → Stone Assorting Receipt (Receipt tab: employee → issue row by docCore → Add Items → Close → Submit, f## series) → Certification Issue (From Transaction Type **"Stone Assorting Receipt"** → receipt row by docCore → Add → Submit, g##) → Certification Receipt (RC Number → "Add Selected to Receipt" → Submit, cc##). Grids render series PERMUTED vs save responses — keyed via docCore(). Own state file e2e-assorted-cert-state.json |
 | Stone Assorting - Certification TARE variant (tests/e2e/stone-assorted-certification-tare-workflow, TC-SACT-01…05) | **All 5 steps passing headed** — same chain entered "With Tare" (gross 76g / TARE 10g / net 66g). With Tare mode auto-sets+disables UOM and replaces the tare input with a "+" button opening the **Tare Weight Information** dialog (Item + Tare Weight Type — avoid "Per Pcs", it multiplies by piece count — + weight → Add Item → data-role=close-tare). Weights verified at every step via `expectInRow`: the assorting-issue Add Stone Details panel shows 76/10/66 (panel INPUT values captured — innerText misses them); **assorting consumes the tare** — from the assorting receipt onward stock carries net 66.000 as gross, tare 0.000, verified on the certification issue/receipt grids. Own state file e2e-assorted-cert-tare-state.json |
@@ -65,7 +65,7 @@ Or a single page's add operation by its TC id:
 ```bash
 npx playwright test -g "TC-USR-001" --headed
 ```
-| Saved-session auth (`global.setup.js`) | Works headed, but see the sessionStorage caveat below |
+| Session cache (`LoginPage.ensureLoggedIn`) | **Working (19-09-2026)** — one form login per user@BU per 2 hours; every other test replays the cached token in ~3 s. See "Session cache" below |
 
 ### Environment gates (both solved, both required)
 
@@ -83,12 +83,30 @@ Allow, so `playwright.config.js` launches Chromium with
 once (or Settings → Privacy and security → Site settings → qa.sioniq.com →
 Local network access → Allow).
 
-### sessionStorage caveat
+### Session cache (fast login)
 
 The auth token (`_SIONIQ_AUTH`) lives in **sessionStorage**, which Playwright's
-`storageState` does not capture. Saved-session reuse therefore does not work —
-specs log in through the UI at the start of each test (see the TC-MI-001 spec)
-and are named `*.noauth.spec.js` so they run in the fresh-context project.
+`storageState` does not capture — so `global.setup.js` + the `chromium` project
+never worked and every spec is a `*.noauth.spec.js` that logs in itself.
+
+Since 19-09-2026 that login is cheap. Specs call
+`await loginPage.ensureLoggedIn(creds)` (creds optional: `{ user, pwd, bu }`):
+
+- First call for a user@BU logs in through the form (~10 s) and snapshots
+  cookies + localStorage + sessionStorage to `auth/sessions/<user>-<bu>.json`.
+- Every later call injects that snapshot into the fresh browser context via an
+  init script and opens the landing route already authenticated (~3 s). Verified
+  live: the JWT lives 120 minutes, does NOT rotate across navigations
+  (`KeepAlive` returns no new token) and an older copy stays valid in a new
+  context. The cache is refused 10 minutes before expiry.
+- Mid-chain user switches (barcode as `suja`, tag transfers per BU) overwrite
+  the page's storage in place — no logout/login round trip.
+- If the app bounces a replay to `/login`, the cache is dropped and the form
+  login runs — nothing to clean up by hand. Delete `auth/sessions/` to force
+  fresh logins.
+
+The Device Radar gate still applies to the ONE form login per user, so the
+suite is still headed-only.
 
 ---
 
@@ -133,6 +151,7 @@ npm run test:ui
 | `npm run codegen` | Record clicks against QA, generates selectors |
 | `npm run report` | Open the HTML report |
 | `npm run trace -- test-results/<dir>/trace.zip` | Post-mortem a failure |
+| `unzip test-results/<dir>/trace.zip -d /tmp/t && node tools/trace-summary.js /tmp/t` | Where did the time go? Lists every action over 1 s, idle gaps and slow API calls from a trace (run with `--trace on` for a passing test) |
 
 Filter to one case by its TC ID:
 
@@ -162,7 +181,8 @@ utils/
   ng-select.js           select / read / clear / enumerate ng-select dropdowns
   unique.js              unique invoice + reference numbers, dates, weights
   env.js                 validated env vars
-auth/                    saved storageState (gitignored)
+  session-cache.js       per-user@BU login snapshots replayed by ensureLoggedIn
+auth/                    saved storageState + sessions/ cache (gitignored)
 ```
 
 ### Projects
@@ -239,8 +259,35 @@ Mandatory (QA lead directive) — every new page's add spec includes all of thes
 
 - `await` **every** `expect(locator)`. A missing `await` is a silent false pass.
 - Prefer `getByTestId` / `getByRole`. Never XPath.
-- **Zero `waitForTimeout`.** Wait on a response (`clickAndWaitForApi`) or an
-  assertion. `waitForLoadState('networkidle')` is discouraged too — the app polls.
+- **Zero `waitForTimeout` of a second or more.** Wait on a response
+  (`clickAndWaitForApi`) or an assertion; where the app gives no signal, use
+  `this.settle(ms)` from `BasePage` — it returns as soon as no request is in
+  flight, the network has been quiet for 600 ms and the ngx-spinner overlay is
+  gone, and only ever waits the full `ms` when the app is still busy. 223 fixed
+  sleeps were converted on 19-09-2026 (chain time -35%). Sub-second animation
+  sleeps are fine.
+- **Bound every tolerated probe.** `x.isChecked().catch(...)`, `.textContent()`,
+  `.click().catch(...)` on an element that may not exist auto-wait the FULL
+  15 s action timeout before the catch fires. Pass a short timeout
+  (`{ timeout: 2_000 }`) or guard with `count()` first. Five of those cost one
+  metal inward 75 s.
+- **Picks verify themselves.** `pick()` / `pickByLabel()` confirm the chosen
+  label landed in `.ng-value`, wait the cascade out and re-pick if a downstream
+  reload cleared it (article → purity does this ~1 s after the click).
+- **Long dropdowns are virtual-scrolled.** Only the first ~12 options exist in
+  the DOM, so an option further down "never appears". `pick()` / `pickByLabel()`
+  type the option text from their second attempt on, which filters it into the
+  rendered window. Other test runs keep growing these lists (HRM process specs
+  add suffixed processes, master specs add Sioniquser<N> employees) - a name
+  that used to be near the top will not stay there.
+- **Inward items go through `addItem()`**, never a bare `addItemBtn.click()`:
+  the click is a silent no-op while pricing recomputes or a control is invalid,
+  so the summary's piece count is verified and the click retried.
+- **App changes of Sept 2026 handled in the wizard base:** mandatory custom
+  product-description dropdowns on the item step (`fillMandatoryEmptySelects`
+  runs inside `fillItem`), the empty "Pure Rate" input on Review & Submit
+  (`fillPureRateIfEmpty` runs inside `submit()`), and a Submit that fires no
+  request within 25 s logs the invalid controls and clicks once more.
 - One behaviour per test.
 - Tests must pass when run alone with `-g`.
 - Unique invoice / reference number per run — use `utils/unique.js`, or duplicate

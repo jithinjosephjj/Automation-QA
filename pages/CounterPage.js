@@ -28,7 +28,7 @@ class CounterPage extends StockInwardBasePage {
   async selectTab() {
     await this.page.getByRole('tab', { name: 'Counter', exact: true }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   async openAddWizard() {
@@ -69,7 +69,7 @@ class CounterPage extends StockInwardBasePage {
   async selectAssignmentTab() {
     await this.page.getByRole('tab', { name: 'Employee Locker & Counter Assignment' }).click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   async openAssignmentAdd() {
@@ -87,7 +87,7 @@ class CounterPage extends StockInwardBasePage {
     await this.pick('locations', 'Cochin', { closePanel: true });
     await this.pick('employees', u.displayName, { search: true });
     await this.pick('counters', `${u.displayName} Locker`, { search: true });
-    await this.page.waitForTimeout(2_000); // let floor/type auto-fill
+    await this.settle(2_000); // let floor/type auto-fill
 
     if (!(await this.selectValue('floors'))) {
       await this.pick('floors', 'Floor 4', { exact: true });

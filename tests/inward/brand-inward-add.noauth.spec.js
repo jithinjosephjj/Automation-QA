@@ -22,10 +22,7 @@ test.describe('Brand Inward - add record', () => {
     test.setTimeout(420_000);
 
     // ---- login ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Procurement > Operations > Stock Inward, Brand tab ----
     await brandInward.open();
@@ -93,7 +90,7 @@ test.describe('Brand Inward - add record', () => {
 
     // ---- Add Item: the summary panel is the proof it was accepted ----
     // (a rejected Add Item just flags fields ng-invalid with no toast)
-    await brandInward.addItemBtn.click();
+    await brandInward.addItem();
     await expect
       .poll(async () => brandInward.summaryText(), { timeout: 20_000 })
       .toContain('No. of Pieces : 10');

@@ -50,10 +50,7 @@ test.describe('HRM Department - Process & Sub-Process (from Excel)', () => {
     test(`${tcId} ${p.name} + ${subs.length} sub-processes`, async ({ loginPage, departmentProcess, page }) => {
       test.setTimeout(900_000);
 
-      await loginPage.open();
-      await loginPage.login();
-      await loginPage.throwIfGated();
-      await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+      await loginPage.ensureLoggedIn();
 
       await departmentProcess.open();
 

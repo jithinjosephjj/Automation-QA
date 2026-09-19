@@ -44,15 +44,12 @@ const DATA = {
   },
   issue: { productionUnit: 'Cochin', submissionMethod: 'In Person', givenBy: 'JJ', contactNumber: '5545654587' },
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   receipt: { subTransactionType: 'Invoice', productionUnit: 'Cochin' },
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 function rowKey() {
@@ -138,7 +135,7 @@ test.describe('B2B Repair - Inhouse - Production - Workflow', () => {
     console.log('Worker issue + receipt (CAD) done');
   });
 
-  test('TC-B2B-RPI-06 transfer to Casting, accept, worker issue and receipt with Repair Finalize (Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-RPI-06 transfer to Casting, accept, worker issue and receipt with Repair Finalize (Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(900_000);
     await login(loginPage, page);
     await production.processMovementTransfer({

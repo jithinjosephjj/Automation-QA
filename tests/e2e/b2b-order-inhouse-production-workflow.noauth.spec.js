@@ -41,7 +41,7 @@ const DATA = {
     grossWeight: 50,
   },
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   item: {
     articleSearch: 'tendu',
     article: 'Gold,Ring-Tendulkar',
@@ -53,10 +53,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 function rowKey() {
@@ -184,7 +181,7 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
     console.log('Transferred to Casting and accepted');
   });
 
-  test('TC-B2B-PRD-07 worker issue and receipt with item (Casting, Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-B2B-PRD-07 worker issue and receipt with item (Casting, Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
     const header = { ...DATA.round2, rowText: rowKey() };

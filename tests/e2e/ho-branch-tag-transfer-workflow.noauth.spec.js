@@ -19,10 +19,7 @@ const state = makeState('e2e-tag-hb-state.json');
 const DATA = { itemType: 'Metal', groupCategory: 'Gold', receiver: 'JJ' };
 
 async function loginAs(loginPage, page, bu) {
-  await loginPage.open();
-  await loginPage.login({ bu });
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn({ bu });
 }
 
 test.describe('Tag Transfer - HO to Branch (Aluva -> Cochin, continues the HO-HO tag)', () => {

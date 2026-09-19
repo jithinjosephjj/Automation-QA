@@ -54,10 +54,7 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
   };
 
   async function loginAs(loginPage, page, bu, creds = {}) {
-    await loginPage.open();
-    await loginPage.login({ ...creds, bu });
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn({ ...creds, bu });
   }
 
   test.describe(title, () => {
@@ -127,7 +124,7 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
       expect(inwardVoucherNo, 'generated inward voucher number').toBeTruthy();
       state.writeState({ inwardVoucherNo });
       console.log(`[${tc}] metal inward saved at ${sourceBU}: ${inwardVoucherNo}`);
-      await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+      await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     });
 
     test(`${tc}-02 ${sourceBU}: lot generation from the inward`, async ({ loginPage, lotGeneration, page }) => {

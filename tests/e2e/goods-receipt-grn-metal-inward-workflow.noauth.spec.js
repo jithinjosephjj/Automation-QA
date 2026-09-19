@@ -39,10 +39,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
@@ -81,7 +78,7 @@ test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
     await metalInward.waitForIdle();
 
     await metalInward.fillItemFromGoodsReceipt({ goodsReceiptNo, ...DATA.inward.item });
-    await metalInward.addItemBtn.click();
+    await metalInward.addItem();
     await metalInward.waitForIdle();
 
     // the receipt's weights must have landed in the summary
@@ -102,7 +99,7 @@ test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
     console.log(`GRN metal inward saved: ${inwardVoucherNo} (from goods receipt ${goodsReceiptNo})`);
 
     await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-grgrn-02-print-preview.png' });
-    await page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
     await metalInward.verifyRowInList(inwardVoucherNo);
   });
 });

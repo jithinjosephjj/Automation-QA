@@ -18,7 +18,7 @@ const state = makeState('e2e-jobwork-direct-state.json');
  *   1 direct job work (wizard: General -> Items -> Review & Submit)
  *   2 job assignment (source Job Work, generation type DIRECT) -> Casting
  *   3 process movement accept (Casting)
- *   4 worker issue (Casting, Sioniquser11)
+ *   4 worker issue (Casting, Sioniquser16)
  *   5 worker receipt (settlement, Move to Job Finalize)
  *   6 job finalize + Generate Barcode (SINGLE TAG)
  *
@@ -38,17 +38,14 @@ const DATA = {
     item: { groupCategory: 'Gold', category: 'Ring', article: 'Tendulkar', purity: '91.60', grossWeight: 50 },
   },
   // single production round: assigned directly to Casting
-  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   // the settlement receipt: Production No auto-selects the offered pending
   // job, then item details, then Move to Job Finalize + Add Items
   receiptItem: { article: 'Tendulkar', articleSearch: 'ring', purity: '91.6', weight: 40 },
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 function rowKey() {
@@ -98,7 +95,7 @@ test.describe('Job Work Direct - Inhouse - Production - Workflow', () => {
     console.log('Process movement accepted (direct job work) at Casting');
   });
 
-  test('TC-JW-DIR-04 worker issue (Casting, Sioniquser11)', async ({ loginPage, production, page }) => {
+  test('TC-JW-DIR-04 worker issue (Casting, Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
     const result = await production.workerIssue({

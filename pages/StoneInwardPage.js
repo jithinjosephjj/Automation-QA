@@ -96,7 +96,7 @@ class StoneInwardPage extends StockInwardBasePage {
           const options = this.page.locator('.ng-dropdown-panel .ng-option');
           const ok = await options.first().waitFor({ state: 'visible', timeout: attempt * 4_000 })
             .then(() => true).catch(() => false);
-          if (ok && !/No items found/i.test((await options.first().textContent().catch(() => '')) || '')) {
+          if (ok && !/No items found/i.test((await options.first().textContent({ timeout: 2_000 }).catch(() => '')) || '')) {
             // "Per Pcs" tare type MULTIPLIES the entered weight by the piece
             // count - prefer an absolute-weight type so tare = what we enter
             const flat = options.filter({ hasNotText: /Per\s*Pcs/i }).first();
@@ -111,10 +111,10 @@ class StoneInwardPage extends StockInwardBasePage {
       }
       await dlg.locator('input[type="number"]').first().fill(String(tareWeight));
       await dlg.getByRole('button', { name: 'Add Item' }).click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       await dlg.locator('button[data-role="close-tare"]').click();
       await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
     }
 
     if (discountPercent !== undefined) {
@@ -133,7 +133,7 @@ class StoneInwardPage extends StockInwardBasePage {
       // the styled checkbox swallows forced clicks on the input - fall back
       // through the label and a DOM click until the state actually flips
       const box = this.page.locator('#assortedStock');
-      if (!(await box.isChecked().catch(() => false))) {
+      if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) {
         await box.check({ timeout: 5_000 }).catch(() => {});
         if (!(await box.isChecked())) {
           await this.page.locator('label[for="assortedStock"]').click({ timeout: 5_000 }).catch(() => {});

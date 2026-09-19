@@ -45,13 +45,13 @@ class LotGenerationPage extends StockInwardBasePage {
     await this.pick('vendorFilter', vendor, { closePanel: true })
       .catch((e) => console.log('lot: vendor filter skipped -', String(e).slice(0, 100)));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // check the inward's grid row - this opens the item panel
     const row = this.rowMatcher(inwardNo).first();
     await row.waitFor({ state: 'visible', timeout: 30_000 });
     await row.getByRole('checkbox').first().check({ force: true });
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // panel pre-fills the article chain from the inward; Employee and
     // Business Unit are the manual mandatory picks
@@ -59,7 +59,7 @@ class LotGenerationPage extends StockInwardBasePage {
     await this.pick('businessUnitID', businessUnit, { exact: true });
 
     await this.page.getByRole('button', { name: 'Add To Lot' }).click();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     const resp = this.page.waitForResponse(
       (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && /lot/i.test(r.url()) && !/GetAll|Pagination|KeepAlive/i.test(r.url()),
@@ -85,7 +85,7 @@ class LotGenerationPage extends StockInwardBasePage {
     this.printPreviewError = null;
     await this.printDialog.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
     await this.verifyPrintPreview().catch((e) => { this.printPreviewError = String(e); });
-    await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
+    await this.closeVisibleDialog();
     return lotNo;
   }
 }

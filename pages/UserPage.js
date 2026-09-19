@@ -52,7 +52,7 @@ class UserPage extends StockInwardBasePage {
   async loginExists(login) {
     await this.open();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     return (await this.gridRows.filter({ hasText: login }).count()) > 0;
   }
 

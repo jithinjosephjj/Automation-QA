@@ -11,7 +11,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
   constructor(page) {
     super(page);
     this.tabName = 'B2B Order Booking';
-    this.tab = page.getByRole('tab', { name: 'B2B Order Booking' });
+    this.tab = page.getByRole('tab', { name: /^B2B( Order Booking)?$/ }); // renamed to plain "B2B" on 19-09-2026
   }
 
   async open() {
@@ -19,7 +19,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     await this.tab.waitFor({ state: 'visible', timeout: 30_000 });
     await this.tab.click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
   }
 
   async openAddWizard() {
@@ -60,7 +60,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     await this.pick('referenceType', referenceType);
     await this.pick('groupCategory', groupCategory, { exact: true });
     await this.pick('category', category, { exact: true });
-    await this.page.waitForTimeout(2_000); // let the article list refilter
+    await this.settle(2_000); // let the article list refilter
     // NO typed search (the search path loses joined fields - same as fillItem)
     await this.pick('article', article);
     await this.pick('purity', purity);
@@ -79,7 +79,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     if (mainImage) await this.attachFileViaAddFiles(mainImage);
 
     await this.page.getByRole('button', { name: 'Add Sample' }).click();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // sub-form article chain (label .last() = the sub-form's instance)
     await this.pickByLabel('Group Category', sample.groupCategory || groupCategory, { exact: true }).catch(() => {});
@@ -96,7 +96,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     const rate = this.page.locator('#rate');
     await rate.fill(String(sample.rate));
     await rate.blur();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // "Used In Production" toggle inside the Add Sample panel - its own
     // control (input#useInProduction / formcontrolname "useInProduction",
@@ -104,13 +104,13 @@ class B2BOrderBookingPage extends OrderBookingPage {
     // hidden #active). Drive via its label when the input is not clickable.
     if (sample.usedInProduction !== undefined) {
       const box = this.page.locator('#useInProduction');
-      const on = await box.isChecked().catch(() => false);
+      const on = await box.isChecked({ timeout: 2_000 }).catch(() => false);
       if (on !== sample.usedInProduction) {
         await this.page.locator('label[for="useInProduction"]').click({ timeout: 5_000 })
           .catch(() => box.click({ force: true }));
         await this.page.waitForTimeout(500);
       }
-      console.log(`Add Sample panel: Used In Production = ${await box.isChecked().catch(() => '?')}`);
+      console.log(`Add Sample panel: Used In Production = ${await box.isChecked({ timeout: 2_000 }).catch(() => '?')}`);
     }
 
     // a DIFFERENT image on the sample itself, via the PANEL's own Add Files
@@ -127,7 +127,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     console.log('Add Sample panel: sample listed under Items Added');
     await this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last().click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
   }
 
   /** Click Yes when the sample order's post-submit confirmation asks. */
@@ -138,7 +138,7 @@ class B2BOrderBookingPage extends OrderBookingPage {
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
       if (await yes.isVisible().catch(() => false)) {
-        await yes.click().catch(() => {});
+        await yes.click({ timeout: 3_000 }).catch(() => {});
         console.log('confirmation dialog: clicked Yes');
         return true;
       }

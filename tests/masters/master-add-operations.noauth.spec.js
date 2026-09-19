@@ -19,10 +19,7 @@ const { nextSioniqUser, commit } = require('../../utils/sioniquser');
  */
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 /** Create the iteration's employee - shared prerequisite step. */

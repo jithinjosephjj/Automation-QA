@@ -29,7 +29,7 @@ class TransfersPage extends StockInwardBasePage {
   async openTab(name) {
     await this.page.getByRole('tab', { name: new RegExp(name, 'i') }).first().click({ timeout: 20_000 });
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_000);
+    await this.settle(1_000);
   }
 
   async closePanel() {
@@ -47,7 +47,7 @@ class TransfersPage extends StockInwardBasePage {
     await cont.locator('.ng-select-container').first().click({ timeout: 10_000 }).catch(() => {});
     await this.page.waitForTimeout(700);
     const ok = await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: re }).first().click({ timeout }).then(() => true).catch(() => false);
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     // On a miss, close the panel so a caught (best-effort) pick doesn't leave an
     // open dropdown that blocks the next field.
     if (!ok) { await this.closePanel(); throw new Error(`Transfers: option ${re} not found for "${label}"`); }
@@ -61,7 +61,7 @@ class TransfersPage extends StockInwardBasePage {
     await this.open();
     await this.openTab('Transfer Out');
     await this.addBtn.click({ timeout: 30_000 });
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     await this.pickByLabelText('Transfer Mode', /^\s*Confirmed\s*$/);
     await this.pickByLabelText('Destination Business Unit', new RegExp(destination));
@@ -77,7 +77,7 @@ class TransfersPage extends StockInwardBasePage {
       // AFTER Item Type is chosen; wait for it, then clear it so the stone tag
       // is not filtered out. Retry - the clear button can render late.
       await this.closePanel();
-      await this.page.waitForTimeout(1_200);
+      await this.settle(1_200);
       const gc = this.selectByLabel('Group Category');
       for (let i = 0; i < 3; i++) {
         const has = await gc.locator('.ng-value').first().isVisible({ timeout: 800 }).catch(() => false);
@@ -94,7 +94,7 @@ class TransfersPage extends StockInwardBasePage {
     // Scan Type defaults to Tag Number; enforce it if a picker is present
     await this.pickByLabelText('Scan Type', /Tag Number/).catch(() => {});
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // enter the tag and Add it to the selection list
     const box = this.page.locator('app-sioniq-input input, input[placeholder*="tag" i]').locator('visible=true').first();
@@ -108,14 +108,14 @@ class TransfersPage extends StockInwardBasePage {
       await box.press('Enter').catch(() => {}); // some builds add the tag on Enter
     }
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     // move the added tag(s) into the transfer
     const addSel = this.page.getByRole('button', { name: /Add Selected to Transfer/i }).locator('visible=true').last();
     if (await addSel.isVisible({ timeout: 8_000 }).catch(() => false)) {
       await addSel.click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
 
     // Submit
@@ -126,9 +126,9 @@ class TransfersPage extends StockInwardBasePage {
     const submit = this.page.locator('button').filter({ hasText: /^\s*Submit\s*$/ }).locator('visible=true').last();
     await submit.scrollIntoViewIfNeeded().catch(() => {});
     await submit.click({ timeout: 15_000, force: true });
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     const confirm = this.page.locator('[role="dialog"], .modal, ngb-modal-window').filter({ hasText: /Are you sure|Confirm/i }).getByRole('button', { name: /Yes|Ok|Confirm|Submit/i }).locator('visible=true').last();
-    if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click().catch(() => {});
+    if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click({ timeout: 3_000 }).catch(() => {});
     const r = await resp;
     if (!r) throw new Error('Transfer Out Submit fired no save request - form silently blocked');
     const body = await r.json().catch(() => null);
@@ -151,12 +151,12 @@ class TransfersPage extends StockInwardBasePage {
     const cont = this.selectByLabel('Transfer Out ID');
     await cont.locator('.ng-select-container').first().click({ timeout: 10_000 }).catch(() => {});
     if (receiptNo) await cont.locator('input[role="combobox"]').fill(String(receiptNo)).catch(() => {});
-    await this.page.waitForTimeout(1_800);
+    await this.settle(1_800);
     const opt = receiptNo
       ? this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: new RegExp(String(receiptNo).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first()
       : this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i }).first();
     await opt.click({ timeout: 10_000 });
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
   }
 
   /**
@@ -168,14 +168,14 @@ class TransfersPage extends StockInwardBasePage {
     await this.open();
     await this.openTab(tab);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
     if (search) {
       const box = this.page.getByRole('textbox', { name: /search/i }).locator('visible=true').first();
       if (await box.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await box.fill(String(search));
         await box.press('Enter').catch(() => {});
         await this.waitForIdle();
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
       }
     }
     return (await this.page.locator('table tbody tr').allInnerTexts()).map((s) => s.replace(/\s+/g, ' ').trim());
@@ -193,7 +193,7 @@ class TransfersPage extends StockInwardBasePage {
     await this.open();
     await this.openTab('Transfer In');
     await this.addBtn.click({ timeout: 30_000 });
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     await this.pickByLabelText('From Business Unit', new RegExp(fromBU));
     await this.pickByLabelText('Transaction Mode', new RegExp(`^\\s*${transactionMode}\\s*$`));
@@ -204,20 +204,20 @@ class TransfersPage extends StockInwardBasePage {
     // pick ours by receipt no, else take the first offered
     await this.pickTransferOutId(transferOutNo);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // load the incoming-items grid if a Search is required
     if (!(await this.page.locator('[id^="item-"], table tbody tr input[type="checkbox"]').first().isVisible({ timeout: 3_000 }).catch(() => false))) {
       await this.page.getByRole('button', { name: /^\s*Search\s*$/ }).locator('visible=true').last().click({ timeout: 6_000 }).catch(() => {});
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
     }
 
     // check the incoming item (first row / #item-0)
     const box = this.page.locator('[id^="item-"], table tbody tr input[type="checkbox"]').locator('visible=true').first();
     await box.waitFor({ state: 'visible', timeout: 30_000 });
-    if (!(await box.isChecked().catch(() => false))) await box.check({ force: true });
-    await this.page.waitForTimeout(1_500);
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
+    await this.settle(1_500);
 
     // receiver name
     const rec = this.page.getByRole('textbox', { name: /Enter receiver name/i }).locator('visible=true').first();
@@ -237,16 +237,16 @@ class TransfersPage extends StockInwardBasePage {
     const actionBtn = this.page.locator('button').filter({ hasText: actionRe }).locator('visible=true').last();
     await actionBtn.scrollIntoViewIfNeeded().catch(() => {});
     await actionBtn.click({ timeout: 15_000, force: true });
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     // confirmation (and, for Return, a possible reason box) in a dialog
     const dialog = this.page.locator('[role="dialog"], .modal, ngb-modal-window').filter({ hasText: /Are you sure|Confirm|Return|Reason|Remark/i }).locator('visible=true').last();
     if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
       const reason = dialog.locator('textarea, input[type="text"]').locator('visible=true').first();
-      if (await reason.isVisible({ timeout: 1_000 }).catch(() => false) && !(await reason.inputValue().catch(() => ''))) {
+      if (await reason.isVisible({ timeout: 1_000 }).catch(() => false) && !(await reason.inputValue({ timeout: 2_000 }).catch(() => ''))) {
         await reason.fill(remarks || `${action} by automation`).catch(() => {});
       }
       const confirm = dialog.getByRole('button', { name: /Yes|Ok|Confirm|Accept|Return|Submit/i }).locator('visible=true').last();
-      if (await confirm.isVisible({ timeout: 2_000 }).catch(() => false)) await confirm.click().catch(() => {});
+      if (await confirm.isVisible({ timeout: 2_000 }).catch(() => false)) await confirm.click({ timeout: 3_000 }).catch(() => {});
     }
     const r = await resp;
     if (!r) throw new Error(`Transfer In ${action} fired no save request - form silently blocked`);

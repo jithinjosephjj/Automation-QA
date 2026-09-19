@@ -36,7 +36,7 @@ class BullionBookingPage extends BullionInwardPage {
       const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
       const ok = await opt.waitFor({ state: 'visible', timeout: attempt * 4_000 })
         .then(() => true).catch(() => false);
-      const label = ok ? ((await opt.textContent().catch(() => '')) || '').trim() : '';
+      const label = ok ? ((await opt.textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
       if (ok && label && !/No items found/i.test(label)) {
         await opt.click();
         console.log(`booking ${controlname} ->`, label);
@@ -82,11 +82,11 @@ class BullionBookingPage extends BullionInwardPage {
     // the checkbox beside Rate ("Reduce Tax") reveals one more number field
     if (reduceTax) {
       const box = this.page.locator('#reduceTaxOnRate');
-      if (!(await box.isChecked().catch(() => false))) {
+      if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) {
         await box.check({ timeout: 5_000 }).catch(() => {});
         if (!(await box.isChecked())) await box.evaluate((el) => el.click());
       }
-      await this.page.waitForTimeout(1_000);
+      await this.settle(1_000);
       // the revealed input renders right after Rate; everything else that
       // follows (the money chain) is disabled - take the first ENABLED one
       const rt = this.page

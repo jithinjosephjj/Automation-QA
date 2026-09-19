@@ -62,7 +62,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
         const options = this.page.locator('.ng-dropdown-panel .ng-option');
         const ok = await options.first().waitFor({ state: 'visible', timeout: attempt * 4_000 })
           .then(() => true).catch(() => false);
-        if (ok && !/No items found/i.test((await options.first().textContent().catch(() => '')) || '')) {
+        if (ok && !/No items found/i.test((await options.first().textContent({ timeout: 2_000 }).catch(() => '')) || '')) {
           // "Per Pcs" tare types multiply by the piece count - prefer flat
           const flat = options.filter({ hasNotText: /Per\s*Pcs/i }).first();
           const opt = (i === 1 && (await flat.isVisible().catch(() => false))) ? flat : options.first();
@@ -77,12 +77,12 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await dlg.locator('input[type="number"]').first().fill(String(tareWeight));
     const addBtn = dlg.locator('button').filter({ hasText: /Add/ }).last();
     await addBtn.click();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     const close = dlg.locator('button[data-role="close-tare"]');
     if (await close.isVisible({ timeout: 3_000 }).catch(() => false)) await close.click();
     else await dlg.locator('button').filter({ hasText: /^\s*Close\s*$/ }).last().click();
     await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
-    await this.page.waitForTimeout(1_000);
+    await this.settle(1_000);
   }
 
   /**
@@ -143,7 +143,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.pick('materialtype', materialType, { exact: true });
     if (description !== undefined) await this.fillByCaption('Description', description);
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     // these may back-fill from the logistics record - pick only when empty
     for (const [label, val] of [['Metal Group Category', metalGroup], ['Metal Category', metalCategory], ['Purity', purity]]) {
@@ -160,8 +160,8 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     } else {
       await this.fillByCaption('Stone Weight', stoneWeight);
     }
-    console.log('goods receipt weights: gross', await this.inputCtl('grossWeight').inputValue().catch(() => '?'),
-      'net', await this.inputCtl('netWeight').inputValue().catch(() => '?'));
+    console.log('goods receipt weights: gross', await this.inputCtl('grossWeight').inputValue({ timeout: 2_000 }).catch(() => '?'),
+      'net', await this.inputCtl('netWeight').inputValue({ timeout: 2_000 }).catch(() => '?'));
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
@@ -186,12 +186,12 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await scan.fill(tagNo);
     await scan.press('Enter');
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     const add = this.page.locator('button').filter({ hasText: /^\s*Add\s*$/ }).locator('visible=true').last();
     if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await add.click();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       console.log('counter allocation: tag staged via Add');
     }
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
@@ -237,7 +237,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       await this.select(controlname).locator('.ng-select-container').click();
       const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
       const ok = await opt.waitFor({ state: 'visible', timeout: attempt * 4_000 }).then(() => true).catch(() => false);
-      const label = ok ? ((await opt.textContent().catch(() => '')) || '').trim() : '';
+      const label = ok ? ((await opt.textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
       if (ok && label && !/No items found/i.test(label)) {
         await opt.click();
         console.log(`${controlname} ->`, label);
@@ -259,7 +259,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
 
     await this.pickTolerant('Item Type *', itemType).catch(() => this.pickTolerant('Item Type', itemType));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     await this.checkRow(tagNo);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: /Accept/ }).locator('visible=true').last());
@@ -289,7 +289,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const source = sourceType || (tagNo ? 'TagWise' : 'Inward');
     await this.pickPreferred('stockSourceType', new RegExp(`^${source}$`, 'i'));
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_000);
+    await this.settle(2_000);
 
     const key = tagNo || inwardNo;
     if (tagNo) {
@@ -298,7 +298,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
         .catch(() => this.pickTolerant('Scan Type', 'Tag Number', { exact: true }))
         .catch(() => this.pickPreferred('masterDataValueID_ScanType', /tag/i));
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
 
       const tagField = this.inputByCaption('Tag Number');
       const scanField = this.page.getByPlaceholder(/Scan/i).locator('visible=true').last();
@@ -308,11 +308,11 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
           .filter({ hasNotText: /Files|Selected|Charges/ }).locator('visible=true').last();
         if (await add.isVisible({ timeout: 3_000 }).catch(() => false)) await add.click();
         else await tagField.press('Enter');
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
       } else if (await scanField.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await scanField.fill(tagNo);
         await scanField.press('Enter');
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
       } else {
         await this.checkRow(tagNo);
       }
@@ -321,17 +321,17 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       // select for the inward, then the rows land in Return Items
       await this.fillEmptySelects(['Metal Inward']);
       await this.waitForIdle();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       // the RC No list is a typeahead - search the inward's number
       await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true });
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       await this.checkRow(inwardNo).catch(() => {});
       const add = this.page.locator('button').filter({ hasText: /Add/ })
         .filter({ hasNotText: /Files|Selected|Charges/ }).locator('visible=true').last();
       if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await add.click();
-        await this.page.waitForTimeout(2_000);
+        await this.settle(2_000);
         console.log('purchase return: inward committed via Add');
       }
     }
@@ -339,7 +339,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const row = this.rowMatcher(this.docCore(key)).last();
     if (await row.isVisible({ timeout: 10_000 }).catch(() => false)) {
       const box = row.getByRole('checkbox').first();
-      if (!(await box.isChecked().catch(() => true))) await box.check({ force: true }).catch(() => {});
+      if (!(await box.isChecked({ timeout: 2_000 }).catch(() => true))) await box.check({ force: true, timeout: 3_000 }).catch(() => {});
       console.log('purchase return: row staged');
     } else {
       const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
@@ -366,7 +366,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       const search = this.page.getByRole('combobox', { name: 'Search' });
       await search.click();
       await search.fill('invoice');
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       await search.press('ArrowDown');
       await search.press('Enter');
       await this.waitForIdle();
@@ -376,7 +376,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     }
     await tab.click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
     await this.clickVisibleAdd();
 
     await this.pickPreferred('transactionSubTypeID', /invoice/i);
@@ -391,7 +391,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.pickPreferred('masterDataValueID_InvoiceIssueType', /direct|tag|counter/i, /approval/i).catch(() => {});
     await this.pickPreferred('masterDataValueID_ScanType', /tag/i).catch(() => {});
     await this.waitForIdle();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     // the scan field is captioned "Tag Number"; the "+ Add" button commits
     // the scan (Enter clears the field without staging)
@@ -405,7 +405,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       .locator('visible=true').last();
     await add.click();
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500);
+    await this.settle(2_500);
 
     // proof the tag actually staged - surface the app's toast if it did not
     const scanned = this.rowMatcher(tagNo).last();
@@ -416,7 +416,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     }
     console.log('sales invoice: tag scanned into the grid');
     const box = scanned.getByRole('checkbox').first();
-    if (!(await box.isChecked().catch(() => true))) await box.check({ force: true }).catch(() => {});
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => true))) await box.check({ force: true, timeout: 3_000 }).catch(() => {});
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.invoiceNo || body.data.docNo)) || '';

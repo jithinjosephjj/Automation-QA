@@ -47,14 +47,14 @@ class SmithPage extends StockInwardBasePage {
     // "Sioni" and why "Sioni2" silently became "Sioni" and got rejected as
     // "Short Name Sioni Duplicated.", HTTP 501). Use the u<N> scheme - short,
     // unique, and well inside the limit.
-    await this.page.waitForTimeout(3_000); // let the employee auto-fill land first
+    await this.settle(3_000); // let the employee auto-fill land first
     await this.code.fill(`SM${u.n}`);
     if (!(await this.name.inputValue())) await this.name.fill(u.displayName);
     const shortName = `u${u.n}`;
     for (let i = 0; i < 5; i++) {
       await this.shortName.fill(shortName);
       await this.shortName.blur();
-      await this.page.waitForTimeout(1_500);
+      await this.settle(1_500);
       if ((await this.shortName.inputValue()) === shortName) return;
     }
     throw new Error(`Short Name would not hold the value "${shortName}"`);
@@ -108,7 +108,7 @@ class SmithPage extends StockInwardBasePage {
       if (visible) break;
       await this.nextBtn.click();
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
     }
     await this.submitBtn.waitFor({ state: 'visible', timeout: 15_000 });
 
@@ -128,9 +128,9 @@ class SmithPage extends StockInwardBasePage {
     for (let i = 0; i < 5; i++) {
       await this.open();
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_000);
+      await this.settle(2_000);
       if ((await this.gridRows.filter({ hasText: u.displayName }).count()) > 0) return true;
-      await this.page.waitForTimeout(8_000);
+      await this.settle(8_000);
     }
     return false;
   }

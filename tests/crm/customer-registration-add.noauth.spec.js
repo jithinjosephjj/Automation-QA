@@ -35,10 +35,7 @@ test.describe('Customer Registration - add record', () => {
   test('TC-CRM-CUST-01 add an Individual customer', async ({ loginPage, customerRegistration, page }) => {
     test.setTimeout(420_000);
 
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     await customerRegistration.open();
     await customerRegistration.openAddForm();

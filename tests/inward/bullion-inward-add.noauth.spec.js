@@ -32,10 +32,7 @@ test.describe('Bullion Inward - add record', () => {
     test.setTimeout(420_000);
 
     // ---- login ----
-    await loginPage.open();
-    await loginPage.login();
-    await loginPage.throwIfGated();
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+    await loginPage.ensureLoggedIn();
 
     // ---- Procurement > Operations > Bullion Booking, Bullion Inward tab ----
     await bullionInward.open();

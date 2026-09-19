@@ -47,14 +47,11 @@ const DATA = {
     },
   },
   issue: { vendor: 'RAJA', itemType: 'Metal', submissionMethod: 'In Person', receivedFrom: 'Raja', contactNumber: '6565455555' },
-  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser11' },
+  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser16' },
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 test.describe('B2B Sample Registration - Outsource - Workflow', () => {

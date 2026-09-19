@@ -1,6 +1,9 @@
 const { BasePage } = require('./BasePage');
 const { getNgOptions } = require('../utils/ng-select');
 const env = require('../utils/env');
+const sessionCache = require('../utils/session-cache');
+
+const firstLine = (e) => String(e).split(/\r?\n/)[0];
 
 /**
  * Sioniq login.
@@ -22,6 +25,11 @@ class LoginPage extends BasePage {
     this.rememberMe = page.locator('#checkbox-signin');
     this.loginBtn = page.getByRole('button', { name: 'Log In' });
     this.form = page.locator('form.login-form');
+
+    // The authenticated app shell (top bar with the process-date/BU chip) -
+    // the "logged in and rendered" marker used by ensureLoggedIn.
+    this.shellSelector = 'app-topbar, .navbar-custom';
+    this.shell = page.locator(this.shellSelector);
 
     // Client-side hardware gate, shown on submit when the Device Radar
     // desktop agent is not installed/running on this machine.
@@ -66,7 +74,7 @@ class LoginPage extends BasePage {
         console.log(`login attempt ${attempt}: retrying after "${lastProblem}" - reloading /login`);
         await this.page.reload({ waitUntil: 'domcontentloaded' });
         await this.username.waitFor({ state: 'visible', timeout: 30_000 });
-        await this.page.waitForTimeout(1_500);
+        await this.settle(1_500);
       }
 
       try {
@@ -88,7 +96,7 @@ class LoginPage extends BasePage {
         await this.selectNg('ng-select#location', bu);
 
         // BU must actually hold the choice (a stale list shows "No items found")
-        const buVal = ((await this.businessUnit.locator('.ng-value').first().textContent().catch(() => '')) || '').trim();
+        const buVal = ((await this.businessUnit.locator('.ng-value').first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim();
         if (!buVal.includes(bu)) { lastProblem = `business unit holds "${buVal}"`; continue; }
 
         // fields can still be clobbered by late hydration - final re-check
@@ -104,6 +112,87 @@ class LoginPage extends BasePage {
       }
     }
     throw new Error(`Login form never accepted the credentials cleanly after 4 attempts (last problem: ${lastProblem})`);
+  }
+
+  /**
+   * Log in the FAST way: replay a cached session (cookies + localStorage +
+   * the sessionStorage auth token) into this page and boot the app already
+   * authenticated - about 3 s instead of ~10 s through the form. When no
+   * fresh cache exists, or the app bounces the replay to /login, falls back
+   * to the real form login and refreshes the cache from it.
+   *
+   * Works both on a fresh page (about:blank) and mid-chain when switching to
+   * another user: the injected values replace whatever the page held.
+   * @param {{user?: string, pwd?: string, bu?: string}} [creds]
+   */
+  async ensureLoggedIn(creds = {}) {
+    const user = creds.user ?? env.USER;
+    const pwd = creds.pwd ?? env.PWD;
+    const bu = creds.bu ?? env.BU;
+
+    const cached = sessionCache.load(user, bu);
+    if (cached) {
+      const ok = await this.bootFromSession(cached).catch((e) => {
+        console.log(`session replay for ${user}@${bu} failed: ${firstLine(e)}`);
+        return false;
+      });
+      if (ok) return;
+      console.log(`session cache for ${user}@${bu} was rejected - logging in through the form`);
+      sessionCache.clear(user, bu);
+    }
+
+    await this.open();
+    await this.login({ user, pwd, bu });
+    await this.throwIfGated();
+    // Landing anywhere other than /login is the success signal - the app
+    // redirects to its returnUrl, which is not a fixed route.
+    await this.page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 60_000 });
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.shell.first().waitFor({ state: 'visible', timeout: 30_000 });
+    await sessionCache.save(user, bu, this.page);
+    console.log(`form login as ${user}@${bu} - session cached for replay`);
+  }
+
+  /**
+   * Inject a cached session and open its landing route. Resolves true when
+   * the authenticated app shell renders, false when the app shows /login.
+   */
+  async bootFromSession(cached) {
+    const page = this.page;
+    const host = new URL(env.URL).hostname;
+    if (cached.cookies?.length) await page.context().addCookies(cached.cookies).catch(() => {});
+
+    const data = { host, local: cached.local || {}, session: cached.session || {} };
+    if (page.url().startsWith('http') && new URL(page.url()).hostname === host) {
+      // already on the app (user switch): overwrite in place
+      await page.evaluate((d) => {
+        localStorage.clear();
+        sessionStorage.clear();
+        for (const [k, v] of Object.entries(d.local)) localStorage.setItem(k, v);
+        for (const [k, v] of Object.entries(d.session)) sessionStorage.setItem(k, v);
+      }, data);
+    } else {
+      // fresh page: seed storage before the app's first script runs. Only
+      // fills MISSING keys so later navigations keep whatever the app wrote.
+      await page.addInitScript((d) => {
+        if (location.hostname !== d.host) return;
+        for (const [k, v] of Object.entries(d.local)) if (localStorage.getItem(k) === null) localStorage.setItem(k, v);
+        for (const [k, v] of Object.entries(d.session)) if (sessionStorage.getItem(k) === null) sessionStorage.setItem(k, v);
+      }, data);
+    }
+
+    const landing = cached.landing || '/dsb/e-commerce';
+    try {
+      await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+    } catch (e) {
+      console.log(`session replay: landing navigation hung (${firstLine(e)}) - retrying once`);
+      await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    }
+    await page.locator(`${this.shellSelector}, form.login-form, #username`).first().waitFor({ state: 'visible', timeout: 30_000 });
+    if (new URL(page.url()).pathname.includes('/login')) return false;
+    if (!(await this.shell.first().isVisible().catch(() => false))) return false;
+    const token = await page.evaluate((k) => sessionStorage.getItem(k), sessionCache.TOKEN_KEY);
+    return !!token;
   }
 
   /** True when the Device Radar gate is on screen. */

@@ -94,6 +94,48 @@ class StockInwardBasePage extends BasePage {
   }
 
   /**
+   * The option nodes of the panel belonging to `host` (an ng-select). Waits
+   * for ANY panel to attach - fast - instead of timing out on an inline panel
+   * this app almost never renders (that wait cost 1.5 s on every pick). An
+   * inline panel, when present, is preferred over the page-level one.
+   */
+  async panelOptions(host) {
+    await this.page.locator('.ng-dropdown-panel').last().waitFor({ state: 'attached', timeout: 3_000 }).catch(() => {});
+    const inline = host.locator('.ng-dropdown-panel');
+    return (await inline.count()) ? inline.locator('.ng-option') : this.page.locator('.ng-dropdown-panel .ng-option');
+  }
+
+  /**
+   * Did the pick land? ng-select echoes the chosen label in .ng-value-label.
+   * A click on an option of a panel that was re-rendering (cascade from an
+   * upstream pick) can leave the control empty - the caller then retries.
+   */
+  async valueLanded(host, pattern, timeout = 3_000) {
+    // .ng-value is what this app renders (custom label templates, so there is
+    // no .ng-value-label); strip the clear glyph before matching
+    const deadline = Date.now() + timeout;
+    do {
+      const texts = await host.locator('.ng-value').allTextContents().catch(() => []);
+      if (texts.some((t) => pattern.test(t.replace(/×/g, '').trim()))) return true;
+      await this.page.waitForTimeout(150);
+    } while (Date.now() < deadline);
+    return false;
+  }
+
+  /**
+   * A pick can be undone by the form itself: an upstream select's follow-up
+   * requests (article -> purity list, inward type -> vendor list) re-render
+   * downstream controls and clear their value, sometimes a full second after
+   * the click. Wait the cascade out - longer for server-searched picks, which
+   * always cascade - then confirm the value is still there.
+   */
+  async survivesCascade(host, pattern, search) {
+    if (search) await this.settle(3_000, { grace: 800, quiet: 1_000 });
+    else await this.settle(1_000, { grace: 250, quiet: 400 });
+    return this.valueLanded(host, pattern, 500);
+  }
+
+  /**
    * Open a wizard dropdown, pick an option, return the full option list for
    * assertions. search types into the combobox first (server-filtered lists
    * like Article). closePanel is required after multi-selects (purchaser).
@@ -110,22 +152,21 @@ class StockInwardBasePage extends BasePage {
     // reopened. Lists load asynchronously (vendors, server-filtered articles),
     // so close and reopen until the option is actually there.
     let all = [];
+    let clickedButEmpty = 0;
     for (let attempt = 1; attempt <= 4; attempt++) {
       await this.closeStalePanels();
       await host.locator('.ng-select-container').click();
-      if (search) {
-        await host.locator('input[role="combobox"]').fill(optionText);
-        await this.page.waitForTimeout(2_000); // server-side filter debounce
+      if (search || attempt >= 2) {
+        // attempt >= 2: the list may be virtual-scrolled past the option -
+        // typing filters it into the rendered window
+        await host.locator('input[role="combobox"]').fill(optionText).catch(() => {});
+        await this.settle(2_000); // server-side filter debounce
       }
       // scope to THIS control's own panel: the reworked B2B order form keeps
       // other dropdowns' panels in the DOM, so a page-global .first() can land
       // on a hidden stale panel's option and never see it become visible.
       // Fall back to the page-level panel for appendTo-body selects.
-      const inline = host.locator('.ng-dropdown-panel');
-      await inline.waitFor({ state: 'attached', timeout: 1_500 }).catch(() => {});
-      const options = (await inline.count())
-        ? inline.locator('.ng-option')
-        : this.page.locator('.ng-dropdown-panel .ng-option');
+      const options = await this.panelOptions(host);
       const wanted = options.filter({ hasText: pattern });
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
@@ -137,10 +178,22 @@ class StockInwardBasePage extends BasePage {
           .then(() => true).catch(() => false);
         if (clicked) {
           if (closePanel) await this.page.keyboard.press('Escape');
-          return all;
+          if (await this.valueLanded(host, pattern)) {
+            if (await this.survivesCascade(host, pattern, search)) return all;
+            console.log(`pick ${controlname}: "${optionText}" was cleared by a cascade (attempt ${attempt}) - picking again`);
+            continue;
+          }
+          clickedButEmpty++;
+          console.log(`pick ${controlname}: "${optionText}" clicked but the value did not land (attempt ${attempt}) - retrying`);
         }
       }
       await this.page.keyboard.press('Escape');
+    }
+    if (clickedButEmpty === 4) {
+      // every attempt clicked the option; the control just never echoed the
+      // label - keep the old (unverified) behaviour rather than fail here
+      console.log(`pick ${controlname}: value echo never confirmed for "${optionText}" - continuing`);
+      return all;
     }
     throw new Error(
       `Option "${optionText}" never appeared in ${this.tabName} wizard dropdown "${controlname}". Last option list: ${JSON.stringify(all)}`,
@@ -179,27 +232,35 @@ class StockInwardBasePage extends BasePage {
     const pattern = exact
       ? new RegExp(String.raw`^\s*` + escapeRe(optionText) + String.raw`\s*$`)
       : new RegExp(escapeRe(optionText), 'i');
+    let clickedButEmpty = 0;
     for (let attempt = 1; attempt <= 4; attempt++) {
       await this.closeStalePanels();
       await wrapper.locator('.ng-select-container').click();
-      if (search) {
-        await wrapper.locator('input[role="combobox"]').fill(optionText);
-        await this.page.waitForTimeout(2_000);
+      if (search || attempt >= 2) {
+        // attempt >= 2: virtual-scrolled list - type to bring the option in
+        await wrapper.locator('input[role="combobox"]').fill(optionText).catch(() => {});
+        await this.settle(2_000);
       }
       // same stale-panel trap as pick(): scope to this select's own panel
-      const inline = wrapper.locator('.ng-dropdown-panel');
-      await inline.waitFor({ state: 'attached', timeout: 1_500 }).catch(() => {});
-      const options = (await inline.count())
-        ? inline.locator('.ng-option')
-        : this.page.locator('.ng-dropdown-panel .ng-option');
+      const options = await this.panelOptions(wrapper);
       const wanted = options.filter({ hasText: pattern });
       const found = await wanted.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
         .then(() => true).catch(() => false);
       if (found && (await wanted.first().click({ timeout: 10_000 }).then(() => true).catch(() => false))) {
         if (closePanel) await this.page.keyboard.press('Escape');
-        return;
+        if (await this.valueLanded(wrapper, pattern)) {
+          if (await this.survivesCascade(wrapper, pattern, search)) return;
+          console.log(`pickByLabel ${labelText}: "${optionText}" was cleared by a cascade (attempt ${attempt}) - picking again`);
+          continue;
+        }
+        clickedButEmpty++;
+        console.log(`pickByLabel ${labelText}: "${optionText}" clicked but the value did not land (attempt ${attempt}) - retrying`);
       }
       await this.page.keyboard.press('Escape');
+    }
+    if (clickedButEmpty === 4) {
+      console.log(`pickByLabel ${labelText}: value echo never confirmed for "${optionText}" - continuing`);
+      return;
     }
     throw new Error(`Option "${optionText}" never appeared in dropdown labeled "${labelText}"`);
   }
@@ -308,18 +369,89 @@ class StockInwardBasePage extends BasePage {
     return false;
   }
 
+  /** "No. of Pieces : N" from the wizard's summary panel, or null when absent. */
+  async summaryPieces() {
+    const body = await this.page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ')).catch(() => '');
+    const m = body.match(/No\. of Pieces\s*:\s*(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  /**
+   * Add Item, VERIFIED. The click is a silent no-op while the pricing/tax
+   * recompute is still in flight or a control is invalid (seen 18/19-09-2026),
+   * so the summary's piece count must actually grow; otherwise fill whatever
+   * turned invalid and click again. Falls back to a plain click on wizards
+   * without the summary panel.
+   */
+  async addItem() {
+    const before = await this.summaryPieces();
+    if (before === null) {
+      await this.addItemBtn.click();
+      return;
+    }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await this.waitForIdle();
+      await this.settle(1_500);
+      await this.addItemBtn.click({ timeout: 3_000 }).catch(() => {});
+      const deadline = Date.now() + 15_000;
+      while (Date.now() < deadline) {
+        const now = await this.summaryPieces();
+        if (now !== null && now > before) return;
+        await this.page.waitForTimeout(500);
+      }
+      const invalid = await this.invalidControls();
+      console.log(`${this.tabName} Add Item: piece count still ${before} after attempt ${attempt} - invalid: ${JSON.stringify(invalid)}`);
+      if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+    }
+    throw new Error(`${this.tabName} Add Item never registered the piece (summary count stayed at ${before})`);
+  }
+
+  /**
+   * The review step renders a "Pure Rate" input per metal (Gold ...) that
+   * stays EMPTY when the location has no metal-rate config, and Submit
+   * silently never fires while it is blank (Kakkanad 18-09-2026, Cochin
+   * 19-09-2026). Enter the item rate when offered.
+   */
+  async fillPureRateIfEmpty(rate) {
+    const section = this.page.locator('h6:has-text("Pure Rate")').last().locator('xpath=..');
+    if (!(await section.isVisible({ timeout: 1_500 }).catch(() => false))) return;
+    const inputs = section.locator('input');
+    const n = await inputs.count();
+    for (let i = 0; i < n; i++) {
+      const input = inputs.nth(i);
+      if ((await input.inputValue({ timeout: 2_000 }).catch(() => 'x')) !== '') continue;
+      const value = rate ?? this.lastItemRate ?? 6000;
+      await input.fill(String(value));
+      await input.blur();
+      await this.settle(1_500);
+      console.log(`${this.tabName} review step: Pure Rate was empty - entered ${value}`);
+    }
+  }
+
   async submit() {
     const pattern = this.submitApiPattern || /Inward/i;
     // Grid refreshes and keep-alives are POSTs too - never count them as the
     // save. And the QA server can take >60s on master-data saves.
     const noise = /GetAll|Pagination|KeepAlive|GetMasterData|GetLocation/i;
+    await this.fillPureRateIfEmpty();
     const resp = this.page.waitForResponse(
       (r) => pattern.test(r.url()) && !noise.test(r.url()) && r.request().method() === 'POST' && r.status() === 200,
       { timeout: 120_000 },
     );
+    resp.catch(() => {}); // observed below; never an unhandled rejection
     const toast = this.watchSaveToast(130_000); // armed with the click; the save itself can take >60s
     await this.submitBtn.click();
-    const r = await resp;
+    // A Submit that fires no request within 25 s is a silently invalid form:
+    // say which controls, fill what can be filled, and click once more.
+    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
+    if (!r) {
+      const invalid = await this.invalidControls();
+      console.log(`${this.tabName} submit: no save request after 25 s - invalid controls: ${JSON.stringify(invalid)} - retrying Submit`);
+      await this.fillPureRateIfEmpty();
+      if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+      await this.submitBtn.click({ timeout: 3_000 }).catch(() => {});
+      r = await resp;
+    }
     await this.reportSaveToast(`${this.tabName} submit`, toast);
     return r.json().catch(() => null);
   }
@@ -360,12 +492,12 @@ class StockInwardBasePage extends BasePage {
     await dlg.waitFor({ state: 'visible', timeout: 15_000 });
 
     await dlg.locator('input[type="file"]').first().setInputFiles(filePath);
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     const addImage = dlg.getByRole('button', { name: 'Add Image' });
     await addImage.waitFor({ state: 'visible', timeout: 15_000 });
     await addImage.click();
-    await this.page.waitForTimeout(1_500);
+    await this.settle(1_500);
 
     await dlg.getByRole('button', { name: 'Close' }).last().click();
     await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
@@ -386,12 +518,11 @@ class StockInwardBasePage extends BasePage {
       console.log('print preview: no Preview button offered - skipping');
       return 'no-preview';
     }
-    const maybePopup = this.page.waitForEvent('popup', { timeout: 15_000 }).catch(() => null);
+    // The preview opens EITHER a popup window OR an inline surface - race the
+    // two instead of waiting a fixed 15 s for a popup that rarely comes.
+    let popup = null;
+    this.page.waitForEvent('popup', { timeout: 30_000 }).then((p) => { popup = p; }).catch(() => {});
     await previewBtn.click();
-    const popup = await maybePopup;
-    const previewPage = popup || this.page;
-    await previewPage.waitForLoadState('domcontentloaded').catch(() => {});
-    await previewPage.waitForTimeout(3_000); // let the report start rendering
 
     // A rendered template shows as a PDF viewer / iframe / canvas / blob
     // image, OR as report HTML inside an offcanvas (the Issue page does the
@@ -399,23 +530,30 @@ class StockInwardBasePage extends BasePage {
     // builds can take a while.
     // 'visible=true' matters: pages keep hidden background iframes, and
     // .first() alone would test the hidden one forever.
-    const surface = previewPage
+    const surface = this.page
       .locator('embed, iframe, object, canvas, img[src^="blob:"], img[src^="data:"], [class*=preview], [class*=report], [class*=pdf]')
       .locator('visible=true')
       .first();
-    let rendered = popup !== null ? 'popup' : '';
+    let rendered = '';
+    let previewPage = this.page;
     const deadline = Date.now() + 30_000;
     while (!rendered && Date.now() < deadline) {
+      if (popup) {
+        previewPage = popup;
+        await popup.waitForLoadState('domcontentloaded').catch(() => {});
+        rendered = 'popup';
+        break;
+      }
       if (await surface.isVisible().catch(() => false)) { rendered = 'inline surface'; break; }
       // report-as-HTML inside an offcanvas or modal (the Issue page renders
       // the template in an add-custom-control-modal): substantial text that
       // is NOT the Print dialog itself (which says "Voucher Number")
-      const oc = previewPage.locator('.offcanvas, .modal').locator('visible=true').last();
+      const oc = this.page.locator('.offcanvas, .modal').locator('visible=true').last();
       if (await oc.isVisible().catch(() => false)) {
-        const txt = ((await oc.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+        const txt = ((await oc.innerText({ timeout: 2_000 }).catch(() => '')) || '').replace(/\s+/g, ' ').trim();
         if (txt.length > 150 && !/Voucher Number\s*:/i.test(txt)) { rendered = 'dialog html'; break; }
       }
-      await previewPage.waitForTimeout(1_000);
+      await this.page.waitForTimeout(500);
     }
     if (screenshot) await previewPage.screenshot({ path: screenshot, fullPage: true }).catch(() => {});
 
@@ -437,8 +575,10 @@ class StockInwardBasePage extends BasePage {
       await popup.close().catch(() => {});
     } else {
       // inline preview renders in an offcanvas - close it, back to the dialog
-      await this.page.locator('.btn-close').last().click({ timeout: 10_000 }).catch(() => {});
-      await this.page.waitForTimeout(1_000);
+      // (only when a close button is actually on screen: a blind click used
+      // to burn its whole 10 s timeout)
+      await this.closeVisibleDialog();
+      await this.settle(1_000);
     }
     return 'ok';
   }
@@ -458,7 +598,7 @@ class StockInwardBasePage extends BasePage {
     }
     for (let i = 0; i < 5; i++) {
       await this.waitForIdle();
-      await this.page.waitForTimeout(2_500);
+      await this.settle(2_500);
       if ((await this.gridRows.filter({ hasText: rowText }).count()) > 0) {
         console.log(`list view shows the saved record: ${rowText}`);
         return true;

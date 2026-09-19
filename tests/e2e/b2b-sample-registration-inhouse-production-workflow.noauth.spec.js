@@ -59,18 +59,15 @@ const DATA = {
   },
   issue: { itemType: 'Metal', productionUnit: 'Cochin', submissionMethod: 'In Person', receivedFrom: 'Raja', contactNumber: '6565455555' },
   // single production round: both streams are assigned directly to Casting
-  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser11' },
+  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
   // the JOB WORK settlement receipt: Production No auto-selects the offered
   // pending job, then item details, then Move to Job Finalize + Add Items
   receiptItem: { article: 'Tendulkar', articleSearch: 'ring', purity: '91.6', weight: 40 },
-  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser11' },
+  delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser16' },
 };
 
 async function login(loginPage, page) {
-  await loginPage.open();
-  await loginPage.login();
-  await loginPage.throwIfGated();
-  await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+  await loginPage.ensureLoggedIn();
 }
 
 function rowKey() {

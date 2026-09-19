@@ -91,7 +91,7 @@ class BullionInwardPage extends StockInwardBasePage {
     await this.invoiceDate.blur();
     await this.page.keyboard.press('Escape');
     if (await this.creditDays.isEnabled().catch(() => false)) {
-      if (!(await this.creditDays.inputValue().catch(() => ''))) {
+      if (!(await this.creditDays.inputValue({ timeout: 2_000 }).catch(() => ''))) {
         await this.creditDays.fill(String(creditDays));
         await this.creditDays.blur();
       }
@@ -111,7 +111,7 @@ class BullionInwardPage extends StockInwardBasePage {
       .split(/[^A-Za-z0-9]+/).filter(Boolean)[0] || String(bookingNo);
     await this.pick('bookingID', core, { search: true });
     await this.waitForIdle();
-    await this.page.waitForTimeout(2_500); // booking back-fill
+    await this.settle(2_500); // booking back-fill
 
     const gross = this.inputCtl('grossWt');
     if (await gross.isEnabled().catch(() => false)) {
@@ -144,7 +144,7 @@ class BullionInwardPage extends StockInwardBasePage {
 
     await this.pick('additionalCharges', chargeType);
     await this.pick('template', chargeName);
-    await this.page.waitForTimeout(2_000); // let Calculation Base / Rate auto-fill
+    await this.settle(2_000); // let Calculation Base / Rate auto-fill
 
     // "Add" inserts the charge row into the dialog grid
     const addBtn = dlg.locator('button').filter({ hasText: /^\s*Add\s*$/ }).last();
