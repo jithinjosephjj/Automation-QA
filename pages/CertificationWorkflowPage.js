@@ -86,7 +86,9 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
         await this.page.waitForTimeout(500);
       }
       await sel.locator('.ng-select-container').click();
-      if (search) {
+      if (search || attempt >= 2) {
+        // attempt >= 2: the list may be virtual-scrolled past the option -
+        // typing filters it into the rendered window
         await sel.locator('input[role="combobox"]').fill(String(optionText)).catch(() => {});
         await this.settle(2_000); // server-side filter debounce
       }

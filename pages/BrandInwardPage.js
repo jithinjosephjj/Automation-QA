@@ -54,6 +54,9 @@ class BrandInwardPage extends StockInwardBasePage {
     await this.fillByLabel('Gross Weight', grossWeight);
     await this.fillByLabel('MRP', mrp, { exact: false }); // label is "MRP (Reduce Tax)"
     if (discountPercent !== undefined) await this.fillByLabel('Discount %', discountPercent);
+    // mandatory custom description dropdowns (app change, Sept 2026): Add Item
+    // silently does nothing while any of them is empty
+    await this.fillMandatoryEmptySelects();
   }
 }
 

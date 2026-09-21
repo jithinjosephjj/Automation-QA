@@ -20,7 +20,7 @@ Built to the conventions in `Playwright-Automation-Basics.pdf`.
 | Master add operations (tests/masters/master-add-operations) | **Passing headed** — TC-EMP-001 Employee → TC-USR-001 User → TC-SMH-001 Smith → TC-CNT-001 Locker Counter → TC-ELC-001 Locker Assignment, one Sioniquser&lt;N&gt; iteration per run |
 | Production E2E workflow (tests/e2e/production-concept-workflow, TC-PRD-E2E-01…08) | **All 8 steps passing headed** — Concept (create/upload/approve) → Job Work → Assignment → Movement Accept → Worker Issue/Receipt (CAD) → Transfer+Accept (Casting) → Issue/Receipt with item → Job Finalize + barcode. Integration chain: document numbers flow via e2e-production-state.json; every step resumes/skips what's already done |
 | Master Design E2E workflow (tests/e2e/production-master-design-workflow, TC-PRD-MD-01…08) | **All 8 steps passing headed** — same chain seeded from Master Design (design RDDDD# series); own state file. Known app bug encoded: filtering the Design Number dropdown on Job Work breaks Submit silently — the spec selects the design card from the full grid instead |
-| Order - Inhouse - Production workflow (tests/e2e/order-inhouse-production-workflow, TC-PRD-OB-01…08) | **Steps 01-04 + 07 passing, 05/06 skip falsely, 08 fails (19-09-2026)** — the Worker Issue/Receipt and Process Movement grids no longer show the new P## job (search matches nothing, unfiltered grid has no row), so the "already done" skips fire and the job never reaches Job Finalize. IDENTICAL on the pre-refactor code (differential run 19-09) — app/data drift to investigate with the QA lead, not a suite regression. Casting worker changed to Sioniquser16 (Sioniquser11 is no longer offered for Casting). Previously: all 8 steps passing headed — Order Booking → inhouse Job Work (Procurement > Issue: Order/Inhouse/Cochin, PP## series) → same downstream to the barcode; own state file |
+| Order - Inhouse - Production workflow (tests/e2e/order-inhouse-production-workflow, TC-PRD-OB-01…08) | **All 8 steps passing headed (re-verified 21-09-2026)** — the grids key rows by the PRODUCTION no (J-series) since 19-09; `rowKey()` now returns both P and J keys (the earlier "not in the Job Finalize queue" was a wrong-key lookup, the job was there as J413.1). Casting worker Sioniquser16 (Sioniquser11 is no longer offered for Casting) — Order Booking → inhouse Job Work (Procurement > Issue: Order/Inhouse/Cochin, PP## series) → same downstream to the barcode; own state file |
 | Order - Outsource - Lot - Barcode workflow (tests/e2e/order-outsource-lot-barcode-workflow, TC-OLG-01…05) | **All 5 steps passing headed** — Stock Order → outsource Job Work (Issue: Order/Outsource/vendor RAJA, PP##) → Metal Inward jobwork return (Sub Txn "Jobwork" + Inward Type "Order"; one `jobWorkItemNo` pick fills the item, M##) → Lot Generation (/inv/view-lot-generation, employee Ubaid + BU Cochin, NNN##) → Barcode (/inv/view-barcode-generation **as user suja**; three mandatory description dropdowns; tag verified in Generated Tags); own state file e2e-order-lot-state.json |
 | B2B Order - Inhouse - Production workflow (tests/e2e/b2b-order-inhouse-production-workflow, TC-B2B-PRD-01…08) | **All 8 steps passing headed** — B2B Order Booking (customer Luxurio, Making Type "Job Work", BB## series) → inhouse Job Work (the Issue grid lists B2B orders under Generation Type "Order" too, PP##) → same downstream to the barcode; own state file e2e-b2border-state.json |
 | B2B Order - Outsource - Lot - Barcode workflow (tests/e2e/b2b-order-outsource-lot-barcode-workflow, TC-B2B-OLG-01…05) | **All 5 steps passing headed** — B2B Order Booking (Making Type "Job Work", BB##, + Add Files image) → outsource Job Work (vendor RAJA, PP##) → Metal Inward jobwork return (M##) → Lot Generation (NNN##) → Barcode **as user suja** (tag verified in Generated Tags); print-preview checks at every Print dialog; own state file e2e-b2b-order-lot-state.json |
@@ -280,12 +280,27 @@ Mandatory (QA lead directive) — every new page's add spec includes all of thes
   rendered window. Other test runs keep growing these lists (HRM process specs
   add suffixed processes, master specs add Sioniquser<N> employees) - a name
   that used to be near the top will not stay there.
+- **Barcode tags never ask for more than the lot holds.** The Barcode form's
+  summary panel shows "Lot Weight :" and "Lot Pcs :"; `generateTag` caps the
+  requested gross weight and the pre-filled Pieces (the form defaults to 10)
+  to those, because a heavier or larger tag makes Submit fail SILENTLY (an
+  inline "Pcs exceeds Lot Pcs" alert, no request). If the alert stays even at
+  the lot's own count, the lot was already tagged in an earlier run - the
+  step fails with that message instead of a blind Submit. Run the lot step
+  first.
+- **Production grids key rows by the Production No (J-series).** Job Finalize's
+  "Job No." column and the Worker Issue grid hold J413.1, not the job work no
+  P210 (probe 21-09-2026). Every production chain's `rowKey()` returns BOTH
+  `[jobWorkNo, productionNo]`; the row matcher accepts the array.
 - **Inward items go through `addItem()`**, never a bare `addItemBtn.click()`:
   the click is a silent no-op while pricing recomputes or a control is invalid,
   so the summary's piece count is verified and the click retried.
 - **App changes of Sept 2026 handled in the wizard base:** mandatory custom
-  product-description dropdowns on the item step (`fillMandatoryEmptySelects`
-  runs inside `fillItem`), the empty "Pure Rate" input on Review & Submit
+  product-description dropdowns on the item step of EVERY inward form - metal,
+  brand, stone and the jobwork-return item (`fillMandatoryEmptySelects` lives
+  in `StockInwardBasePage` and runs inside each `fillItem` / `addJobworkItem`),
+  renamed tabs matched by regex ("B2B", "Remodel Issue" / "Remodel Receipt",
+  "HallMark Issue"), the empty "Pure Rate" input on Review & Submit
   (`fillPureRateIfEmpty` runs inside `submit()`), and a Submit that fires no
   request within 25 s logs the invalid controls and clicks once more.
 - One behaviour per test.

@@ -142,6 +142,8 @@ class StoneInwardPage extends StockInwardBasePage {
         if (!(await box.isChecked())) throw new Error('Assorted Stock checkbox did not toggle');
       }
     }
+    // mandatory custom description dropdowns (app change, Sept 2026)
+    await this.fillMandatoryEmptySelects();
   }
 }
 

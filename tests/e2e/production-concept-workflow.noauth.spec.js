@@ -55,8 +55,11 @@ async function login(loginPage, page) {
 
 /** The grid-row key: job work no when we have it, else the concept no. */
 function rowKey() {
+  // BOTH keys: grids key rows by the job work no (P-series) OR the production
+  // no (J-series: Job Finalize "Job No.", Worker Issue "Production No",
+  // accept-after-transfer) - matching either avoids false "already done" skips
   const s = readState();
-  return s.jobWorkNo || s.conceptNo;
+  return [s.jobWorkNo || s.conceptNo, s.productionNo].filter(Boolean);
 }
 
 test.describe('Production - Concept - Workflow', () => {

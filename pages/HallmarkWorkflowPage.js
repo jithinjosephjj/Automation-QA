@@ -15,7 +15,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
   async openHallmarkTab(route) {
     await this.goto(route);
     await this.waitForIdle();
-    await this.page.getByRole('tab', { name: 'Hallmark' }).click();
+    await this.page.getByRole('tab', { name: /^Hall ?mark( Issue| Receipt)?$/i }).click();
     await this.waitForIdle();
     await this.settle(1_500);
   }

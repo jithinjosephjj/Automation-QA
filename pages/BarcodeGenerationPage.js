@@ -32,6 +32,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     brand, // Brand item type only: the Brand Name select (QA lead 04-09-2026)
     amount, // Brand item type only: the Pricing Amount input is mandatory
     grossWeight,
+    pieces, // defaults to the form's value, capped to the lot's piece count
     descriptions = { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
   }) {
     await this.open();
@@ -56,6 +57,43 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       `barcode form: serial=${await this.selectValue('lotGenerationMetalID')}, ` +
       `article=${await this.selectValue('productArticleID')}, entry=${await this.selectValue('masterDataValueID_ItemTaggingMode')}`,
     );
+
+    // The summary panel shows what the lot holds ("Lot Weight : 350.000",
+    // "Lot Pcs : 1"). A tag heavier than the lot makes Submit fail SILENTLY
+    // (no request, no invalid control - QA lead 21-09-2026), so never ask
+    // for more than the lot has, and fail loudly on an exhausted lot.
+    const lotWeight = await this.lotSummaryNumber('Lot Weight');
+    const lotPcs = await this.lotSummaryNumber('Lot Pcs');
+    console.log(`barcode form: lot ${lotNo} holds weight=${lotWeight ?? '?'} pcs=${lotPcs ?? '?'}`);
+    if (lotWeight !== null && lotWeight <= 0) {
+      throw new Error(`lot ${lotNo} has no weight left to tag (Lot Weight ${lotWeight}) - the chain is reusing a consumed lot`);
+    }
+    if (lotWeight !== null && grossWeight !== undefined && Number(grossWeight) > lotWeight) {
+      console.log(`barcode: requested gross weight ${grossWeight} exceeds the lot's ${lotWeight} - capped to the lot weight`);
+      grossWeight = lotWeight;
+    }
+    // Pieces: the form pre-fills 10; more pieces than the lot holds shows the
+    // inline alert "Pcs exceeds Lot Pcs" and Submit fires nothing
+    const piecesInput = this.inputByLabel('Pieces');
+    if (await piecesInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const current = Number((await piecesInput.inputValue().catch(() => '')) || 0);
+      let want = pieces !== undefined ? Number(pieces) : current;
+      if (lotPcs !== null && lotPcs > 0 && want > lotPcs) want = lotPcs;
+      if (want > 0 && want !== current) {
+        await piecesInput.fill(String(want));
+        await piecesInput.blur();
+        console.log(`barcode: pieces ${current} -> ${want} (lot holds ${lotPcs ?? '?'})`);
+      }
+      await this.settle(1_000);
+      const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => []))
+        .map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      if (alerts.some((a) => /exceeds Lot/i.test(a))) {
+        throw new Error(
+          `lot ${lotNo} rejects even ${want} pc(s) ("${alerts.join('; ')}") - its balance is below its total of `
+          + `${lotPcs ?? '?'} pcs / ${lotWeight ?? '?'} g, so it was already tagged in an earlier run. Run the lot step first.`,
+        );
+      }
+    }
 
     // Brand tags carry a mandatory Brand Name select (controlname
     // productBrandID - named by the silent-submit diagnostics)
@@ -101,11 +139,13 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     await this.submitBtn.click();
     const r = await resp;
     if (!r) {
-      const diag = await this.page.evaluate(() =>
-        [...document.querySelectorAll('sioniq-ng-select')]
-          .filter((n) => n.querySelector('ng-select')?.classList.contains('ng-invalid') && n.offsetParent)
-          .map((n) => n.getAttribute('controlname')));
-      throw new Error(`Barcode Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(diag)}`);
+      const diag = await this.invalidControls();
+      const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => []))
+        .map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      throw new Error(
+        `Barcode Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(diag)}; `
+        + `gross weight ${grossWeight ?? '-'} vs lot weight ${lotWeight ?? '?'} (lot pcs ${lotPcs ?? '?'}); alerts: ${JSON.stringify(alerts)}`,
+      );
     }
     const body = await r.json().catch(() => null);
     console.log('barcode tag save:', r.status(), JSON.stringify(body).slice(0, 300));
@@ -115,6 +155,15 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     await this.closeVisibleDialog();
     return body;
+  }
+
+  /** A number from the lot summary panel, e.g. "Lot Weight : 350.000" -> 350; null when absent. */
+  async lotSummaryNumber(label) {
+    const text = (await this.page.evaluate(() => document.body.innerText).catch(() => '')).replace(/\s+/g, ' ');
+    const at = text.indexOf(label + ' :');
+    if (at < 0) return null;
+    const m = text.slice(at + label.length + 2).match(/^\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
+    return m ? Number(m[1].replace(/,/g, '')) : null;
   }
 
   /** Fallback: open a select and take its first offered option. */

@@ -369,6 +369,48 @@ class StockInwardBasePage extends BasePage {
     return false;
   }
 
+  /**
+   * Env-configured MANDATORY custom dropdowns (Kakkanad shows description
+   * selects on the item step, 18-09-2026) block Add Item silently while
+   * empty. Fill every still-empty select the form marks invalid with its
+   * first offered option - locations without such fields are a no-op.
+   */
+  async fillMandatoryEmptySelects() {
+    // the invalid list SHRINKS as selects get filled, so always take the
+    // first still-invalid one instead of indexing a snapshot
+    const invalid = this.page
+      .locator('sioniq-ng-select')
+      .filter({ has: this.page.locator('ng-select.ng-invalid') })
+      .locator('visible=true');
+    for (let round = 0; round < 8; round++) {
+      const n = await invalid.count();
+      let picked = false;
+      for (let i = 0; i < n && !picked; i++) {
+        const wrap = invalid.nth(i);
+        if ((await invalid.count()) <= i) break;
+        // an empty select has NO .ng-value node - never call textContent() on
+        // it blind, that auto-waits the full action timeout (15 s) for nothing
+        const value = wrap.locator('.ng-value');
+        const val = (await value.count()) ? ((await value.first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
+        if (val) continue;
+        const name = (await wrap.getAttribute('controlname', { timeout: 2_000 }).catch(() => '')) || '(unnamed)';
+        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(900);
+        const opt = this.page.locator('.ng-dropdown-panel .ng-option')
+          .filter({ hasNotText: /No items found|Type to search/i }).first();
+        if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          console.log(`mandatory custom select "${name}" -> ${((await opt.textContent()) || '').trim()}`);
+          await opt.click({ timeout: 3_000 }).catch(() => {});
+          picked = true;
+          await this.settle(800);
+        } else {
+          await this.page.keyboard.press('Escape').catch(() => {});
+        }
+      }
+      if (!picked) break;
+    }
+  }
+
   /** "No. of Pieces : N" from the wizard's summary panel, or null when absent. */
   async summaryPieces() {
     const body = await this.page.evaluate(() => document.body.innerText.replace(/\s+/g, ' ')).catch(() => '');

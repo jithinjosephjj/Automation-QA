@@ -183,7 +183,7 @@ class LoginPage extends BasePage {
 
     const landing = cached.landing || '/dsb/e-commerce';
     try {
-      await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+      await page.goto(landing, { waitUntil: 'commit', timeout: 20_000 }); // the shell wait below is the real readiness check
     } catch (e) {
       console.log(`session replay: landing navigation hung (${firstLine(e)}) - retrying once`);
       await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 30_000 });

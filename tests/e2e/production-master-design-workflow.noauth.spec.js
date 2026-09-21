@@ -40,8 +40,11 @@ async function login(loginPage, page) {
 }
 
 function rowKey() {
+  // BOTH keys: grids key rows by the job work no (P-series) OR the production
+  // no (J-series: Job Finalize "Job No.", Worker Issue "Production No",
+  // accept-after-transfer) - matching either avoids false "already done" skips
   const s = state.readState();
-  return s.jobWorkNo || s.designNo;
+  return [s.jobWorkNo || s.designNo, s.productionNo].filter(Boolean);
 }
 
 test.describe('Production - Master Design - Workflow', () => {

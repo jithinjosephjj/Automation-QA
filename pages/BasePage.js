@@ -15,11 +15,11 @@ class BasePage {
 
   async goto(path) {
     try {
-      await this.page.goto(path, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+      await this.page.goto(path, { waitUntil: 'commit', timeout: 20_000 });
     } catch (e) {
       // a navigation that hangs is retried once before it counts as a failure
       console.log(`goto ${path}: first attempt did not settle (${String(e).split(/\r?\n/)[0]}) - retrying`);
-      await this.page.goto(path, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await this.page.goto(path, { waitUntil: 'commit', timeout: 30_000 });
     }
     await this.waitForIdle();
   }

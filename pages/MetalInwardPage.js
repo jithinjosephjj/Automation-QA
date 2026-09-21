@@ -81,11 +81,19 @@ class MetalInwardPage extends StockInwardBasePage {
     await this.settle(2_500); // let the auto-fill settle
     const article = await this.selectValue('article');
     console.log(`jobwork item ${jobWorkItemNo} auto-filled article: ${article}`);
-    await this.addItemBtn.click();
-    const deadline = Date.now() + 15_000;
-    while (Date.now() < deadline) {
-      if (!(await this.selectValue('jobWorkItemNo'))) return article;
-      await this.page.waitForTimeout(500);
+    // mandatory custom description dropdowns (app change, Sept 2026) block
+    // Add Item silently on this form too
+    await this.fillMandatoryEmptySelects();
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      await this.waitForIdle();
+      await this.addItemBtn.click();
+      const deadline = Date.now() + 15_000;
+      while (Date.now() < deadline) {
+        if (!(await this.selectValue('jobWorkItemNo'))) return article;
+        await this.page.waitForTimeout(500);
+      }
+      console.log(`jobwork Add Item: form did not reset (attempt ${attempt}) - invalid: ${JSON.stringify(await this.invalidControls())}`);
+      await this.fillMandatoryEmptySelects();
     }
     throw new Error(`Add Item never registered - "${jobWorkItemNo}" still selected in the form`);
   }
@@ -125,48 +133,6 @@ class MetalInwardPage extends StockInwardBasePage {
     console.log('GR item state: article', await this.selectValue('article').catch(() => ''),
       '| gross with tare', await gwt.inputValue({ timeout: 2_000 }).catch(() => '?'),
       '| making charges', mc);
-  }
-
-  /**
-   * Env-configured MANDATORY custom dropdowns (Kakkanad shows description
-   * selects on the item step, 18-09-2026) block Add Item silently while
-   * empty. Fill every still-empty select the form marks invalid with its
-   * first offered option - locations without such fields are a no-op.
-   */
-  async fillMandatoryEmptySelects() {
-    // the invalid list SHRINKS as selects get filled, so always take the
-    // first still-invalid one instead of indexing a snapshot
-    const invalid = this.page
-      .locator('sioniq-ng-select')
-      .filter({ has: this.page.locator('ng-select.ng-invalid') })
-      .locator('visible=true');
-    for (let round = 0; round < 8; round++) {
-      const n = await invalid.count();
-      let picked = false;
-      for (let i = 0; i < n && !picked; i++) {
-        const wrap = invalid.nth(i);
-        if ((await invalid.count()) <= i) break;
-        // an empty select has NO .ng-value node - never call textContent() on
-        // it blind, that auto-waits the full action timeout (15 s) for nothing
-        const value = wrap.locator('.ng-value');
-        const val = (await value.count()) ? ((await value.first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
-        if (val) continue;
-        const name = (await wrap.getAttribute('controlname', { timeout: 2_000 }).catch(() => '')) || '(unnamed)';
-        await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
-        await this.settle(900);
-        const opt = this.page.locator('.ng-dropdown-panel .ng-option')
-          .filter({ hasNotText: /No items found|Type to search/i }).first();
-        if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
-          console.log(`mandatory custom select "${name}" -> ${((await opt.textContent()) || '').trim()}`);
-          await opt.click({ timeout: 3_000 }).catch(() => {});
-          picked = true;
-          await this.settle(800);
-        } else {
-          await this.page.keyboard.press('Escape').catch(() => {});
-        }
-      }
-      if (!picked) break;
-    }
   }
 
   /** Distinctive middle segment of a composed doc no (series permute). */

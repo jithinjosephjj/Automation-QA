@@ -16,7 +16,8 @@ class RemodelWorkflowPage extends StockInwardBasePage {
   async openTab(route) {
     await this.goto(route);
     await this.waitForIdle();
-    await this.page.getByRole('tab', { name: 'Remodel', exact: true }).click();
+    // tabs were renamed "Remodel Issue" / "Remodel Receipt" (19-09-2026)
+    await this.page.getByRole('tab', { name: /^Remodel( Issue| Receipt)?$/ }).click();
     await this.waitForIdle();
     await this.settle(1_500);
   }
