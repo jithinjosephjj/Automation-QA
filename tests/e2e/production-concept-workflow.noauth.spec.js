@@ -27,8 +27,11 @@ const { readState, writeState } = require('../../utils/e2e-state');
 
 const DATA = {
   concept: {
-    conceptFor: 'Traditional Jumka',
-    settingsType: 'Met Stone Setting',
+    // master data as of 21-09-2026: Concept For offers only "Imit" and the
+    // setting type is "Met Stone Setting 5" ("Traditional Jumka" / "Met Stone
+    // Setting" are gone)
+    conceptFor: 'Imit',
+    settingsType: 'Met Stone Setting 5',
     assignTo: 'Worker Naveen',
     approxWeight: 10,
     description: 'E2E automation concept',

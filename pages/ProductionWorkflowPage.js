@@ -494,14 +494,36 @@ class ProductionWorkflowPage extends StockInwardBasePage {
    *  swallowed ("Clicking the checkbox did not change its state", 17-09-2026). */
   async checkRow(rowText) {
     await this.rowMatcher(rowText).first().waitFor({ state: 'visible', timeout: 30_000 });
+    const selectedCount = async () => {
+      const t = await this.page.getByText(/\d+ Records? selected/).first().textContent({ timeout: 1_000 }).catch(() => '');
+      const m = (t || '').match(/(\d+) Records? selected/);
+      return m ? Number(m[1]) : 0; // no "selected" text = nothing selected
+    };
+    const isOn = async (box) => {
+      if (await box.isChecked({ timeout: 1_500 }).catch(() => false)) return true;
+      const aria = await box.getAttribute('aria-checked', { timeout: 1_000 }).catch(() => null);
+      if (aria === 'true') return true;
+      return box.evaluate((el) => {
+        if (el.matches('input')) return el.checked;
+        if (el.getAttribute('aria-checked') === 'true') return true;
+        const inner = el.querySelector('input[type="checkbox"]');
+        return (inner && inner.checked) || el.classList.contains('checked') || el.classList.contains('p-highlight');
+      }).catch(() => false);
+    };
     for (let attempt = 1; attempt <= 4; attempt++) {
       await this.waitForSpinner();
       // re-resolve the row each attempt - the node may have been replaced
       const box = this.rowMatcher(rowText).first().getByRole('checkbox').first();
-      if (await box.isChecked({ timeout: 2_000 }).catch(() => false)) return;
-      await box.check({ force: true, timeout: 10_000 }).catch(() => {});
+      if (await isOn(box)) return;
+      const before = await selectedCount();
+      await box.click({ force: true, timeout: 10_000 }).catch(() => {});
       await this.page.waitForTimeout(800);
-      if (await box.isChecked({ timeout: 2_000 }).catch(() => false)) return;
+      if (await isOn(box)) return;
+      const after = await selectedCount();
+      if (after > before) {
+        console.log(`checkRow: selection counted by the grid (${before} -> ${after} selected) although the checkbox does not report checked`);
+        return;
+      }
       console.log(`checkRow: check did not stick (attempt ${attempt}) - grid likely re-rendered, retrying`);
     }
     throw new Error(`row checkbox for "${Array.isArray(rowText) ? rowText.join('|') : rowText}" never took the check after 4 attempts`);
@@ -1162,12 +1184,40 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       // repair receipts auto-fill from the production no - fill only what the
       // caller provided AND the form renders
       if (d.item.article) {
-        const article = this.page.locator('#itemArticleSelect');
-        if (await article.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        // the article select carries id itemArticleSelect on most builds; fall
+        // back to its label. Log what the list offers when the wanted article
+        // is missing (material transactions can narrow it to the received
+        // articles - CADM chain, 21-09-2026).
+        let article = this.page.locator('#itemArticleSelect');
+        if (!(await article.isVisible({ timeout: 5_000 }).catch(() => false))) {
+          article = this.page.locator('label:text-is("Article")').last().locator('xpath=following::ng-select[1]');
+        }
+        if (await article.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await this.closeStalePanels();
           await article.locator('.ng-select-container').click();
-          await article.locator('input[role="combobox"]').fill(d.item.articleSearch);
+          await article.locator('input[role="combobox"]').fill(d.item.articleSearch).catch(() => {});
           await this.settle(2_500);
-          await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: d.item.article }).first().click();
+          const opts = this.page.locator('.ng-dropdown-panel .ng-option');
+          const wanted = opts.filter({ hasText: d.item.article }).first();
+          if (await wanted.isVisible({ timeout: 5_000 }).catch(() => false)) {
+            await wanted.click();
+          } else {
+            const offered = (await opts.allTextContents()).map((t) => t.trim());
+            // retry without the search text: the list may be pre-filtered already
+            await article.locator('input[role="combobox"]').fill('').catch(() => {});
+            await this.settle(1_500);
+            const plain = (await opts.allTextContents()).map((t) => t.trim());
+            const fallback = opts.filter({ hasNotText: /No items found|Type to search/i }).first();
+            if (await fallback.isVisible({ timeout: 2_000 }).catch(() => false)) {
+              console.log(`workerReceipt: article "${d.item.article}" not offered (search gave ${JSON.stringify(offered)}, list is ${JSON.stringify(plain.slice(0, 8))}) - taking "${((await fallback.textContent()) || '').trim()}"`);
+              await fallback.click();
+            } else {
+              throw new Error(`workerReceipt: article "${d.item.article}" not offered and the list is empty (search: ${JSON.stringify(offered)})`);
+            }
+          }
+          await this.settle(1_500);
+        } else {
+          console.log('workerReceipt: no Article select on this item form');
         }
       }
       if (d.item.purity) await this.pickByLabel('Purity', d.item.purity, { search: false }).catch(() => {});
@@ -1401,6 +1451,456 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     console.log('barcode generation: no matching response captured - verify via Generated Tags');
     return null;
   }
+  // ---------- CAD (Production > Planning > CAD, /prd/app-cad-setup) ----------
+  /** Open the CAD page on the given tab ("Upload" | "Approval") and click Add. */
+  async openCadTabAdd(tab) {
+    await this.openRoute('/prd/app-cad-setup');
+    await this.page.getByRole('tab', { name: tab, exact: true }).click();
+    await this.waitForIdle();
+    await this.settle(1_500);
+    await this.clickAdd();
+  }
+
+  /**
+   * CAD Upload: Worker + Production No (the job's J-series production no,
+   * server-searched) + 3D Volume + Approx Weight (the two unlabeled number
+   * inputs, in grid-column order) + optional 3D file path / description +
+   * a reference image. Returns the save-response body.
+   */
+  async cadUpload({ worker, productionNo, volume3D = 12, approxWeight = 10, filePath3D = 'E2E/cad-model.stl', description = 'E2E CAD upload' }) {
+    await this.openCadTabAdd('Upload');
+    await this.pick('workerID', worker, { search: true });
+    await this.pick('productionID', productionNo, { search: true });
+    await this.settle(1_500);
+    const numbers = this.page.locator('input[type="number"]:not([disabled])').locator('visible=true');
+    await numbers.nth(0).fill(String(volume3D));
+    await numbers.nth(1).fill(String(approxWeight));
+    const filePath = this.page.locator('#filePath3D, input[formcontrolname="filePath3D"]').first();
+    if (await filePath.isVisible({ timeout: 1_000 }).catch(() => false)) await filePath.fill(filePath3D);
+    const desc = this.page.locator('#description, input[formcontrolname="description"], textarea').first();
+    if (await desc.isVisible({ timeout: 1_000 }).catch(() => false)) await desc.fill(description);
+    await this.attachImage(DEMO_FILES.image1);
+    const invalidBefore = await this.invalidControls();
+    if (invalidBefore.selects.length || invalidBefore.inputs.length) console.log(`cadUpload: still invalid before Submit: ${JSON.stringify(invalidBefore)}`);
+    return this.submitAndCapture('CAD upload', /cad/i);
+  }
+
+  /**
+   * CAD Approval: Worker + Production No (only jobs with an upload are
+   * offered) -> the uploaded image card(s) render with a checkbox each;
+   * tick the first, pick the approval Status (first option matching
+   * /approv/i, logged), remarks when a remarks box exists, Submit.
+   */
+  async cadApprove({ worker, productionNo, status = /approv/i, remarks = 'E2E CAD approval' }) {
+    await this.openCadTabAdd('Approval');
+    await this.pick('worker', worker, { search: true });
+    await this.pick('productionNo', productionNo, { search: true });
+    await this.settle(2_000);
+    // image card checkbox(es)
+    const boxes = this.page.locator('input[type="checkbox"][id^="checkbox-"]');
+    if (await boxes.count()) {
+      const box = boxes.first();
+      if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) {
+        await box.check({ force: true, timeout: 3_000 }).catch(() => this.page.locator('label[for="checkbox-0"]').click({ force: true }).catch(() => {}));
+      }
+      console.log(`cadApprove: image card checkbox checked = ${await box.isChecked({ timeout: 2_000 }).catch(() => '?')}`);
+    } else {
+      console.log('cadApprove: no image card checkbox rendered');
+    }
+    await this.settle(1_000);
+    // approval status: the "status" select (controlname status, rendered after
+    // the production no is picked) - take the option matching `status`
+    const statusHost = this.select('status');
+    await statusHost.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.closeStalePanels();
+    await statusHost.locator('.ng-select-container').click();
+    const opts = this.page.locator('.ng-dropdown-panel .ng-option');
+    await opts.first().waitFor({ state: 'visible', timeout: 10_000 });
+    const labels = (await opts.allTextContents()).map((t) => t.trim());
+    const idx = labels.findIndex((l) => (status instanceof RegExp ? status.test(l) : l === status));
+    if (idx < 0) throw new Error(`cadApprove: no status option matches ${status} - offered: ${JSON.stringify(labels)}`);
+    console.log(`cadApprove: status options ${JSON.stringify(labels)} -> "${labels[idx]}"`);
+    await opts.nth(idx).click();
+    await this.settle(1_000);
+    const remarksBox = this.page.getByRole('textbox', { name: /remarks/i }).first();
+    if (await remarksBox.isVisible({ timeout: 1_000 }).catch(() => false)) await remarksBox.fill(remarks);
+    return this.submitAndCapture('CAD approval', /cad/i);
+  }
+
+  // ---------- Material Transaction (Production > Operations, /prd/production-material-transaction-list) ----------
+  async openMaterialTabAdd(tab) {
+    await this.openRoute('/prd/production-material-transaction-list');
+    await this.page.getByRole('tab', { name: tab, exact: true }).click();
+    await this.waitForIdle();
+    await this.settle(1_500);
+    await this.clickAdd();
+  }
+
+  /** Header shared by Material Issue / Receipt / Clearance. */
+  async fillMaterialHeader(d) {
+    await this.pick('employeeID', d.employee, { search: true });
+    await this.pick('departmentProcessID', d.process, { search: true });
+    if (d.subProcess) {
+      await this.pick('departmentSubProcessID', d.subProcess, { search: true })
+        .catch((e) => console.log(`material: sub process pick skipped (${String(e).split('\n')[0]})`));
+    }
+    await this.pick('masterDataValueID_ProductionWorkerType', d.workerType || 'Inhouse Worker', { exact: true });
+    await this.pick('vendorID', d.worker, { search: true });
+    await this.pick('masterDataValueID_StockEntityType', d.stockEntityType || 'Metal', { exact: true });
+    if (d.stockIdentityType && (await this.select('masterDataValueID_StockIdentityType').count())) {
+      await this.pick('masterDataValueID_StockIdentityType', d.stockIdentityType, { exact: true });
+    }
+    if (d.description) {
+      const desc = this.page.locator('#description, input[formcontrolname="description"]').first();
+      if (await desc.isVisible({ timeout: 1_000 }).catch(() => false)) await desc.fill(d.description);
+    }
+    await this.waitForIdle();
+    await this.settle(2_500);
+  }
+
+  /** What the material form shows below the header - for the log and for the first live runs. */
+  async describeMaterialGrid(label) {
+    const info = await this.page.evaluate(() => {
+      const vis = (n) => !!n.offsetParent;
+      const headers = [...document.querySelectorAll('th')].filter(vis).map((h) => h.textContent.replace(/ Sort Ascending.*$/, '').trim()).filter(Boolean);
+      const rows = [...document.querySelectorAll('tbody tr')].filter(vis).map((r) => r.innerText.replace(/\s+/g, ' ').trim().slice(0, 200)).slice(0, 6);
+      const headings = [...document.querySelectorAll('h4, h5, h6')].filter(vis).map((h) => h.textContent.trim()).filter((t) => t && t.length < 60);
+      const inputs = [...document.querySelectorAll('input:not([type=checkbox]):not([role=combobox])')].filter(vis).filter((i) => !i.closest('ng-select, header')).map((i) => `${(i.closest('div')?.querySelector('label')?.textContent || i.placeholder || i.id || '').trim()}=${i.value}${i.disabled ? '(ro)' : ''}`);
+      return { headings, headers, rows, inputs: inputs.slice(0, 25) };
+    });
+    console.log(`${label}: ${JSON.stringify(info)}`);
+    return info;
+  }
+
+  /**
+   * Material Issue: header (employee / process / sub process / worker type /
+   * worker / stock entity / stock identity; the Locker auto-fills from the
+   * employee), then the stock grid: tick the row matching rowText (or the
+   * first row when no key is given), enter the issue weight when the row
+   * exposes an editable weight cell, Submit. Returns the save body.
+   */
+  async materialIssue(d) {
+    await this.openMaterialTabAdd('Issue');
+    await this.fillMaterialHeader(d);
+    await this.describeMaterialGrid('materialIssue grid');
+    await this.selectMaterialRow(d.rowText, { weight: d.weight, assignType: d.assignType || /^Production$/i, productionNo: d.productionNo });
+    return this.submitAndCapture('material issue', /material/i);
+  }
+
+  /** Material Receipt: same header (plus Access Locker when offered) -> tick the issued row -> Submit. */
+  async materialReceipt(d) {
+    await this.openMaterialTabAdd('Receipt');
+    await this.fillMaterialHeader(d);
+    if (d.locker && (await this.select('lockerID').count())) {
+      await this.pick('lockerID', d.locker, { search: true }).catch((e) => console.log(`material receipt: locker pick skipped (${String(e).split('\n')[0]})`));
+    }
+    await this.describeMaterialGrid('materialReceipt grid');
+    await this.selectMaterialRow(d.rowText, { weight: d.weight, assignType: d.assignType, productionNo: d.productionNo, prefer: d.prefer });
+    return this.submitAndCapture('material receipt', /material/i);
+  }
+
+  /**
+   * Tick the stock/job row keyed by rowText (string, regex or array of
+   * keys) in the form's grid - body rows only (the header carries a disabled
+   * "All items" checkbox) - then commit it with the grid's Add button when
+   * one is offered ("Added Metal Entries" fills from it). First row when no
+   * key is given.
+   */
+  async selectMaterialRow(rowText, { weight, assignType, productionNo, prefer } = {}) {
+    const body = this.page.locator('tbody tr').locator('visible=true').filter({ has: this.page.locator('input[type="checkbox"]:not([disabled])') });
+    if (!(await body.count())) {
+      const empty = await this.page.getByText(/No Data|No records/i).first().textContent().catch(() => '');
+      throw new Error(`material: the grid offers no selectable row (${(empty || 'no empty-state text').trim()})`);
+    }
+    let row = body.first();
+    if (rowText) {
+      const keys = (Array.isArray(rowText) ? rowText : [rowText]).filter(Boolean);
+      // an array of RegExps is an ORDERED list of fallbacks (the locker's
+      // stock rows drift between runs: an article gets used up, returned
+      // metal lands under another metal type); an array of strings is "any
+      // of these" as before
+      const patterns = keys.every((k) => k instanceof RegExp)
+        ? keys
+        : [new RegExp(keys.map((k) => String(k).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i')];
+      // match on the normalised row text in JS (cells are newline-separated
+      // in the DOM text, which defeats a locator-level regex)
+      const rows = (await body.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+      const grossOf = (t) => { const m = t.match(/\)\s+([0-9]+\.[0-9]{3})/) || t.match(/\b([0-9]+\.[0-9]{3})\b/); return m ? Number(m[1]) : 0; };
+      let candidates = [];
+      for (const [n, re] of patterns.entries()) {
+        candidates = rows.map((t, i) => ({ t, i, gross: grossOf(t) })).filter((c) => re.test(c.t));
+        if (candidates.some((c) => c.gross > 0)) candidates = candidates.filter((c) => c.gross > 0); // skip used-up rows when a live one exists
+        if (candidates.length) {
+          if (n > 0) console.log(`material: no row for ${String(patterns[0])} - fell back to pattern ${n + 1} (${String(re)})`);
+          break;
+        }
+      }
+      if (!candidates.length) {
+        throw new Error(`material: no grid row matches ${patterns.map(String).join(' / ')} - rows offered: ${JSON.stringify(rows.map((t) => t.slice(0, 120)))}`);
+      }
+      candidates.sort((a, b) => b.gross - a.gross);
+      row = body.nth(candidates[0].i);
+      this.lastMaterialRow = await this.describeRow(row);
+      if (weight !== undefined && candidates[0].gross > 0 && Number(weight) > candidates[0].gross) {
+        console.log(`material: requested ${weight} exceeds the row's ${candidates[0].gross} - capped to the available weight`);
+        weight = candidates[0].gross;
+      }
+    }
+    const box = row.locator('input[type="checkbox"]:not([disabled])').first();
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) {
+      await box.check({ force: true, timeout: 5_000 }).catch(() => box.click({ force: true }));
+    }
+    await this.settle(1_500);
+    console.log(`material: row selected -> ${(await row.innerText().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160)}`);
+    // commit the selection into the "Added ... Entries" grid when an Add
+    // button (not Add Files / Add Image) is offered
+    const add = this.page.locator('button').filter({ hasText: /^\s*\+?\s*Add(\s+\d+|\s+Items?|\s+to\s+\w+)?\s*$/i }).locator('visible=true').last();
+    if (await add.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await add.click();
+      await this.settle(2_000);
+      console.log('material: grid Add pressed');
+      const handled = await this.completeConfigureDialog({ weight, assignType, productionNo });
+      if (!handled) await this.completeDetailEntryDialog({ weight, prefer });
+    }
+    await this.describeMaterialGrid('material grid after selection');
+  }
+
+  /**
+   * The visible cells of a grid row keyed by their column headers, e.g.
+   * { "Metal Type": "Met Stone Setting 5", "Article": "Gold,Ring-Tendulkar",
+   *   "Purity": "91.60 (22 Karat Gold)", "Gross Weight": "5.000" }.
+   */
+  async describeRow(row) {
+    const cells = await row.locator('td').locator('visible=true').allInnerTexts().catch(() => []);
+    const headers = await row.locator('xpath=ancestor::table[1]//th').locator('visible=true').allInnerTexts().catch(() => []);
+    const clean = (t) => t.replace(/ Sort Ascending.*$/, '').replace(/\s+/g, ' ').trim();
+    const out = {};
+    headers.forEach((h, i) => { if (clean(h) && cells[i] !== undefined) out[clean(h)] = clean(cells[i]); });
+    return out;
+  }
+
+  /**
+   * The "Metal Detail Entry - Gold / 91.6" dialog the Material RECEIPT grid's
+   * Add opens: Item Details (read-only), Classification (production category
+   * and the env-configured description dropdowns), Weight Details (Balance
+   * Gross Weight read-only + the RECEIVED gross weight input), Wastage &
+   * Making (optional), then "Add to Grid". Mandatory selects get their first
+   * offered option; the received weight defaults to the full balance.
+   */
+  async completeDetailEntryDialog({ weight, prefer } = {}) {
+    const dlg = this.page.locator('.modal, ngb-modal-window, [role="dialog"], .offcanvas').filter({ hasText: /Detail Entry/i }).last();
+    if (!(await dlg.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      console.log('material: no Detail Entry dialog opened');
+      return false;
+    }
+    const balanceInput = dlg.locator('xpath=.//*[normalize-space(text())="Balance Gross Weight"]/following::input[1]').first();
+    const balance = Number((await balanceInput.inputValue().catch(() => '')) || 0);
+    const received = weight !== undefined ? Number(weight) : balance;
+    // the received gross weight is the editable input right after the
+    // read-only Balance Gross Weight
+    const receivedInput = dlg.locator('xpath=.//*[normalize-space(text())="Balance Gross Weight"]/following::input[not(@disabled)][1]').first();
+    for (let round = 0; round < 3; round++) {
+      const filled = await this.fillDialogMandatorySelects(dlg, {
+        receiptPurityID: /91\.6/, // the item's purity, not the first purity in the master
+        metalStoneSettingID: /Met Stone Setting 5/i, // the issued stock row's metal type ...
+        productArticleID: /Tendulkar/i, // ... and article, so the metal returns to the SAME stock row
+        ...(prefer || {}), // the caller knows which row was actually issued
+      });
+      if (await receivedInput.count()) {
+        await receivedInput.fill(String(received));
+        await receivedInput.blur();
+        await this.settle(1_500);
+      }
+      if (!filled) break;
+    }
+    const net = await dlg.locator('xpath=.//*[normalize-space(text())="Net Weight (Gram)"]/following::input[1]').first().inputValue().catch(() => '?');
+    const pure = await dlg.locator('xpath=.//*[normalize-space(text())="Pure Weight (Gram)"]/following::input[1]').first().inputValue().catch(() => '?');
+    const enteredWeight = await receivedInput.inputValue().catch(() => '?');
+    console.log(`material detail entry: balance ${balance} -> received ${received} (input now "${enteredWeight}"), net ${net}, pure ${pure}`);
+    const addToGrid = dlg.locator('button').filter({ hasText: /Add to Grid/i }).last();
+    await addToGrid.click();
+    let closed = await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).then(() => true).catch(() => false);
+    if (!closed) {
+      const invalid = await dlg.evaluate((d) => ({
+        selects: [...d.querySelectorAll('sioniq-ng-select, ng-select')].filter((n) => (n.matches('ng-select') ? n : n.querySelector('ng-select'))?.classList.contains('ng-invalid') && n.offsetParent).map((n) => n.getAttribute('controlname') || n.closest('div')?.textContent.trim().slice(0, 30)),
+        inputs: [...d.querySelectorAll('input.ng-invalid')].filter((i) => i.offsetParent).map((i) => (i.closest('div')?.parentElement?.querySelector('label, span')?.textContent || i.id || i.placeholder || i.type).trim().slice(0, 40) + '=' + i.value),
+        messages: [...d.querySelectorAll('[role=alert], .text-danger, .invalid-feedback')].map((a) => a.textContent.trim()).filter(Boolean).slice(0, 5),
+      })).catch(() => null);
+      console.log(`material detail entry: dialog still open after Add to Grid - ${JSON.stringify(invalid)}`);
+      await this.fillDialogMandatorySelects(dlg);
+      await addToGrid.click().catch(() => {});
+      closed = await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).then(() => true).catch(() => false);
+    }
+    await this.settle(1_500);
+    return closed;
+  }
+
+  /** First offered option into every still-invalid select INSIDE a dialog. Returns how many were filled. */
+  async fillDialogMandatorySelects(dlg, prefer = {}) {
+    let filled = 0;
+    for (let i = 0; i < 12; i++) {
+      const invalid = dlg.locator('ng-select.ng-invalid').locator('visible=true').first();
+      if (!(await invalid.count())) break;
+      const label = await invalid.evaluate((n) => (n.closest('[controlname]')?.getAttribute('controlname') || n.closest('div')?.parentElement?.querySelector('label, .form-label, span')?.textContent || '').trim().slice(0, 40)).catch(() => '');
+      await this.closeStalePanels();
+      await invalid.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
+      await this.settle(900);
+      const all = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i });
+      const want = Object.entries(prefer).find(([ctl]) => label === ctl || label.includes(ctl));
+      let preferred = want ? all.filter({ hasText: want[1] }).first() : null;
+      if (preferred && !(await preferred.count())) {
+        // long lists are virtual-scrolled: only the first screen of options is
+        // rendered, so type the wanted text to filter the panel (22-09-2026:
+        // the article "Tendulkar" sat below the fold and the first option won)
+        const typed = (want[1] instanceof RegExp ? want[1].source : String(want[1])).replace(/\\(.)/g, '$1').replace(/[^\w .,-]/g, ' ').trim();
+        if (typed) {
+          await invalid.locator('input[type="text"], input[role="combobox"]').first().fill(typed).catch(() => {});
+          await this.settle(900);
+          preferred = all.filter({ hasText: want[1] }).first();
+          console.log(`dialog mandatory select "${label}": typed "${typed}" to reach the preferred option (${await preferred.count()} match)`);
+        }
+      }
+      const opt = preferred && (await preferred.count()) ? preferred : all.first();
+      if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        console.log(`dialog mandatory select "${label}" -> ${((await opt.textContent()) || '').trim()}`);
+        await opt.click().catch(() => {});
+        filled++;
+        await this.settle(800);
+      } else {
+        await this.page.keyboard.press('Escape').catch(() => {});
+        console.log(`dialog mandatory select "${label}" offered nothing`);
+        break;
+      }
+    }
+    return filled;
+  }
+
+  /**
+   * The "Metal - Configure" dialog the material grid's Add opens: Item
+   * Details (read-only), Assign Details (Assign Type select, mandatory),
+   * Weight Details (Gross Weight editable - the quantity to issue; net /
+   * pure recompute), Alloy Details (Add Alloy checkbox), then the dialog's
+   * own Add moves the entry into "Added Metal Entries".
+   */
+  async completeConfigureDialog({ weight, assignType, productionNo } = {}) {
+    const dlg = this.page.locator('.modal, ngb-modal-window, [role="dialog"], .offcanvas').filter({ hasText: /Configure/i }).last();
+    if (!(await dlg.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      console.log('material: no Configure dialog opened');
+      return false;
+    }
+    const assign = dlg.locator('ng-select').first();
+    if (await assign.count()) {
+      await assign.locator('.ng-select-container').click();
+      const opts = this.page.locator('.ng-dropdown-panel .ng-option');
+      await opts.first().waitFor({ state: 'visible', timeout: 10_000 });
+      const labels = (await opts.allTextContents()).map((t) => t.trim());
+      let idx = assignType ? labels.findIndex((l) => (assignType instanceof RegExp ? assignType.test(l) : l === assignType)) : -1;
+      if (idx < 0) idx = 0;
+      console.log(`material configure: Assign Type options ${JSON.stringify(labels)} -> "${labels[idx]}"`);
+      await opts.nth(idx).click();
+      await this.settle(1_000);
+    }
+    // "Production" reveals a Production No select - pick the chain's job
+    const prodSel = dlg.locator('xpath=.//*[normalize-space(text())="Production No"]/following::ng-select[1]').first();
+    if (await prodSel.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      if (!productionNo) throw new Error('material configure: the dialog asks for a Production No but the chain has none');
+      const core = String(productionNo).split('.')[0];
+      let done = false;
+      for (let attempt = 1; attempt <= 3 && !done; attempt++) {
+        await this.closeStalePanels();
+        await prodSel.locator('.ng-select-container').click();
+        await prodSel.locator('input[role="combobox"]').fill(core).catch(() => {});
+        await this.settle(2_000);
+        const popts = this.page.locator('.ng-dropdown-panel .ng-option');
+        const plabels = (await popts.allTextContents()).map((t) => t.trim());
+        const pidx = plabels.findIndex((l) => l.startsWith(core));
+        if (pidx >= 0) {
+          await popts.nth(pidx).click();
+          done = true;
+          console.log(`material configure: Production No -> "${plabels[pidx]}"`);
+        } else {
+          console.log(`material configure: Production No attempt ${attempt} offered ${JSON.stringify(plabels.slice(0, 8))}`);
+          await this.page.keyboard.press('Escape');
+        }
+      }
+      if (!done) throw new Error(`material configure: production no ${productionNo} not offered in the dialog`);
+      await this.settle(1_000);
+    }
+    if (weight !== undefined) {
+      const gross = dlg.locator('xpath=.//*[normalize-space(text())="Gross Weight"]/following::input[1]').first();
+      if (await gross.count()) {
+        await gross.fill(String(weight));
+        await gross.blur();
+        await this.settle(1_500);
+        const net = await dlg.locator('xpath=.//*[normalize-space(text())="Net Weight"]/following::input[1]').first().inputValue().catch(() => '?');
+        const pure = await dlg.locator('xpath=.//*[normalize-space(text())="Pure Weight"]/following::input[1]').first().inputValue().catch(() => '?');
+        console.log(`material configure: gross ${weight} -> net ${net}, pure ${pure}`);
+      } else {
+        console.log('material configure: no Gross Weight input found in the dialog');
+      }
+    }
+    const dlgAdd = dlg.locator('button').filter({ hasText: /\bAdd\s*$/ }).filter({ hasNotText: /Alloy|Files|Image/ }).last();
+    await dlgAdd.click();
+    const closed = await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).then(() => true).catch(() => false);
+    if (!closed) {
+      const alerts = (await dlg.locator('[role=alert], .text-danger, .invalid-feedback').allTextContents().catch(() => [])).map((t) => t.trim()).filter(Boolean);
+      console.log(`material configure: dialog still open after Add - invalid: ${JSON.stringify(await this.invalidControls())}; messages: ${JSON.stringify(alerts)}`);
+      await dlgAdd.click().catch(() => {});
+      await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+    }
+    await this.settle(1_500);
+    return true;
+  }
+
+  /** Enter a weight into the first editable weight input of the selected row / item panel. */
+  async fillMaterialWeight(weight, row) {
+    const scoped = row ? row.locator('input[type="number"]:not([disabled]), input[type="text"]:not([disabled]):not([role="combobox"])') : this.page.locator('nothing-here');
+    const input = (await scoped.count())
+      ? scoped.first()
+      : this.page.locator('tbody tr input[type="number"]:not([disabled]), input[type="number"]:not([disabled])').locator('visible=true').first();
+    if (await input.count()) {
+      await input.fill(String(weight));
+      await input.blur();
+      await this.settle(1_000);
+      console.log(`material: weight ${weight} entered`);
+    } else {
+      console.log('material: no editable weight input found - leaving the row weight as offered');
+    }
+  }
+
+  /**
+   * Submit the current form and capture its save response (POST matching
+   * urlPattern, not a grid/pagination call). Logs invalid controls and the
+   * toast when nothing fires within 25 s, then clicks once more.
+   */
+  async submitAndCapture(what, urlPattern) {
+    const noise = /GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation|Get[A-Z]/;
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && urlPattern.test(r.url()) && !noise.test(r.url()),
+      { timeout: 120_000 },
+    );
+    resp.catch(() => {});
+    const submit = this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last();
+    await submit.click();
+    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
+    if (!r) {
+      const invalid = await this.invalidControls();
+      const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.trim()).filter(Boolean);
+      console.log(`${what}: no save request after 25 s - invalid: ${JSON.stringify(invalid)}; alerts: ${JSON.stringify(alerts)} - retrying Submit`);
+      await submit.click().catch(() => {});
+      r = await resp;
+    }
+    const body = await r.json().catch(() => null);
+    console.log(`${what} save: ${r.status()} ${r.url().split('/sioniq/')[1]} ${JSON.stringify(body).slice(0, 220)}`);
+    if (r.status() >= 400 || (body && body.errorCode)) {
+      throw new Error(`${what} rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
+    }
+    await this.waitForIdle();
+    await this.settle(2_000);
+    await this.closeVisibleDialog();
+    return body;
+  }
+
 }
 
 module.exports = { ProductionWorkflowPage };

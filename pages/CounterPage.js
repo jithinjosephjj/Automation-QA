@@ -2,7 +2,8 @@ const { StockInwardBasePage } = require('./StockInwardBasePage');
 
 /**
  * Counter — Inventory > Setup > Counter (Counter tab of /inv/counter-setup;
- * sibling tabs: Floor / Sub-Counter / Employee Locker & Counter Assignment /
+ * sibling tabs: Floor / Sub-Counter / Employee Counter Mapping (was "Employee
+ * Locker & Counter Assignment" until Sept 2026) /
  * Counter Mapping). Single-screen form with Submit.
  *
  * Facts (verified live 23-08-2026):
@@ -64,10 +65,10 @@ class CounterPage extends StockInwardBasePage {
     await this.selectAllOptions('lockerType');
   }
 
-  // ---------- Employee Locker & Counter Assignment (sibling tab) ----------
+  // ---------- Employee Counter Mapping (sibling tab; renamed from "Employee Locker & Counter Assignment", 22-09-2026) ----------
 
   async selectAssignmentTab() {
-    await this.page.getByRole('tab', { name: 'Employee Locker & Counter Assignment' }).click();
+    await this.page.getByRole('tab', { name: /^Employee (Counter Mapping|Locker & Counter Assignment)$/ }).click();
     await this.waitForIdle();
     await this.settle(2_000);
   }
