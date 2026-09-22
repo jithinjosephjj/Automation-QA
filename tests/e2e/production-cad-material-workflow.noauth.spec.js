@@ -21,7 +21,7 @@ const state = makeState('e2e-cad-material-state.json');
  *   09 CAD approval                      (Approval tab, Status "Approve")
  *   10 Worker receipt                    CAD Modeling / Prabhat
  *   11 Process movement transfer         -> Casting Process / Casting Inspection, then accept
- *   12 Worker issue                      Casting / Sioniquser24
+ *   12 Worker issue                      Casting / Sioniquser25
  *   13 Material issue                    Material Transaction > Issue: employee Asmi's locker stock
  *                                        (Metal / Stock, Gold,Ring-Tendulkar 91.60) -> 10 g to the casting
  *                                        worker, assigned to the job ("Metal - Configure" dialog: Assign
@@ -58,7 +58,7 @@ const DATA = {
   worker: 'Worker Naveen',
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
   // casting worker per the QA lead's recording of 21-09-2026
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser24' },
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser25' },
   cad: { worker: 'Prabhat', volume3D: 12, approxWeight: 10 },
   material: {
     // QA lead 21-09-2026: employee Asmi (her locker "Conter Ab" holds Gold,
@@ -221,7 +221,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log('Process movement accepted at Casting Process');
   });
 
-  test('TC-CADM-12 worker issue (Casting, Sioniquser24)', async ({ loginPage, production }) => {
+  test('TC-CADM-12 worker issue (Casting, Sioniquser25)', async ({ loginPage, production }) => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
@@ -311,7 +311,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log(`Material receipt saved: ${JSON.stringify(body.data || body).slice(0, 160)}`);
   });
 
-  test('TC-CADM-15 worker receipt with item (Casting, Sioniquser24, 45 g) - Move to Job Finalize', async ({ loginPage, production }) => {
+  test('TC-CADM-15 worker receipt with item (Casting, Sioniquser25, 45 g) - Move to Job Finalize', async ({ loginPage, production }) => {
     test.setTimeout(600_000);
     await login(loginPage);
     requireJob();
