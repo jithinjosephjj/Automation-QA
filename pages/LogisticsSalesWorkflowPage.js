@@ -172,21 +172,100 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Counter Allocation: filters + a scan field - scan the barcode TAG,
    * Enter stages it, Add commits it, Submit saves.
    */
-  async counterAllocation({ itemType = 'Metal', groupCategory = 'Gold', tagNo }) {
+  /**
+   * TAG NUMBERS ARE NOT UNIQUE on qa (23-09-2026): the barcode day-series
+   * restarts because the app's business date is pinned (23/06/2026), so a
+   * tag-number scan resolves the FIRST stock item carrying that number -
+   * on 23-09 the allocation moved an older 122 g "2026-06-2300002" while
+   * the chain's 10 g tag stayed in stock. With lotNo the form fetches by
+   * LOT (Scan Type "Lot Number") instead, and the scan answer's RFID
+   * (unique) is kept in this.lastScan for the later tag-wise screens.
+   */
+  /**
+   * Pick an option from a VIRTUAL-SCROLLED multi select whose search box
+   * filters nothing (the lotNos list of Counter Allocation: only ~12 rows
+   * are rendered, typing shows one blank row): scroll the panel in steps
+   * until the option containing `text` is rendered, click it, close.
+   */
+  async pickVirtualOption(controlname, text) {
+    const host = this.select(controlname);
+    if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
+    await host.locator('.ng-select-container').click({ timeout: 5_000 });
+    const panel = this.page.locator('.ng-dropdown-panel').last();
+    await panel.waitFor({ state: 'visible', timeout: 10_000 });
+    const scroller = panel.locator('.ng-dropdown-panel-items');
+    let lastTop = -1;
+    for (let step = 0; step < 60; step++) {
+      const opt = panel.locator('.ng-option').filter({ hasText: String(text) }).first();
+      if (await opt.isVisible({ timeout: 400 }).catch(() => false)) {
+        const label = ((await opt.textContent()) || '').replace(/\s+/g, ' ').trim();
+        await opt.click();
+        console.log(`${controlname} -> ${label}`);
+        await this.page.keyboard.press('Escape').catch(() => {});
+        await this.settle(1_000);
+        return label;
+      }
+      const top = await scroller.evaluate((el) => { el.scrollTop += 160; return el.scrollTop; }).catch(() => -1);
+      await this.page.waitForTimeout(250);
+      if (top === lastTop) break; // bottom reached
+      lastTop = top;
+    }
+    const seen = (await panel.locator('.ng-option').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim());
+    await this.page.keyboard.press('Escape').catch(() => {});
+    throw new Error(`select "${controlname}" never rendered an option containing "${text}" (last rendered: ${JSON.stringify(seen.slice(-8))})`);
+  }
+
+  async counterAllocation({ itemType = 'Metal', groupCategory = 'Gold', tagNo, lotNo, rfidNo, vendor = 'RAJA' }) {
     await this.goto('/sls/view-counter-allocation');
     await this.waitForIdle();
     await this.clickVisibleAdd();
 
+    this.lastScan = null;
+    const onScan = async (r) => {
+      if (!/CounterAllocation\/(Scan|Fetch|Get)/i.test(r.url()) || !['POST', 'GET'].includes(r.request().method())) return;
+      const body = await r.json().catch(() => null);
+      const items = Array.isArray(body) ? body : body && Array.isArray(body.data) ? body.data : body ? [body] : [];
+      const mine = items.find((i) => i && i.tagNo === tagNo) || (items.length === 1 ? items[0] : null);
+      if (mine && mine.tagNo) this.lastScan = { tagNo: mine.tagNo, rfidNo: mine.rfidNo || '', lotNo: mine.lotNo || '', gross: Number(mine.grossWeightTran || 0) };
+    };
+    this.page.on('response', onScan);
+
     await this.pick('masterDataValueID_JewelleryItemType', itemType);
     await this.pick('groupCategoryMetalIDs', groupCategory, { closePanel: true });
-    // Scan Type: whatever the first real option is (tag scanning)
-    await this.pickFirstOption('masterDataValueID_ScanType');
+    if (rfidNo) {
+      // stock that came BACK (approval receipt) is a new ledger item the lot
+      // list no longer offers - its RFID is the unique key then
+      await this.pickPreferred('masterDataValueID_ScanType', /rfid/i);
+    } else if (lotNo) {
+      await this.pickPreferred('masterDataValueID_ScanType', /lot/i);
+    } else {
+      // Scan Type: whatever the first real option is (tag scanning)
+      await this.pickFirstOption('masterDataValueID_ScanType');
+    }
 
-    const scan = this.page.getByPlaceholder('Scan / type then press Enter');
-    await scan.fill(tagNo);
-    await scan.press('Enter');
+    if (!rfidNo && lotNo) {
+      // Scan Type "Lot Number" swaps the scan field for Vendor + Lot Number
+      // selects and a "Fetch Items" button (23-09-2026)
+      await this.settle(1_200);
+      // vendorIDs / lotNos are MULTI selects ("Select at least one Lot Number")
+      // typing into these multi selects filters nothing (the panel goes blank) - plain option clicks
+      await this.pick('vendorIDs', vendor, { exact: true, closePanel: true });
+      await this.pickVirtualOption('lotNos', lotNo); // virtual-scrolled, search filters nothing
+      await this.page.getByRole('button', { name: /Fetch Items/i }).locator('visible=true').last().click();
+    } else {
+      const scan = this.page.getByPlaceholder('Scan / type then press Enter');
+      await scan.fill(rfidNo || tagNo);
+      await scan.press('Enter');
+    }
     await this.waitForIdle();
     await this.settle(2_500);
+    this.page.off('response', onScan);
+    const staged = this.rowMatcher(tagNo);
+    if (!(await staged.first().isVisible({ timeout: 10_000 }).catch(() => false))) {
+      const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
+      throw new Error(`counter allocation: tag ${tagNo} was not staged (${lotNo ? 'lot ' + lotNo : 'tag scan'}). Toasts: ${JSON.stringify(toasts)}`);
+    }
+    console.log(`counter allocation: staged ${(await staged.first().innerText()).replace(/\s+/g, ' ').slice(0, 140)}${this.lastScan ? ' | rfid ' + this.lastScan.rfidNo : ''}`);
 
     const add = this.page.locator('button').filter({ hasText: /^\s*Add\s*$/ }).locator('visible=true').last();
     if (await add.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -252,7 +331,8 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Counter Accept: filter by item type, find the allocated tag's row,
    * check it and Accept.
    */
-  async counterAccept({ itemType = 'Metal', tagNo }) {
+  /** optional: true returns { skipped: true } when nothing is pending for the tag (a 'Return to Counter' transfer lands approved, with no acceptance step). */
+  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, optional = false }) {
     await this.goto('/sls/view-counter-accept-reject');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -261,7 +341,13 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.waitForIdle();
     await this.settle(2_500);
 
-    await this.checkRow(tagNo);
+    // tag numbers repeat on qa - the RFID row wins when the grid shows it
+    const key = rfidNo && (await this.rowMatcher(rfidNo).count()) ? rfidNo : tagNo;
+    if (optional && !(await this.rowMatcher(key).first().isVisible({ timeout: 15_000 }).catch(() => false))) {
+      console.log('counter accept: nothing pending for ' + key + ' - the transfer landed without an acceptance step');
+      return { skipped: true };
+    }
+    await this.checkRow(key);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: /Accept/ }).locator('visible=true').last());
     await this.previewAndClose();
     return body;
@@ -355,13 +441,14 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * B2B Metal Sales Invoice: /sls/app-invoice-setup, own tab. Scan the tag,
    * Add, Submit.
    */
-  async b2bSalesInvoice({ customer, salesman, tagNo }) {
+  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo }) {
     await this.goto('/sls/app-invoice-setup');
     await this.waitForIdle();
-    // the B2B module lazy-loads - wait for the tab, then fall back to the
+    // the B2B module lazy-loads - wait for the tab (named "Metal Invoice" since
+    // Sept 2026, "B2B Metal Sales Invoice" before), then fall back to the
     // nav search route the probe used
-    let tab = this.page.getByRole('tab', { name: 'B2B Metal Sales Invoice' })
-      .or(this.page.getByRole('button', { name: 'B2B Metal Sales Invoice' })).first();
+    let tab = this.page.getByRole('tab', { name: /^(B2B )?Metal (Sales )?Invoice$/ })
+      .or(this.page.getByRole('button', { name: /^(B2B )?Metal (Sales )?Invoice$/ })).first();
     if (!(await tab.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true).catch(() => false))) {
       const search = this.page.getByRole('combobox', { name: 'Search' });
       await search.click();
@@ -370,8 +457,8 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       await search.press('ArrowDown');
       await search.press('Enter');
       await this.waitForIdle();
-      tab = this.page.getByRole('tab', { name: 'B2B Metal Sales Invoice' })
-        .or(this.page.getByRole('button', { name: 'B2B Metal Sales Invoice' })).first();
+      tab = this.page.getByRole('tab', { name: /^(B2B )?Metal (Sales )?Invoice$/ })
+        .or(this.page.getByRole('button', { name: /^(B2B )?Metal (Sales )?Invoice$/ })).first();
       await tab.waitFor({ state: 'visible', timeout: 30_000 });
     }
     await tab.click();
@@ -389,26 +476,37 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     // "Approval RC No" switches the form to approval-sourced mode - a
     // straight counter sale needs a non-approval issue type
     await this.pickPreferred('masterDataValueID_InvoiceIssueType', /direct|tag|counter/i, /approval/i).catch(() => {});
-    await this.pickPreferred('masterDataValueID_ScanType', /tag/i).catch(() => {});
+    // tag numbers repeat on qa (23-09-2026) - scan the unique RFID when known
+    await this.pickPreferred('masterDataValueID_ScanType', rfidNo ? /rfid/i : /tag/i).catch(() => {});
     await this.waitForIdle();
     await this.settle(1_500);
 
-    // the scan field is captioned "Tag Number"; the "+ Add" button commits
-    // the scan (Enter clears the field without staging)
-    const scan = this.inputByCaption('Tag Number');
-    await scan.fill(tagNo);
-    if ((await scan.inputValue()) !== tagNo) {
+    // the scan field is captioned "Tag Number" (or "Rfid Number"). Since
+    // Sept 2026 Enter (or the field's trailing icon button) commits the
+    // scan - the old "+ Add" text button is gone; press it only when present
+    const scanValue = rfidNo || tagNo;
+    let scan = this.inputByCaption('Tag Number');
+    if (!(await scan.count())) scan = this.page.locator('input[formcontrolname="scanInput"], input#scanInput, input[placeholder*="Scan" i]').locator('visible=true').first();
+    await scan.fill(scanValue);
+    if ((await scan.inputValue()) !== scanValue) {
       throw new Error(`tag number did not land in the scan field (holds "${await scan.inputValue()}")`);
     }
-    const add = this.page.locator('button').filter({ hasText: /Add/ })
-      .filter({ hasNotText: /Files|Selected|Charges/ })
-      .locator('visible=true').last();
-    await add.click();
+    await scan.press('Enter');
     await this.waitForIdle();
     await this.settle(2_500);
+    const scanned = this.rowMatcher(tagNo).or(rfidNo ? this.rowMatcher(rfidNo) : this.rowMatcher(tagNo)).last();
+    if (!(await scanned.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      const add = this.page.locator('button').filter({ hasText: /Add/ })
+        .filter({ hasNotText: /Files|Selected|Charges/ })
+        .locator('visible=true').last();
+      if (await add.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await add.click();
+        await this.waitForIdle();
+        await this.settle(2_500);
+      }
+    }
 
     // proof the tag actually staged - surface the app's toast if it did not
-    const scanned = this.rowMatcher(tagNo).last();
     if (!(await scanned.isVisible({ timeout: 10_000 }).catch(() => false))) {
       const toasts = await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container')
         .allTextContents().catch(() => []);
@@ -416,10 +514,285 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     }
     console.log('sales invoice: tag scanned into the grid');
     const box = scanned.getByRole('checkbox').first();
-    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => true))) await box.check({ force: true, timeout: 3_000 }).catch(() => {});
+    if ((await box.count()) && !(await box.isChecked({ timeout: 2_000 }).catch(() => true))) await box.check({ force: true, timeout: 3_000 }).catch(() => {});
+    await this.fillMetalRateIfEmpty(6000); // same "Metal weight" strip as the approval forms
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.invoiceNo || body.data.docNo)) || '';
+  }
+
+  // ---------- Counter Transfer: Default Stock Accept Counter -> counter ----------
+
+  /**
+   * Stock that comes BACK from an approval (Approval Receipt, "Receipt To"
+   * Stock) lands in the location's "Default Stock Accept Counter" (probed
+   * 23-09-2026): Counter Allocation refuses it ("Tag / RFID not found or
+   * not eligible") and the invoice refuses it ("not in Counter stock").
+   * Counter Transfer (/sls/view-counter-transfer) with Counter Category
+   * "Default Stock Accept Counter" lists those tags with a "Tag Number
+   * (locate in grid)" scan, a "Select" button and "Return to Counter";
+   * after that the tag waits in Counter Accept. Returns the save body.
+   */
+  async returnToCounter({ tagNo }) {
+    await this.goto('/sls/view-counter-transfer');
+    await this.waitForIdle();
+    await this.clickVisibleAdd();
+    await this.pick('from_MasterDataValueID_CounterCategory', 'Default Stock Accept Counter', { exact: true });
+    await this.waitForIdle();
+    await this.settle(2_500);
+
+    const row = this.rowMatcher(tagNo).last();
+    if (!(await row.isVisible({ timeout: 15_000 }).catch(() => false))) {
+      const rows = await this.page.locator('tbody tr').locator('visible=true').allInnerTexts().catch(() => []);
+      throw new Error(`counter transfer: tag ${tagNo} is not on the Default Stock Accept Counter - rows: ${JSON.stringify(rows.map((t) => t.replace(/\s+/g, ' ').slice(0, 100)).slice(0, 8))}`);
+    }
+    // locate + select the row: the "locate in grid" scan, then the row's
+    // checkbox when it has one (else a click on the row), then "Select"
+    const scan = this.page.locator('input[formcontrolname="scanInput"], input#scanInput, input[placeholder*="Scan" i]').locator('visible=true').first();
+    if (await scan.count()) {
+      await scan.fill(tagNo);
+      await scan.press('Enter');
+      await this.settle(1_500);
+    }
+    const box = row.getByRole('checkbox').first();
+    if (await box.count()) {
+      if (!(await box.isChecked({ timeout: 1_000 }).catch(() => false))) await box.check({ force: true }).catch(() => {});
+    } else {
+      await row.click().catch(() => {});
+    }
+    await this.settle(800);
+    const select = this.page.getByRole('button', { name: /^Select$/ }).locator('visible=true').last();
+    if (await select.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await select.click();
+      await this.settle(1_500);
+    }
+    const stagedInfo = await this.page.evaluate((tag) => {
+      const vis = (n) => !!n.offsetParent;
+      return {
+        headings: [...document.querySelectorAll('h4, h5, h6')].filter(vis).map((h) => h.textContent.trim()).filter((t) => t && t.length < 60),
+        buttons: [...document.querySelectorAll('button')].filter(vis).map((b) => b.textContent.replace(/\s+/g, ' ').trim()).filter((t) => t && t.length < 30),
+        toasts: [...document.querySelectorAll('.toast, .toast-message, [role=alert]')].map((t) => t.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 4),
+        rows: [...document.querySelectorAll('tbody tr')].filter(vis).map((r) => r.innerText.replace(/\s+/g, ' ').trim().slice(0, 120)).filter((t) => t.includes(tag)).slice(0, 4),
+      };
+    }, tagNo);
+    console.log(`counter transfer: after select ${JSON.stringify(stagedInfo)}`);
+
+    // "Return to Counter" submits; answer a confirm dialog when one appears
+    const resp = this.page.waitForResponse((r) => ['POST', 'PUT'].includes(r.request().method()) && /CounterTransfer|Return/i.test(r.url()) && !/GetCounterStockTags|Pagination|GetAll/i.test(r.url()), { timeout: 60_000 }).catch(() => null);
+    await this.page.getByRole('button', { name: /Return to Counter/i }).locator('visible=true').last().click();
+    for (let i = 0; i < 10; i++) {
+      await this.page.waitForTimeout(800);
+      const yes = this.page.locator('.swal2-popup button, .modal.show button, ngb-modal-window button, [role="dialog"] button').locator('visible=true').filter({ hasText: /^(Yes|OK|Confirm|Proceed|Return|Submit)/i }).last();
+      if (await yes.isVisible({ timeout: 300 }).catch(() => false)) {
+        console.log(`counter transfer: confirming with "${((await yes.textContent()) || '').trim()}"`);
+        await yes.click().catch(() => {});
+      }
+    }
+    const r = await resp;
+    if (!r) {
+      const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
+      throw new Error(`counter transfer: Return to Counter fired no save. Toasts: ${JSON.stringify(toasts)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log('counter transfer save:', r.status(), r.url().split('/').pop(), JSON.stringify(body).slice(0, 250));
+    if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`counter transfer rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
+    await this.previewAndClose();
+    return body;
+  }
+
+  // ---------- B2B Approval Issue / Approval Receipt (Sales & Distribution) ----------
+
+  /**
+   * The "Metal weight" strip under the scanned tags carries a "Rate (₹/gm)"
+   * number input that stays 0 after the scan; Submit then only flashes
+   * "Input required - Please enter the metal rate." for 4 s and fires no
+   * save (23-09-2026). Enter the rate into every such input still at 0.
+   */
+  async fillMetalRateIfEmpty(rate) {
+    const inputs = this.page.locator('xpath=//*[contains(normalize-space(text()), "Rate (") and contains(normalize-space(text()), "/gm")]/following::input[1]').locator('visible=true');
+    const n = await inputs.count();
+    let filled = 0;
+    for (let i = 0; i < n; i++) {
+      const input = inputs.nth(i);
+      if (await input.isDisabled().catch(() => true)) continue;
+      const current = Number((await input.inputValue().catch(() => '')) || 0);
+      if (current > 0) continue;
+      await input.fill(String(rate));
+      await input.blur();
+      filled++;
+    }
+    if (filled) {
+      await this.waitForIdle();
+      await this.settle(1_500);
+      console.log(`metal rate: entered ${rate} into ${filled} empty Rate (₹/gm) input(s)`);
+    }
+    return filled;
+  }
+
+  /**
+   * The ng-select right after a plain-text caption (these forms caption
+   * with text nodes, not labels): pick the option matching `prefer`, else
+   * the first offered. With { optional: true } an absent select is skipped.
+   */
+  async pickFirstByCaption(caption, prefer, { optional = false } = {}) {
+    const host = this.page.locator(`xpath=//*[normalize-space(text())="${caption}"]/following::ng-select[1]`).first();
+    if (!(await host.waitFor({ state: 'visible', timeout: optional ? 3_000 : 15_000 }).then(() => true).catch(() => false))) {
+      if (optional) { console.log(`${caption}: no select offered - skipped`); return ''; }
+      throw new Error(`select "${caption}" not found`);
+    }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
+      await host.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
+      const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i });
+      if (await opts.first().waitFor({ state: 'visible', timeout: attempt * 3_000 }).then(() => true).catch(() => false)) {
+        const labels = (await opts.allTextContents()).map((t) => t.trim());
+        let idx = prefer ? labels.findIndex((l) => prefer.test(l)) : -1;
+        if (idx < 0) idx = 0;
+        await opts.nth(idx).click();
+        console.log(`${caption} -> ${labels[idx]} (of ${JSON.stringify(labels.slice(0, 6))})`);
+        await this.settle(1_000);
+        return labels[idx];
+      }
+      await this.page.keyboard.press('Escape').catch(() => {});
+    }
+    if (optional) { console.log(`${caption}: offered no option - skipped`); return ''; }
+    throw new Error(`select "${caption}" never offered an option`);
+  }
+
+  /**
+   * Scan a tag into the form's "Tag Number" scan field (scanInput): fill +
+   * Enter stages the tag as a grid line on the approval forms; when Enter
+   * stages nothing a visible "+ Add" button is pressed as well. Fails with
+   * the app's toasts when the tag never lands in a grid.
+   */
+  async scanTag(tagNo, what, { rfidNo } = {}) {
+    const scan = this.page.locator('input[formcontrolname="scanInput"], input#scanInput, input[placeholder*="Scan" i]').locator('visible=true').first();
+    await scan.waitFor({ state: 'visible', timeout: 15_000 });
+    await scan.fill(rfidNo || tagNo); // the RFID is unique, the tag number is not (qa, 23-09-2026)
+    await scan.press('Enter');
+    await this.waitForIdle();
+    await this.settle(2_500);
+    const row = (rfidNo ? this.rowMatcher(rfidNo).or(this.rowMatcher(tagNo)) : this.rowMatcher(tagNo)).last();
+    if (!(await row.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      const add = this.page.locator('button').filter({ hasText: /^\s*\+?\s*Add\s*$/ }).locator('visible=true').last();
+      if (await add.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await add.click();
+        await this.settle(2_000);
+      }
+    }
+    if (!(await row.isVisible({ timeout: 10_000 }).catch(() => false))) {
+      const toasts = await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container').allTextContents().catch(() => []);
+      throw new Error(`${what}: tag "${tagNo}" never appeared in the grid. Toasts: ${JSON.stringify(toasts)}`);
+    }
+    console.log(`${what}: tag ${tagNo} staged`);
+  }
+
+  /**
+   * B2B Approval Issue (/sls/view-b2b-approval-issue, probed 23-09-2026) -
+   * stock goes out to a customer on approval. Issue From "Stock" + Issue To
+   * "Customer" reveal the Customer select; Purpose / Salesman / Helper /
+   * Supervisor are mandatory; Stock Source "Counter" + Issue Type "Tag
+   * Wise" reveal Scan Type and the "Tag Number" scan field (Enter stages
+   * the tag - the form has no Add button). Returns the RC number.
+   */
+  async approvalIssue({ customer, purpose = 'Display', salesman, helper, supervisor, tagNo, rfidNo, metalRate = 6000 }) {
+    await this.goto('/sls/view-b2b-approval-issue');
+    await this.waitForIdle();
+    await this.clickVisibleAdd();
+
+    await this.pick('masterDataValueID_ApprovalIssueFrom', 'Stock', { exact: true });
+    await this.pick('masterDataValueID_ApprovalIssueTo', 'Customer', { exact: true });
+    await this.settle(1_500); // the Customer select renders after Issue To
+    await this.pick('masterDataValueID_ApprovalIssuePurpose', purpose, { exact: true });
+    await this.pick('b2BCustomerID', customer, { search: true });
+    await this.settle(1_200); // Customer Branch (+ Credit Days / Due Date) render after the customer
+    // the branch scopes the tag lookup - the same gate as the B2B invoice:
+    // while it is empty the scan answers "Tag not found or not eligible for
+    // the selected source document" (first run, 23-09-2026)
+    await this.pickFirstByCaption('Customer Branch', /branch/i);
+    await this.pick('salesmanIDs', salesman, { search: true, closePanel: true });
+    await this.pick('helperID', helper, { search: true });
+    await this.pick('supervisorID', supervisor, { search: true });
+    await this.pick('masterDataValueID_StockSourceFrom', 'Counter', { exact: true });
+    await this.pick('masterDataValueID_ApprovalIssueType', 'Tag Wise', { exact: true });
+    await this.waitForIdle();
+    await this.settle(1_500); // Scan Type + Tag Number render after the type
+    if (rfidNo) {
+      await this.pickPreferred('masterDataValueID_ScanType', /rfid/i).catch(() => {});
+    } else if (!(await this.selectValue('masterDataValueID_ScanType').catch(() => ''))) {
+      await this.pickPreferred('masterDataValueID_ScanType', /tag/i).catch(() => {});
+    }
+    await this.scanTag(tagNo, 'approval issue', { rfidNo });
+    await this.fillMetalRateIfEmpty(metalRate);
+
+    const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
+    await this.previewAndClose();
+    return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
+  }
+
+  /**
+   * B2B Approval Receipt (/sls/view-approval-receipt, probed 23-09-2026) -
+   * the approval stock comes back from the customer into stock. Receipt
+   * Type "Direct", Receipt From "Customer", Receipt To "Stock"; the Customer
+   * select lists only customers holding approval stock; "Against RC No(s)"
+   * (a typeahead) takes the approval issue's RC number and loads its Issued
+   * Tags. Our tag is received by scanning it into "Tag Number" (fallback:
+   * tick its issued row + "Receive"); the Receipt Summary's "Received Tags"
+   * count proves it. Returns the receipt number.
+   */
+  async approvalReceipt({ customer, rcNo, tagNo, rfidNo, metalRate = 6000 }) {
+    await this.goto('/sls/view-approval-receipt');
+    await this.waitForIdle();
+    await this.clickVisibleAdd();
+
+    if (!(await this.selectValue('masterDataValueID_ReceiptMode').catch(() => ''))) {
+      await this.pickFirstOption('masterDataValueID_ReceiptMode').catch(() => {});
+    }
+    await this.pick('masterDataValueID_ApprovalReceiptFrom', 'Customer', { exact: true });
+    if (!(await this.selectValue('masterDataValueID_ApprovalReceiptTo').catch(() => ''))) {
+      await this.pick('masterDataValueID_ApprovalReceiptTo', 'Stock', { exact: true }).catch(() => {});
+    }
+    await this.settle(1_500);
+    await this.pick('sourceB2BCustomerID', customer, { search: true });
+    await this.settle(1_500);
+    await this.pickFirstByCaption('Customer Branch', /branch/i, { optional: true });
+    await this.pick('approvalIssueIDs', this.docCore(rcNo), { search: true, closePanel: true });
+    await this.waitForIdle();
+    await this.settle(2_500);
+
+    const issued = (rfidNo ? this.rowMatcher(rfidNo).or(this.rowMatcher(tagNo)) : this.rowMatcher(tagNo)).first();
+    if (!(await issued.isVisible({ timeout: 30_000 }).catch(() => false))) {
+      const rows = await this.page.locator('tbody tr').locator('visible=true').allInnerTexts().catch(() => []);
+      throw new Error(`approval receipt: RC ${rcNo} loaded no issued row for tag ${tagNo} - rows: ${JSON.stringify(rows.map((t) => t.replace(/\s+/g, ' ').slice(0, 120)))}`);
+    }
+    const receivedCount = async () => {
+      const text = await this.page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+      const m = text.match(/Received Tags\s*:\s*(\d+)/);
+      return m ? Number(m[1]) : 0;
+    };
+    // scan to receive (by RFID when known - "Scan By" offers Rfid Number);
+    // fall back to ticking the issued row + Receive
+    if (rfidNo) await this.pickPreferred('masterDataValueID_ScanType', /rfid/i).catch(() => {});
+    await this.scanTag(tagNo, 'approval receipt', { rfidNo }).catch((e) => console.log(`approval receipt: scan did not stage (${String(e).split('\n')[0]})`));
+    if ((await receivedCount()) < 1) {
+      await this.checkRow(rfidNo && (await this.rowMatcher(rfidNo).count()) ? rfidNo : tagNo);
+      const receive = this.page.getByRole('button', { name: /^Receive$/ }).locator('visible=true').last();
+      if (await receive.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await receive.click();
+        await this.settle(2_000);
+      }
+    }
+    const n = await receivedCount();
+    if (n < 1) {
+      const toasts = await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container').allTextContents().catch(() => []);
+      throw new Error(`approval receipt: tag ${tagNo} was not received (Received Tags : ${n}). Toasts: ${JSON.stringify(toasts)}`);
+    }
+    console.log(`approval receipt: Received Tags : ${n}`);
+    await this.fillMetalRateIfEmpty(metalRate);
+
+    const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
+    await this.previewAndClose();
+    return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
   }
 }
 

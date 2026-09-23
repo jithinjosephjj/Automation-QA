@@ -425,6 +425,35 @@ class StockInwardBasePage extends BasePage {
    * turned invalid and click again. Falls back to a plain click on wizards
    * without the summary panel.
    */
+  /**
+   * App change 23-09-2026 (evening): the item form lost its per-item "Rate"
+   * input; after Add Item a per-metal strip renders instead ("Pure Weight",
+   * "Rate", "Metal Amount") and Next / Submit stay silent while that Rate
+   * is empty. Enter the item rate (fillItem keeps it in lastItemRate) into
+   * every empty "Rate" input the step offers.
+   */
+  async fillRateAfterAdd(rate = this.lastItemRate) {
+    if (rate === undefined || rate === null) return 0;
+    await this.settle(1_200);
+    const inputs = this.page.locator('xpath=//label[normalize-space(text())="Rate"]/following::input[not(@type="checkbox")][1]').locator('visible=true');
+    const n = await inputs.count();
+    let filled = 0;
+    for (let i = 0; i < n; i++) {
+      const input = inputs.nth(i);
+      if (await input.isDisabled().catch(() => true)) continue;
+      if ((await input.inputValue().catch(() => '')).trim()) continue;
+      await input.fill(String(rate));
+      await input.blur();
+      filled++;
+    }
+    if (filled) {
+      await this.waitForIdle();
+      await this.settle(1_200);
+      console.log(`${this.tabName}: entered rate ${rate} into ${filled} empty Rate input(s) after Add Item`);
+    }
+    return filled;
+  }
+
   async addItem() {
     const before = await this.summaryPieces();
     if (before === null) {
@@ -438,7 +467,10 @@ class StockInwardBasePage extends BasePage {
       const deadline = Date.now() + 15_000;
       while (Date.now() < deadline) {
         const now = await this.summaryPieces();
-        if (now !== null && now > before) return;
+        if (now !== null && now > before) {
+          await this.fillRateAfterAdd();
+          return;
+        }
         await this.page.waitForTimeout(500);
       }
       const invalid = await this.invalidControls();

@@ -53,10 +53,18 @@ class LotGenerationPage extends StockInwardBasePage {
     await row.getByRole('checkbox').first().check({ force: true });
     await this.settle(2_500);
 
-    // panel pre-fills the article chain from the inward; Employee and
-    // Business Unit are the manual mandatory picks
+    // panel pre-fills the article chain from the inward; Employee is the
+    // manual mandatory pick. Business Unit left the panel with the location
+    // filter change (23-09-2026) - pick it only while the select exists, and
+    // give every other still-empty mandatory select (the env-configured
+    // description dropdowns: Designer / Muhurath Set / ...) its first option
     await this.pick('employeeID', employee, { search: true });
-    await this.pick('businessUnitID', businessUnit, { exact: true });
+    if (await this.select('businessUnitID').count()) {
+      await this.pick('businessUnitID', businessUnit, { exact: true });
+    } else {
+      console.log('lot: no Business Unit select on the item panel (location filter change) - skipped');
+    }
+    if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
 
     await this.page.getByRole('button', { name: 'Add To Lot' }).click();
     await this.settle(2_500);

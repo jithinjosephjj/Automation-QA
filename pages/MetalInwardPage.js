@@ -159,7 +159,15 @@ class MetalInwardPage extends StockInwardBasePage {
     // Rate exists on the Invoice item form only - the GRN form has NO Rate
     // field (goods are received unpriced), so callers omit it there.
     if (rate !== undefined) {
-      await this.fillByLabel('Rate', rate);
+      // the Costing block (Rate) renders after the article / purity cascade -
+      // give it time, and fall back to the review step's Pure Rate when the
+      // form variant carries no Rate at all (23-09-2026: one run found none)
+      const rateLabel = this.page.locator('label:text-is("Rate")').last();
+      if (await rateLabel.waitFor({ state: 'visible', timeout: 30_000 }).then(() => true).catch(() => false)) {
+        await this.fillByLabel('Rate', rate);
+      } else {
+        console.log("metal inward: no Rate input on this item form - the review step's Pure Rate carries it");
+      }
       this.lastItemRate = rate; // the review step's Pure Rate falls back to it
     }
     // mandatory custom description dropdowns (app change, Sept 2026): Add Item
