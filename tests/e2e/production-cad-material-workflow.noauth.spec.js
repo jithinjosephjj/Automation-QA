@@ -21,12 +21,12 @@ const state = makeState('e2e-cad-material-state.json');
  *   09 CAD approval                      (Approval tab, Status "Approve")
  *   10 Worker receipt                    CAD Modeling / Prabhat
  *   11 Process movement transfer         -> Casting Process / Casting Inspection, then accept
- *   12 Worker issue                      Casting / Sioniquser25
+ *   12 Worker issue                      Casting / Sioniquser26
  *   13 Material issue                    Material Transaction > Issue: employee Asmi's locker stock
- *                                        (Metal / Stock, Gold,Ring-Tendulkar 91.60) -> 10 g to the casting
+ *                                        (Metal / Stock, Gold,Ring-Tendulkar 91.60) -> 50 g to the casting
  *                                        worker, assigned to the job ("Metal - Configure" dialog: Assign
  *                                        Type Production + Production No)
- *   14 Material receipt                  Material Transaction > Receipt: 5 g back from the casting worker
+ *   14 Material receipt                  Material Transaction > Receipt: 45 g back from the casting worker
  *                                        ("Metal Detail Entry" dialog -> Add to Grid)
  *   15 Worker receipt (settlement)       Casting / item 45.000 g / Move to Job Finalize
  *
@@ -58,12 +58,12 @@ const DATA = {
   worker: 'Worker Naveen',
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
   // casting worker per the QA lead's recording of 21-09-2026
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser25' },
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser26' },
   cad: { worker: 'Prabhat', volume3D: 12, approxWeight: 10 },
   material: {
     // QA lead 21-09-2026: employee Asmi (her locker "Conter Ab" holds Gold,
     // Ring-Tendulkar 91.60 stock), plain metal STOCK, process Casting.
-    // Material is issued ONLY at Casting; issue 10 g, receive 5 g back
+    // Material is issued ONLY at Casting; issue 50 g, receive 45 g back
     // before the worker settlement.
     employee: 'Asmi',
     stockEntityType: 'Metal',
@@ -71,8 +71,8 @@ const DATA = {
     stockRow: 'Gold,Ring-Tendulkar', // the locker stock row to issue (preferred; see stockRowPatterns)
     stockMetalType: 'Met Stone Setting 5', // that row's Metal Type - the receipt grid keys pending material by purity + metal type
     purity: '91.60',
-    issueWeight: 10,
-    receiptWeight: 5,
+    issueWeight: 50,
+    receiptWeight: 45,
   },
   item: {
     articleSearch: 'tendu',
@@ -221,7 +221,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log('Process movement accepted at Casting Process');
   });
 
-  test('TC-CADM-12 worker issue (Casting, Sioniquser25)', async ({ loginPage, production }) => {
+  test('TC-CADM-12 worker issue (Casting, Sioniquser26)', async ({ loginPage, production }) => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
@@ -279,7 +279,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log(`Material issued: ${JSON.stringify(body.data || body).slice(0, 160)}`);
   });
 
-  test('TC-CADM-14 material receipt (Casting Process, 5 g back from the casting worker)', async ({ loginPage, production }) => {
+  test('TC-CADM-14 material receipt (Casting Process, 45 g back from the casting worker)', async ({ loginPage, production }) => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
@@ -311,7 +311,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log(`Material receipt saved: ${JSON.stringify(body.data || body).slice(0, 160)}`);
   });
 
-  test('TC-CADM-15 worker receipt with item (Casting, Sioniquser25, 45 g) - Move to Job Finalize', async ({ loginPage, production }) => {
+  test('TC-CADM-15 worker receipt with item (Casting, Sioniquser26, 45 g) - Move to Job Finalize', async ({ loginPage, production }) => {
     test.setTimeout(600_000);
     await login(loginPage);
     requireJob();
