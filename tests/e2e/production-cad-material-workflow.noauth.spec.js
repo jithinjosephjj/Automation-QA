@@ -1,7 +1,17 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
+const { latestSioniqUser } = require('../../utils/sioniquser');
 
 const state = makeState('e2e-cad-material-state.json');
+
+/**
+ * The casting worker is the Sioniquser the masters suite
+ * (tests/masters/master-add-operations) created LAST - read from
+ * sioniquser-counter.json - so "npm run test:cadm" (masters, then this
+ * chain) always issues to the newest employee. CASTING_WORKER=<name>
+ * overrides it for a one-off run.
+ */
+const CASTING_WORKER = process.env.CASTING_WORKER || latestSioniqUser().displayName;
 
 /**
  * PRODUCTION END-TO-END WORKFLOW WITH CAD AND MATERIAL TRANSACTIONS.
@@ -21,7 +31,7 @@ const state = makeState('e2e-cad-material-state.json');
  *   09 CAD approval                      (Approval tab, Status "Approve")
  *   10 Worker receipt                    CAD Modeling / Prabhat
  *   11 Process movement transfer         -> Casting Process / Casting Inspection, then accept
- *   12 Worker issue                      Casting / Sioniquser27
+ *   12 Worker issue                      Casting / the newest Sioniquser<N> (masters suite, see CASTING_WORKER)
  *   13 Material issue                    Material Transaction > Issue: employee Asmi's locker stock
  *                                        (Metal / Stock, Gold,Ring-Tendulkar 91.60) -> 50 g to the casting
  *                                        worker, assigned to the job ("Metal - Configure" dialog: Assign
@@ -57,8 +67,9 @@ const DATA = {
   },
   worker: 'Worker Naveen',
   round1: { process: 'Design And CAD', subProcess: 'CAD Modeling', worker: 'Prabhat' },
-  // casting worker per the QA lead's recording of 21-09-2026
-  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser27' },
+  // casting worker: the employee the masters suite created last (QA lead,
+  // 23-09-2026: "every run should check with the new employee")
+  round2: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: CASTING_WORKER },
   cad: { worker: 'Prabhat', volume3D: 12, approxWeight: 10 },
   material: {
     // QA lead 21-09-2026: employee Asmi (her locker "Conter Ab" holds Gold,
@@ -221,10 +232,12 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log('Process movement accepted at Casting Process');
   });
 
-  test('TC-CADM-12 worker issue (Casting, Sioniquser27)', async ({ loginPage, production }) => {
+  test('TC-CADM-12 worker issue (Casting, newest Sioniquser from the masters suite)', async ({ loginPage, production }) => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
+    console.log(`Casting worker: ${CASTING_WORKER} (${process.env.CASTING_WORKER ? 'CASTING_WORKER env' : 'last completed masters iteration in sioniquser-counter.json'})`);
+    state.writeState({ castingWorker: CASTING_WORKER });
     await production.workerIssue({ ...DATA.round2, rowText: rowKey() });
     console.log('Worker issue (Casting) submitted');
   });
@@ -311,7 +324,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     console.log(`Material receipt saved: ${JSON.stringify(body.data || body).slice(0, 160)}`);
   });
 
-  test('TC-CADM-15 worker receipt with item (Casting, Sioniquser27, 40 g) - Move to Job Finalize', async ({ loginPage, production }) => {
+  test('TC-CADM-15 worker receipt with item (Casting, newest Sioniquser, 40 g) - Move to Job Finalize', async ({ loginPage, production }) => {
     test.setTimeout(600_000);
     await login(loginPage);
     requireJob();

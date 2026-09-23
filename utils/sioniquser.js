@@ -57,4 +57,15 @@ function commit(n) {
   fs.writeFileSync(COUNTER_FILE, JSON.stringify({ next: n + 1 }, null, 2));
 }
 
-module.exports = { nextSioniqUser, commit, currentN };
+/**
+ * The Sioniquser the masters suite created LAST (the iteration before
+ * "next"): the production chains use it as their freshly created inhouse
+ * worker, so a run of tests/masters followed by a chain always exercises
+ * the newest employee without editing any spec.
+ */
+function latestSioniqUser() {
+  const n = Math.max(1, currentN() - 1);
+  return { n, displayName: `Sioniquser${n}` };
+}
+
+module.exports = { nextSioniqUser, latestSioniqUser, commit, currentN };

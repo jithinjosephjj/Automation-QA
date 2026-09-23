@@ -14,6 +14,8 @@ const { nextSioniqUser, commit } = require('../../utils/sioniquser');
  *
  *   run everything : npx playwright test tests/masters --headed
  *   run one page   : npx playwright test -g "TC-USR-001" --headed
+ *   with the chain : npm run test:cadm  (this suite, then the Concept-CAD-Material
+ *                    chain, which issues to the Sioniquser<N> created here)
  *
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
