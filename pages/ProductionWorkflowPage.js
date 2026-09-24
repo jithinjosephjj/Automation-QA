@@ -244,24 +244,55 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pick('generationType', generationType, { exact: true });
     await this.settle(2_500);
 
+    let masterDesignCard = null;
+    const qty = String(d.qty || 1);
     if (generationType === 'Master Design') {
       // KNOWN APP BUG (QA lead, 29-08-2026): selecting a design in the
       // Design Number dropdown filters the card grid but BREAKS Submit
       // (saves nothing, silently). Leave the dropdown alone and select the
-      // design CARD from the full grid - newest design is the first card.
-      const firstCard = this.page.locator('.invisible-click').first();
-      await firstCard.waitFor({ state: 'visible', timeout: 30_000 });
+      // design CARD from the full grid (newest first, so ours is on page 1).
+      await this.page.locator('.invisible-click').first().waitFor({ state: 'visible', timeout: 30_000 });
       await this.settle(1_500);
-      await firstCard.click();
-      await this.settle(1_500);
-      // the card carries its own Qty number input (defaults to 1) - set it
-      // explicitly; do NOT touch the "Qty (applies to all)" header field
-      // (filling it blocked Submit in testing)
-      const cardQty = this.page.locator('input[type=number]:visible').first();
-      if (await cardQty.count()) {
-        await cardQty.fill(String(d.qty || 1)).catch(() => {});
-        await cardQty.blur().catch(() => {});
+      // OUR design's card, keyed by its design number (the innermost element
+      // holding both the number and the card's click target) - not blindly
+      // the first card
+      masterDesignCard = refNo
+        ? this.page.locator('div')
+          .filter({ has: this.page.locator('p', { hasText: new RegExp(`^\\s*${refNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) }) })
+          .filter({ has: this.page.locator('.invisible-click') })
+          .last()
+        : this.page.locator('.invisible-click').first().locator('xpath=ancestor::div[.//p][1]');
+      if (!(await masterDesignCard.isVisible({ timeout: 10_000 }).catch(() => false))) {
+        const shown = await this.page.locator('p').filter({ hasText: /^\s*[A-Z0-9]{5,}\s*$/ }).allTextContents().catch(() => []);
+        throw new Error(`job work: design ${refNo} is not among the cards on page 1 (${JSON.stringify(shown.slice(0, 15))})`);
       }
+      const selectedCount = async () => {
+        const t = await this.page.getByText(/\d+ Records? selected/).first().textContent({ timeout: 1_000 }).catch(() => '');
+        const m = (t || '').match(/(\d+) Records? selected/);
+        return m ? Number(m[1]) : 0;
+      };
+      if ((await selectedCount()) < 1) {
+        await masterDesignCard.locator('.invisible-click').first().click();
+        await this.settle(1_500);
+      }
+      if ((await selectedCount()) < 1) throw new Error(`job work: ticking the card of design ${refNo} registered no selection`);
+      // UI change (24-09-2026): the card's Qty is now a TEXT box that starts
+      // EMPTY (it was a number input defaulting to 1), and Submit stays
+      // silent while it is blank. Fill the SELECTED card's own Qty; never the
+      // "Qty (applies to all)" header field (filling it blocked Submit) and
+      // never the grid's page-number box (the old number-input locator
+      // landed there)
+      const cardQty = masterDesignCard.locator('xpath=.//*[normalize-space(text())="Qty"]/following::input[1]').first();
+      await cardQty.fill(qty);
+      await cardQty.blur();
+      await this.settle(800);
+      const qtyNow = await cardQty.inputValue().catch(() => '');
+      if (qtyNow !== qty) throw new Error(`job work: the Qty of design ${refNo} did not take "${qty}" (holds "${qtyNow}")`);
+      if (d.remarks) {
+        const remarks = this.page.locator('xpath=//*[normalize-space(text())="Remarks"]/following::input[1]').first();
+        await remarks.fill(d.remarks).catch(() => {});
+      }
+      console.log(`job work: design ${refNo} card selected, Qty ${qty}`);
     } else {
       // concept path: reference typeahead works normally
       await this.pickByLabel(refLabel, refNo, { search: true }).catch(async () => {
@@ -285,7 +316,18 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       { timeout: 120_000 },
     ).catch(() => null);
     await this.page.getByRole('button', { name: 'Submit' }).click();
-    const r = await resp;
+    // a Submit that fires nothing within 25 s is a silently invalid form:
+    // say which controls, top the card's Qty up again, and press once more
+    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
+    if (!r) {
+      console.log(`job work submit: no save request after 25 s - invalid controls: ${JSON.stringify(await this.invalidControls())} - retrying Submit`);
+      if (masterDesignCard) {
+        const cardQty = masterDesignCard.locator('xpath=.//*[normalize-space(text())="Qty"]/following::input[1]').first();
+        if (!(await cardQty.inputValue().catch(() => ''))) await cardQty.fill(qty).catch(() => {});
+      }
+      await this.page.getByRole('button', { name: 'Submit' }).click().catch(() => {});
+      r = await resp;
+    }
     let jobWorkNo = '';
     if (r) {
       const body = await r.json().catch(() => null);
@@ -295,7 +337,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         throw new Error(`Job work save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
       }
     } else {
-      throw new Error('Job work Submit fired no save request - form silently blocked (check for the filter bug)');
+      throw new Error(`Job work Submit fired no save request - form silently blocked; invalid controls: ${JSON.stringify(await this.invalidControls())}`);
     }
     // close a print dialog if one opened
     await this.closeVisibleDialog();
@@ -1159,6 +1201,17 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       // panel opened too early shows nothing / "No items found" until
       // reopened - flagged by the QA lead as a click issue in VS Code runs)
       const sel = this.page.locator('label:text-is("Production No")').last().locator('xpath=following::ng-select[1]');
+      // the dropdown lists EVERY pending production of this worker: prefer
+      // the chain's own (a J-series key "J454" matches "J454.1", never
+      // "J4541"); when the chain knows its J-number and it is not offered,
+      // stop - receiving a stranger's job moved someone else's production to
+      // Job Finalize (24-09-2026). Chains without a J-number keep the old
+      // first-option behaviour.
+      const keys = (Array.isArray(d.rowText) ? d.rowText : [d.rowText]).filter(Boolean).map(String);
+      const jKeys = keys.filter((k) => /^J\d+(\.\d+)?$/i.test(k)).map((k) => k.replace(/\.\d+$/, ''));
+      const keyRe = keys.length
+        ? new RegExp(keys.map((k) => k.replace(/\.\d+$/, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)').join('|'), 'i')
+        : null;
       let picked = false;
       for (let attempt = 1; attempt <= 4 && !picked; attempt++) {
         if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
@@ -1167,12 +1220,22 @@ class ProductionWorkflowPage extends StockInwardBasePage {
         }
         await this.waitForSpinner();
         await sel.locator('.ng-select-container').click({ timeout: 15_000 });
-        const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i }).first();
-        const found = await opt.waitFor({ state: 'visible', timeout: attempt * 5_000 })
+        const options = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i });
+        const found = await options.first().waitFor({ state: 'visible', timeout: attempt * 5_000 })
           .then(() => true).catch(() => false);
         if (found) {
-          this.lastProductionNo = ((await opt.textContent()) || '').trim();
-          picked = await opt.click({ timeout: 10_000 }).then(() => true).catch(() => false);
+          const labels = (await options.allTextContents()).map((t) => t.trim());
+          let idx = keyRe ? labels.findIndex((l) => keyRe.test(l)) : -1;
+          if (idx < 0 && jKeys.length) {
+            await this.page.keyboard.press('Escape').catch(() => {});
+            throw new Error(`workerReceipt: Production No does not offer the chain's ${jKeys.join('/')} - pending for this worker: ${JSON.stringify(labels.slice(0, 12))}`);
+          }
+          if (idx < 0) {
+            if (keys.length) console.log(`workerReceipt: no Production No matches ${keys.join('|')} - taking the first offered (${labels[0]})`);
+            idx = 0;
+          }
+          this.lastProductionNo = labels[idx];
+          picked = await options.nth(idx).click({ timeout: 10_000 }).then(() => true).catch(() => false);
         }
         if (!picked) await this.page.keyboard.press('Escape');
       }

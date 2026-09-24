@@ -39,6 +39,17 @@ async function login(loginPage, page) {
   await loginPage.ensureLoggedIn();
 }
 
+/**
+ * Steps from the process movement onward must NEVER run without this chain's
+ * job work AND production number: the grid helpers otherwise fall back to
+ * "already done" skips or the first pending row - on 24-09-2026 a stale
+ * J359.1 in the state file made the Casting receipt take a stranger's job.
+ */
+function requireJob() {
+  const s = state.readState();
+  expect(s.jobWorkNo && s.productionNo, 'run the chain from TC-PRD-MD-01 (no job work / production no in e2e-masterdesign-state.json)').toBeTruthy();
+}
+
 function rowKey() {
   // BOTH keys: grids key rows by the job work no (P-series) OR the production
   // no (J-series: Job Finalize "Job No.", Worker Issue "Production No",
@@ -50,6 +61,7 @@ function rowKey() {
 test.describe('Production - Master Design - Workflow', () => {
   test('TC-PRD-MD-01 create master design', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new design starts a new chain - no stale job / production numbers
     await login(loginPage, page);
 
     const { DEMO_FILES } = require('../../utils/demo-files');
@@ -89,17 +101,23 @@ test.describe('Production - Master Design - Workflow', () => {
     const { designNo } = state.readState();
     expect(designNo, 'run the chain from TC-PRD-MD-01').toBeTruthy();
     await login(loginPage, page);
-    await production.assignJob({
+    const { jobWorkNo } = state.readState();
+    expect(jobWorkNo, 'run TC-PRD-MD-02 first').toBeTruthy();
+    // the assignment allots the PRODUCTION number (J-series) the later grids key on
+    const productionNo = await production.assignJob({
       generationType: 'Master Design',
       process: DATA.round1.process,
       subProcess: DATA.round1.subProcess,
       rowText: rowKey(),
     });
-    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
+    expect(productionNo, 'production number allotted by the assignment').toBeTruthy();
+    state.writeState({ productionNo });
+    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess} - production no ${productionNo}`);
   });
 
   test('TC-PRD-MD-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
+    requireJob();
     await login(loginPage, page);
     await production.processMovementAccept({ process: DATA.round1.process, rowText: rowKey() });
     console.log('Process movement accepted at Design And CAD');
@@ -107,6 +125,7 @@ test.describe('Production - Master Design - Workflow', () => {
 
   test('TC-PRD-MD-05 worker issue and receipt (CAD Modeling, Prabhat)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    requireJob();
     await login(loginPage, page);
     const header = { ...DATA.round1, rowText: rowKey() };
     await production.workerIssue(header);
@@ -116,6 +135,7 @@ test.describe('Production - Master Design - Workflow', () => {
 
   test('TC-PRD-MD-06 transfer to Casting Process and accept', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    requireJob();
     await login(loginPage, page);
     await production.processMovementTransfer({
       fromProcess: DATA.round1.process,
@@ -130,6 +150,7 @@ test.describe('Production - Master Design - Workflow', () => {
 
   test('TC-PRD-MD-07 worker issue and receipt with item (Casting, Sioniquser16)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    requireJob();
     await login(loginPage, page);
     const header = { ...DATA.round2, rowText: rowKey() };
     await production.workerIssue(header);
@@ -140,6 +161,7 @@ test.describe('Production - Master Design - Workflow', () => {
 
   test('TC-PRD-MD-08 finalize job and generate barcode', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
+    requireJob();
     await login(loginPage, page);
     const result = await production.finalizeAndGenerateBarcode({ rowText: rowKey() });
     expect(result, 'barcode generation response').toBeTruthy();
