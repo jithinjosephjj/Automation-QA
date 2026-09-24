@@ -89,7 +89,10 @@ class MetalInwardPage extends StockInwardBasePage {
       await this.addItemBtn.click();
       const deadline = Date.now() + 15_000;
       while (Date.now() < deadline) {
-        if (!(await this.selectValue('jobWorkItemNo'))) return article;
+        if (!(await this.selectValue('jobWorkItemNo'))) {
+          await this.fillRateAfterAdd(); // the per-metal pure rate strip renders after Add Item (UI change 23/24-09-2026)
+          return article;
+        }
         await this.page.waitForTimeout(500);
       }
       console.log(`jobwork Add Item: form did not reset (attempt ${attempt}) - invalid: ${JSON.stringify(await this.invalidControls())}`);

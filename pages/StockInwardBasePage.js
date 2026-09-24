@@ -17,7 +17,13 @@ const { BasePage } = require('./BasePage');
  * - Submitting opens a Print dialog carrying the generated voucher number
  *   with (F4) Preview / (F9) Print actions; it does NOT return to the list.
  */
+/** The pure (per-metal) rate the inward wizards enter wherever the app asks for it (QA lead, 24-09-2026). */
+const PURE_RATE = 15000;
+
 class StockInwardBasePage extends BasePage {
+  get pureRate() { return this._pureRate ?? PURE_RATE; }
+  set pureRate(v) { this._pureRate = v; }
+
   /**
    * @param {import('@playwright/test').Page} page
    * @param {string} tabName 'Metal' | 'Brand' | 'Stone'
@@ -429,10 +435,10 @@ class StockInwardBasePage extends BasePage {
    * App change 23-09-2026 (evening): the item form lost its per-item "Rate"
    * input; after Add Item a per-metal strip renders instead ("Pure Weight",
    * "Rate", "Metal Amount") and Next / Submit stay silent while that Rate
-   * is empty. Enter the item rate (fillItem keeps it in lastItemRate) into
-   * every empty "Rate" input the step offers.
+   * is empty. That Rate is the PURE rate - 15000 per the QA lead
+   * (24-09-2026), see PURE_RATE - entered into every empty "Rate" input.
    */
-  async fillRateAfterAdd(rate = this.lastItemRate) {
+  async fillRateAfterAdd(rate = this.pureRate) {
     if (rate === undefined || rate === null) return 0;
     await this.settle(1_200);
     const inputs = this.page.locator('xpath=//label[normalize-space(text())="Rate"]/following::input[not(@type="checkbox")][1]').locator('visible=true');
@@ -494,12 +500,28 @@ class StockInwardBasePage extends BasePage {
     for (let i = 0; i < n; i++) {
       const input = inputs.nth(i);
       if ((await input.inputValue({ timeout: 2_000 }).catch(() => 'x')) !== '') continue;
-      const value = rate ?? this.lastItemRate ?? 6000;
+      const value = rate ?? this.pureRate;
       await input.fill(String(value));
       await input.blur();
       await this.settle(1_500);
       console.log(`${this.tabName} review step: Pure Rate was empty - entered ${value}`);
     }
+  }
+
+  /**
+   * UI change 24-09-2026: Submit on Metal Inward first asks "Process with
+   * Barcode or Lot? Do you want to proceed with Barcode or Lot?" (No / Yes).
+   * The QA lead's answer for the inward chains is "No" - the lot and barcode
+   * are separate steps. Waits up to 10 s for the dialog; absent = nothing.
+   */
+  async answerBarcodeOrLotDialog(answer = 'No') {
+    const dialog = this.page.locator('.swal2-popup, .modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Barcode or Lot/i }).last();
+    if (!(await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false))) return false;
+    const button = dialog.getByRole('button', { name: new RegExp(`^${answer}$`, 'i') }).last();
+    await button.click({ timeout: 5_000 });
+    console.log(`${this.tabName} submit: "Process with Barcode or Lot?" answered ${answer}`);
+    await this.settle(1_000);
+    return true;
   }
 
   async submit() {
@@ -515,6 +537,7 @@ class StockInwardBasePage extends BasePage {
     resp.catch(() => {}); // observed below; never an unhandled rejection
     const toast = this.watchSaveToast(130_000); // armed with the click; the save itself can take >60s
     await this.submitBtn.click();
+    await this.answerBarcodeOrLotDialog();
     // A Submit that fires no request within 25 s is a silently invalid form:
     // say which controls, fill what can be filled, and click once more.
     let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
@@ -524,6 +547,7 @@ class StockInwardBasePage extends BasePage {
       await this.fillPureRateIfEmpty();
       if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
       await this.submitBtn.click({ timeout: 3_000 }).catch(() => {});
+      await this.answerBarcodeOrLotDialog();
       r = await resp;
     }
     await this.reportSaveToast(`${this.tabName} submit`, toast);

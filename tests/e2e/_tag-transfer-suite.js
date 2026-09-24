@@ -78,40 +78,20 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
       await metalInward.waitForIdle();
 
       await metalInward.fillItem(DATA.inward.item);
-      // Kakkanad's item step carries env-configured MANDATORY description
-      // dropdowns (18-09-2026) that block Add Item silently while empty -
-      // fill whatever the form marks invalid; a no-op elsewhere
-      await metalInward.fillMandatoryEmptySelects();
-      // Add Item is a silent no-op while the pricing/tax recompute is in
-      // flight (Kakkanad, 18-09-2026: the click got swallowed and Next never
-      // advanced) - click, VERIFY the piece registered, retry when it did not
-      let added = false;
-      for (let attempt = 1; attempt <= 3 && !added; attempt++) {
-        await metalInward.waitForIdle();
-        await metalInward.addItemBtn.click().catch(() => {});
-        const deadline = Date.now() + 15_000;
-        while (Date.now() < deadline) {
-          const body = await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
-          if (/No\. of Pieces\s*:\s*1/.test(body)) { added = true; break; }
-          await page.waitForTimeout(800);
-        }
-      }
-      expect(added, 'Add Item must register (No. of Pieces : 1)').toBe(true);
+      // the shared, VERIFIED Add Item: fills the env-configured mandatory
+      // description dropdowns, retries the silent no-op click while the
+      // pricing recompute is in flight, and enters the pure rate (15000)
+      // into the per-metal Rate strip the app renders after Add Item
+      // (UI change 23/24-09-2026)
+      await metalInward.addItem();
       await metalInward.nextBtn.click();
       await metalInward.waitForIdle();
       await expect(metalInward.gridRows.filter({ hasText: DATA.inward.item.article })).toHaveCount(1, { timeout: 30_000 });
-
-      // KAKKANAD (18-09-2026): the review step renders a "Pure Rate" (Gold)
-      // input that stays EMPTY - the location has no metal-rate config - and
-      // Submit silently never fires while it is blank. Enter it when offered.
-      const pureRate = page.locator('label:text-is("Gold")').last().locator('xpath=following::input[1]');
-      if (await pureRate.isVisible({ timeout: 3_000 }).catch(() => false)
-        && !(await pureRate.inputValue().catch(() => ''))) {
-        await pureRate.fill(String(DATA.inward.item.rate));
-        await pureRate.blur();
-        await page.waitForTimeout(1_500);
-        console.log(`[${tc}] review step: Pure Rate (Gold) was empty - entered ${DATA.inward.item.rate}`);
-      }
+      // the review step's "Pure Rate" input stays EMPTY where the location
+      // has no metal-rate config (Kakkanad, 18-09-2026) - the shared helper
+      // enters the pure rate; Submit also answers the new "Process with
+      // Barcode or Lot?" prompt with No
+      await metalInward.fillPureRateIfEmpty();
 
       const saved = await metalInward.submit();
       expect(saved, 'metal inward save response').toBeTruthy();
