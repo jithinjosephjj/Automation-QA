@@ -237,7 +237,10 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     this.page.on('response', onScan);
 
     await this.pick('masterDataValueID_JewelleryItemType', itemType);
-    await this.pick('groupCategoryMetalIDs', groupCategory, { closePanel: true });
+    // Group Category is a Metal-item filter; other item types (Brand /
+    // Stone) may render it differently or not at all - never fatal
+    if (/metal/i.test(itemType)) await this.pick('groupCategoryMetalIDs', groupCategory, { closePanel: true })
+      .catch((e) => console.log(`counter allocation: group category pick skipped for ${itemType} (${String(e).split('\n')[0].slice(0, 120)})`));
     if (rfidNo) {
       // stock that came BACK (approval receipt) is a new ledger item the lot
       // list no longer offers - its RFID is the unique key then
@@ -266,7 +269,13 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.waitForIdle();
     await this.settle(2_500);
     this.page.off('response', onScan);
-    const staged = this.rowMatcher(tagNo);
+    if (!tagNo && lotNo) {
+      // the barcode step could not report the tag (e.g. the lot was already
+      // tagged by an earlier run) - the lot fetch names it
+      tagNo = (this.lastScan && this.lastScan.tagNo) || (this.lastScans[0] && this.lastScans[0].tagNo) || '';
+      if (tagNo) console.log(`counter allocation: tag ${tagNo} taken from the lot fetch`);
+    }
+    const staged = this.rowMatcher(tagNo || lotNo);
     if (!(await staged.first().isVisible({ timeout: 10_000 }).catch(() => false))) {
       const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
       throw new Error(`counter allocation: tag ${tagNo} was not staged (${lotNo ? 'lot ' + lotNo : 'tag scan'}). Toasts: ${JSON.stringify(toasts)}`);
@@ -459,7 +468,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * one loads its issued tags, the tag's row is ticked and "Add Selected"
    * stages it. Straight counter sales (Tag Wise) scan the tag instead.
    */
-  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo, approvalRcNo }) {
+  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo, approvalRcNo, subType = 'Invoice' }) {
     await this.goto('/sls/app-invoice-setup');
     await this.waitForIdle();
     // the B2B module lazy-loads - wait for the tab (named "Metal Invoice" since
@@ -484,7 +493,9 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.settle(1_500);
     await this.clickVisibleAdd();
 
-    await this.pickPreferred('transactionSubTypeID', /invoice/i);
+    // Transaction Sub Type: Invoice (priced sale) | GRN (goods sent on GRN
+    // terms, priced later) | JobWork
+    await this.pickPreferred('transactionSubTypeID', new RegExp(`^${subType}$`, 'i'));
     await this.pick('b2BCustomerID', customer);
     // Customer Branch gates the tag scan - pick the customer's branch
     await this.pickByCaption('Customer Branch', 'BRANCH')

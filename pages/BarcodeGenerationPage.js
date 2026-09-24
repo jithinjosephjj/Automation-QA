@@ -132,7 +132,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     await this.settle(1_500);
 
     const resp = this.page.waitForResponse(
-      (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation/i.test(r.url()),
+      (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
     const toast = this.watchSaveToast(130_000); // armed with the click
