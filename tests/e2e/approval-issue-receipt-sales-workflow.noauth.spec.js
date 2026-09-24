@@ -5,28 +5,27 @@ const { uniqueInvoiceNo } = require('../../utils/unique');
 const state = makeState('e2e-approval-sales-state.json');
 
 /**
- * APPROVAL ISSUE / RECEIPT / SALES END-TO-END WORKFLOW (QA lead, 23-09-2026).
+ * APPROVAL ISSUE / RECEIPT / SALES END-TO-END WORKFLOW (QA lead, 23/24-09-2026).
  *
- * One barcoded piece of purchased stock goes out to a B2B customer on
- * approval, comes back into stock, and is then sold - all at Cochin:
+ * TWO barcoded pieces of purchased stock go out to a B2B customer on ONE
+ * approval; the customer returns one piece (Approval Receipt) and keeps the
+ * other, which is then invoiced against the approval - all at Cochin:
  *
- *   TC-AIR-01  Metal Inward           Stock / Direct / Invoice, vendor RAJA, 1 pc Tendulkar 91.60, 60 g
+ *   TC-AIR-01  Metal Inward           Stock / Direct / Invoice, vendor RAJA, 2 pcs Tendulkar 91.60, 60 g
  *   TC-AIR-02  Lot Generation         from the inward
- *   TC-AIR-03  Barcode                one tag from the lot (as the barcode employee suja)
- *   TC-AIR-04  Counter Allocation     scan the tag
- *   TC-AIR-05  Counter Accept         accept the allocated tag
- *   TC-AIR-06  Approval Issue         Stock -> Customer (RAJA), purpose Display, Counter / Tag Wise, scan the tag
- *   TC-AIR-07  Approval Receipt       Customer -> Stock against the RC number, receive the tag
- *   TC-AIR-08  Counter Transfer       the returned tag sits in the Default Stock Accept Counter - "Return to Counter"
- *   TC-AIR-09  Counter Accept         accept it at the counter again
- *   TC-AIR-10  B2B Metal Sales Invoice for the tag (Tag Wise from the counter)
+ *   TC-AIR-03  Barcode                the lot's tags (2) as the barcode employee suja
+ *   TC-AIR-04  Counter Allocation     fetch the lot -> both tags (their RFIDs are kept)
+ *   TC-AIR-05  Counter Accept         accept both tags
+ *   TC-AIR-06  Approval Issue         Stock -> Customer (RAJA), purpose Display, Counter / Tag Wise, both tags
+ *   TC-AIR-07  Approval Receipt       Customer -> Stock against the RC number: tag A comes back
+ *   TC-AIR-08  B2B Metal Sales Invoice  Issue Type "Approval RC No": tag B (still with the customer) is invoiced
  *
- * Why 08/09: the Metal Invoice sells from "Counter" only (its Stock Source
- * offers nothing else, 23-09-2026) and the Approval Receipt parks the
- * returned tag in the location's Default Stock Accept Counter, where
- * neither Counter Allocation ("Tag / RFID not found or not eligible") nor
- * the invoice ("This tag is not in Counter stock.") can reach it; Counter
- * Transfer's "Return to Counter" + Counter Accept bring it back on sale.
+ * Why two pieces (QA lead 24-09-2026: "no counter transfer - approval
+ * receipt, then the invoice"): the Metal Invoice sells counter stock (Tag
+ * Wise) or tags STILL OUT on an approval ("Approval RC No"); a tag that
+ * came back through the Approval Receipt is neither - it is parked in the
+ * Default Stock Accept Counter and every invoice path refuses it. Receiving
+ * one piece and invoicing the other is the flow the app supports.
  *
  * One continuous business flow: each test consumes the previous test's
  * output via e2e-approval-sales-state.json, so the chain resumes where it
@@ -49,9 +48,9 @@ const DATA = {
       referenceType: 'Combination',
       article: 'Tendulkar',
       purity: '91.60',
-      noOfPcs: 1,
+      noOfPcs: 2, // two tags: one comes back, one is invoiced
       grossWeightWithTare: 60,
-      rate: 6000,
+      rate: 6000, // the per-item rate (gone since 23-09; the pure rate 15000 is entered after Add Item)
     },
   },
   lot: { vendor: 'RAJA', employee: 'Ubaid' },
@@ -61,7 +60,7 @@ const DATA = {
     user: { user: 'suja', pwd: '123', bu: BU },
     stockIdentityType: 'Stock', // purchase inwards land as plain Stock
     vendor: 'RAJA',
-    grossWeight: 10, // capped to the lot weight by the page object
+    grossWeight: 10, // per tag; pieces are capped to the lot's pieces by the page object
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
@@ -80,8 +79,15 @@ async function login(loginPage, creds = {}) {
   await loginPage.ensureLoggedIn({ ...creds, bu: BU });
 }
 
+/** The chain's tags from the state file: [tag A (received back), tag B (invoiced)]. */
+function tagsFromState() {
+  const s = state.readState();
+  const tags = Array.isArray(s.tags) && s.tags.length ? s.tags : [{ tagNo: s.tagNo, rfidNo: s.rfidNo || '' }];
+  return tags;
+}
+
 test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => {
-  test('TC-AIR-01 metal inward (stock, direct purchase)', async ({ loginPage, metalInward, page }) => {
+  test('TC-AIR-01 metal inward (stock, direct purchase, 2 pieces)', async ({ loginPage, metalInward, page }) => {
     test.setTimeout(600_000);
     state.reset(); // a new inward starts a new chain
     await login(loginPage);
@@ -101,13 +107,13 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
     await metalInward.waitForIdle();
 
     await metalInward.fillItem(DATA.inward.item);
-    await metalInward.addItem(); // verified Add Item (mandatory description selects, retries)
+    await metalInward.addItem(); // verified Add Item: mandatory description selects, the pure rate after the add
     await metalInward.nextBtn.click();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: DATA.inward.item.article })).toHaveCount(1, { timeout: 30_000 });
-    await metalInward.fillPureRateIfEmpty(DATA.inward.item.rate);
+    await metalInward.fillPureRateIfEmpty();
 
-    const saved = await metalInward.submit();
+    const saved = await metalInward.submit(); // answers "Process with Barcode or Lot?" with No
     expect(saved, 'metal inward save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);
     let inwardVoucherNo = (saved.data && (saved.data.receiptNo || saved.data.docNo)) || '';
@@ -135,124 +141,113 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
     console.log(`Lot generated: ${lotNo}`);
   });
 
-  test('TC-AIR-03 barcode tag from the lot (as the barcode employee)', async ({ loginPage, barcodeGeneration }) => {
+  test('TC-AIR-03 barcode tags from the lot (as the barcode employee)', async ({ loginPage, barcodeGeneration }) => {
     test.setTimeout(600_000);
     const { lotNo } = state.readState();
     expect(lotNo, 'run TC-AIR-02 first').toBeTruthy();
     await loginPage.ensureLoggedIn(DATA.barcode.user);
 
-    const saved = await barcodeGeneration.generateTag({
-      stockIdentityType: DATA.barcode.stockIdentityType,
-      vendor: DATA.barcode.vendor,
-      lotNo,
-      grossWeight: DATA.barcode.grossWeight,
-      descriptions: DATA.barcode.descriptions,
-    });
-    expect(saved, 'barcode save response').toBeTruthy();
-    expect(JSON.stringify(saved)).toMatch(/success/i);
-
-    // the TAG NUMBER: the save's receiptNo when it looks like a tag, else
-    // read it from the Generated Tags view
-    let tagNo = (saved.data && saved.data.receiptNo) || '';
-    if (!/\d{4}-\d{2}-\d{2}\d+|\d+\/\d+/.test(tagNo)) {
-      tagNo = await barcodeGeneration.verifyGeneratedTag(DATA.inward.item.article);
+    // ONE save with pieces = 2 makes ONE tag carrying 2 pieces (24-09-2026),
+    // so generate the lot's pieces one save at a time: each save is a tag
+    const tags = [];
+    for (let i = 0; i < DATA.inward.item.noOfPcs; i++) {
+      const saved = await barcodeGeneration.generateTag({
+        stockIdentityType: DATA.barcode.stockIdentityType,
+        vendor: DATA.barcode.vendor,
+        lotNo,
+        grossWeight: DATA.barcode.grossWeight,
+        pieces: 1,
+        descriptions: DATA.barcode.descriptions,
+      });
+      expect(saved, `barcode save response (tag ${i + 1})`).toBeTruthy();
+      expect(JSON.stringify(saved)).toMatch(/success/i);
+      // the TAG NUMBER: the save's receiptNo when it looks like a tag, else
+      // read it from the Generated Tags view
+      let tagNo = (saved.data && saved.data.receiptNo) || '';
+      if (!/\d{4}-\d{2}-\d{2}\d+|\d+\/\d+/.test(tagNo)) {
+        tagNo = await barcodeGeneration.verifyGeneratedTag(DATA.inward.item.article);
+      }
+      expect(tagNo, `generated tag number (tag ${i + 1})`).toBeTruthy();
+      tags.push({ tagNo, rfidNo: '' }); // the RFIDs come from the allocation's lot fetch (TC-AIR-04)
+      console.log(`Barcode tag ${i + 1}/${DATA.inward.item.noOfPcs} generated for lot ${lotNo}: ${tagNo}`);
     }
-    expect(tagNo, 'generated tag number').toBeTruthy();
-    state.writeState({ tagNo });
-    console.log(`Barcode tag generated: ${tagNo}`);
+    state.writeState({ tagNo: tags[0].tagNo, tags });
   });
 
-  test('TC-AIR-04 counter allocation of the tag', async ({ loginPage, logisticsSales }) => {
+  test('TC-AIR-04 counter allocation of the lot (both tags)', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
     const { tagNo, lotNo } = state.readState();
     expect(tagNo, 'run TC-AIR-03 first').toBeTruthy();
     await login(loginPage);
 
     // fetch by LOT, not by tag number: tag numbers repeat on qa (the day
-    // series restarts under the pinned business date), and the RFID the
-    // scan answers with is what the later tag-wise screens key on
+    // series restarts under the pinned business date); the fetch answer's
+    // RFIDs are what the later tag-wise screens key on
     const allocationNo = await logisticsSales.counterAllocation({ ...DATA.counter, tagNo, lotNo });
-    const rfidNo = (logisticsSales.lastScan && logisticsSales.lastScan.rfidNo) || '';
-    state.writeState({ allocationNo, rfidNo });
-    console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by tag'}, rfid ${rfidNo || 'not captured'})`);
+    const fetched = logisticsSales.lastScans || [];
+    // keep the barcode step's tag order (tag A first), add the RFIDs the fetch answered with
+    const known = tagsFromState();
+    const tags = (known.length > 1 ? known : fetched).map((t) => ({ tagNo: t.tagNo, rfidNo: t.rfidNo || (fetched.find((f) => f.tagNo === t.tagNo) || {}).rfidNo || '' }));
+    expect(tags.length, `the chain needs ${DATA.inward.item.noOfPcs} tags (got ${JSON.stringify(tags)})`).toBeGreaterThanOrEqual(DATA.inward.item.noOfPcs);
+    expect(fetched.length, `the lot fetch must stage ${DATA.inward.item.noOfPcs} tags (got ${JSON.stringify(fetched)})`).toBeGreaterThanOrEqual(DATA.inward.item.noOfPcs);
+    state.writeState({ allocationNo, tags, rfidNo: (tags.find((t) => t.tagNo === tagNo) || tags[0]).rfidNo });
+    console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by lot'}, tags ${JSON.stringify(tags)})`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-AIR-05 counter accept of the tag', async ({ loginPage, logisticsSales }) => {
+  test('TC-AIR-05 counter accept of both tags', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
     const { tagNo, rfidNo } = state.readState();
+    const tags = tagsFromState();
     expect(tagNo, 'run TC-AIR-04 first').toBeTruthy();
     await login(loginPage);
 
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo });
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, tags });
     expect(body, 'counter accept save response').toBeTruthy();
     state.writeState({ counterAccepted: true });
     console.log('Counter accept saved');
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-AIR-06 approval issue of the tag (Stock to customer RAJA)', async ({ loginPage, logisticsSales }) => {
+  test('TC-AIR-06 approval issue of both tags (Stock to customer RAJA)', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
     const { tagNo, rfidNo, counterAccepted } = state.readState();
+    const tags = tagsFromState();
     expect(tagNo && counterAccepted, 'run TC-AIR-05 first').toBeTruthy();
     await login(loginPage);
 
-    const approvalRcNo = await logisticsSales.approvalIssue({ ...DATA.approval, tagNo, rfidNo });
+    const approvalRcNo = await logisticsSales.approvalIssue({ ...DATA.approval, tagNo, rfidNo, tags });
     expect(approvalRcNo, 'approval issue RC number').toBeTruthy();
     state.writeState({ approvalRcNo });
-    console.log(`Approval issue saved: ${approvalRcNo}`);
+    console.log(`Approval issue saved: ${approvalRcNo} (${tags.length} tag(s))`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-AIR-07 approval receipt of the tag (customer RAJA back to stock)', async ({ loginPage, logisticsSales }) => {
+  test('TC-AIR-07 approval receipt: tag A comes back from customer RAJA', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
-    const { tagNo, rfidNo, approvalRcNo } = state.readState();
-    expect(tagNo && approvalRcNo, 'run TC-AIR-06 first').toBeTruthy();
+    const { approvalRcNo } = state.readState();
+    const [tagA] = tagsFromState();
+    expect(tagA && tagA.tagNo && approvalRcNo, 'run TC-AIR-06 first').toBeTruthy();
     await login(loginPage);
 
-    const approvalReceiptNo = await logisticsSales.approvalReceipt({ customer: DATA.approval.customer, rcNo: approvalRcNo, tagNo, rfidNo, metalRate: DATA.approval.metalRate });
-    state.writeState({ approvalReceiptNo, approvalReceived: true });
-    console.log(`Approval receipt saved: ${approvalReceiptNo || 'keyed by tag'}`);
+    const approvalReceiptNo = await logisticsSales.approvalReceipt({ customer: DATA.approval.customer, rcNo: approvalRcNo, tagNo: tagA.tagNo, rfidNo: tagA.rfidNo, metalRate: DATA.approval.metalRate });
+    state.writeState({ approvalReceiptNo, approvalReceived: true, receivedTag: tagA });
+    console.log(`Approval receipt saved: ${approvalReceiptNo || 'keyed by tag'} (tag ${tagA.tagNo} back in stock)`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
-  test('TC-AIR-08 counter transfer: return the received tag from the Default Stock Accept Counter', async ({ loginPage, logisticsSales }) => {
+  test('TC-AIR-08 B2B metal sales invoice for tag B against the approval RC', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
-    const { tagNo, approvalReceived } = state.readState();
-    expect(tagNo && approvalReceived, 'run TC-AIR-07 first').toBeTruthy();
+    const { approvalRcNo, approvalReceived } = state.readState();
+    const tags = tagsFromState();
+    const tagB = tags[1] || tags[0];
+    expect(tagB && tagB.tagNo && approvalRcNo && approvalReceived, 'run TC-AIR-07 first').toBeTruthy();
+    if (tags.length < 2) console.log('WARNING: only one tag in the chain - the received tag cannot be invoiced; expect the RC to list nothing');
     await login(loginPage);
 
-    const body = await logisticsSales.returnToCounter({ tagNo });
-    expect(body, 'counter transfer save response').toBeTruthy();
-    const reallocationNo = (body.data && (body.data.receiptNo || body.data.docNo)) || 'returned';
-    state.writeState({ reallocationNo });
-    console.log(`Counter transfer (Return to Counter) saved: ${reallocationNo}`);
-    expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
-  });
-
-  test('TC-AIR-09 counter accept of the returned tag', async ({ loginPage, logisticsSales }) => {
-    test.setTimeout(600_000);
-    const { tagNo, rfidNo, reallocationNo } = state.readState();
-    expect(tagNo && reallocationNo, 'run TC-AIR-08 first').toBeTruthy();
-    await login(loginPage);
-
-    // a 'Return to Counter' transfer lands approved - accept only when the grid offers the tag
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, optional: true });
-    expect(body, 'counter accept response').toBeTruthy();
-    state.writeState({ reaccepted: true });
-    console.log(body.skipped ? 'Counter re-accept: nothing pending - the returned tag is already on the counter' : 'Counter re-accept saved');
-    expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
-  });
-
-  test('TC-AIR-10 B2B metal sales invoice for the tag', async ({ loginPage, logisticsSales }) => {
-    test.setTimeout(600_000);
-    const { tagNo, rfidNo, reaccepted } = state.readState();
-    expect(tagNo && reaccepted, 'run TC-AIR-09 first').toBeTruthy();
-    await login(loginPage);
-
-    const invoiceDocNo = await logisticsSales.b2bSalesInvoice({ ...DATA.invoice, tagNo, rfidNo });
-    state.writeState({ invoiceDocNo });
-    console.log(`B2B sales invoice saved (doc: ${invoiceDocNo || 'keyed by tag'})`);
+    const invoiceDocNo = await logisticsSales.b2bSalesInvoice({ ...DATA.invoice, tagNo: tagB.tagNo, rfidNo: tagB.rfidNo, approvalRcNo });
+    state.writeState({ invoiceDocNo, invoicedTag: tagB });
+    console.log(`B2B sales invoice saved (doc: ${invoiceDocNo || 'keyed by tag'}) for tag ${tagB.tagNo} against RC ${approvalRcNo}`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 });

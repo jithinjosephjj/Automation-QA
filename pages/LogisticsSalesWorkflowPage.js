@@ -221,10 +221,16 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.clickVisibleAdd();
 
     this.lastScan = null;
+    this.lastScans = []; // every tag the lot fetch answered with (a 2-piece lot has 2 tags)
     const onScan = async (r) => {
       if (!/CounterAllocation\/(Scan|Fetch|Get)/i.test(r.url()) || !['POST', 'GET'].includes(r.request().method())) return;
       const body = await r.json().catch(() => null);
       const items = Array.isArray(body) ? body : body && Array.isArray(body.data) ? body.data : body ? [body] : [];
+      for (const i of items) {
+        if (i && i.tagNo && !this.lastScans.some((t) => t.tagNo === i.tagNo)) {
+          this.lastScans.push({ tagNo: i.tagNo, rfidNo: i.rfidNo || '', lotNo: i.lotNo || '', gross: Number(i.grossWeightTran || 0) });
+        }
+      }
       const mine = items.find((i) => i && i.tagNo === tagNo) || (items.length === 1 ? items[0] : null);
       if (mine && mine.tagNo) this.lastScan = { tagNo: mine.tagNo, rfidNo: mine.rfidNo || '', lotNo: mine.lotNo || '', gross: Number(mine.grossWeightTran || 0) };
     };
@@ -332,7 +338,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * check it and Accept.
    */
   /** optional: true returns { skipped: true } when nothing is pending for the tag (a 'Return to Counter' transfer lands approved, with no acceptance step). */
-  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, optional = false }) {
+  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, tags, optional = false }) {
     await this.goto('/sls/view-counter-accept-reject');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -348,6 +354,11 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       return { skipped: true };
     }
     await this.checkRow(key);
+    // further tags of the same allocation (a 2-piece lot) - tick their rows too
+    for (const t of (tags || []).filter((x) => x && x.tagNo !== tagNo)) {
+      const k = t.rfidNo && (await this.rowMatcher(t.rfidNo).count()) ? t.rfidNo : t.tagNo;
+      await this.checkRow(k);
+    }
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: /Accept/ }).locator('visible=true').last());
     await this.previewAndClose();
     return body;
@@ -441,7 +452,14 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * B2B Metal Sales Invoice: /sls/app-invoice-setup, own tab. Scan the tag,
    * Add, Submit.
    */
-  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo }) {
+  /**
+   * approvalRcNo switches the invoice to Issue Type "Approval RC No" (probed
+   * 24-09-2026): the "Approval RC No" select lists only approvals whose tags
+   * are still OUT at the customer (a received tag is gone from it), picking
+   * one loads its issued tags, the tag's row is ticked and "Add Selected"
+   * stages it. Straight counter sales (Tag Wise) scan the tag instead.
+   */
+  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo, approvalRcNo }) {
     await this.goto('/sls/app-invoice-setup');
     await this.waitForIdle();
     // the B2B module lazy-loads - wait for the tab (named "Metal Invoice" since
@@ -473,6 +491,39 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       .catch(() => this.pickTolerant('Customer Branch', customer).catch(() => console.log('customer branch: no option picked')));
     if (salesman) await this.pick('salesmanIDs', salesman, { closePanel: true }).catch(() => {});
     await this.pickPreferred('masterDataValueID_StockSourceFrom', /counter/i).catch(() => {});
+    if (approvalRcNo) {
+      await this.pick('masterDataValueID_InvoiceIssueType', 'Approval RC No', { exact: true });
+      await this.waitForIdle();
+      await this.settle(2_000);
+      await this.pickVirtualOption('approvalRCNos', approvalRcNo);
+      await this.waitForIdle();
+      await this.settle(3_000);
+      const issued = (rfidNo ? this.rowMatcher(rfidNo).or(this.rowMatcher(tagNo)) : this.rowMatcher(tagNo)).first();
+      if (!(await issued.isVisible({ timeout: 20_000 }).catch(() => false))) {
+        const rows = await this.page.locator('tbody tr').locator('visible=true').allInnerTexts().catch(() => []);
+        throw new Error(`invoice: RC ${approvalRcNo} lists no issued row for tag ${tagNo} - rows: ${JSON.stringify(rows.map((t) => t.replace(/\s+/g, ' ').slice(0, 120)).slice(0, 6))}`);
+      }
+      const box = issued.getByRole('checkbox').first();
+      if (await box.count()) await box.check({ force: true }).catch(() => issued.click());
+      else await issued.click();
+      await this.settle(800);
+      await this.page.getByRole('button', { name: /Add Selected/i }).locator('visible=true').last().click();
+      await this.waitForIdle();
+      await this.settle(2_500);
+      // Add Selected MOVES the row from the issued grid into the invoice grid,
+      // whose "No tags transferred yet" placeholder disappears
+      const bodyText = await this.page.evaluate(() => document.body.innerText);
+      const staged = !/No tags transferred yet/i.test(bodyText) && (await this.rowMatcher(tagNo).count()) >= 1;
+      if (!staged) {
+        const toasts = await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => []);
+        throw new Error(`invoice: "Add Selected" staged nothing for tag ${tagNo}. Toasts: ${JSON.stringify(toasts)}`);
+      }
+      console.log(`sales invoice: tag ${tagNo} staged from approval RC ${approvalRcNo}`);
+      await this.fillMetalRateIfEmpty(6000);
+      const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
+      await this.previewAndClose();
+      return (body && body.data && (body.data.receiptNo || body.data.invoiceNo || body.data.docNo)) || '';
+    }
     // "Approval RC No" switches the form to approval-sourced mode - a
     // straight counter sale needs a non-approval issue type
     await this.pickPreferred('masterDataValueID_InvoiceIssueType', /direct|tag|counter/i, /approval/i).catch(() => {});
@@ -695,7 +746,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Wise" reveal Scan Type and the "Tag Number" scan field (Enter stages
    * the tag - the form has no Add button). Returns the RC number.
    */
-  async approvalIssue({ customer, purpose = 'Display', salesman, helper, supervisor, tagNo, rfidNo, metalRate = 6000 }) {
+  async approvalIssue({ customer, purpose = 'Display', salesman, helper, supervisor, tagNo, rfidNo, tags, metalRate = 6000 }) {
     await this.goto('/sls/view-b2b-approval-issue');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -723,6 +774,10 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       await this.pickPreferred('masterDataValueID_ScanType', /tag/i).catch(() => {});
     }
     await this.scanTag(tagNo, 'approval issue', { rfidNo });
+    // the other tags of the piece (a 2-piece lot goes out on ONE approval)
+    for (const t of (tags || []).filter((x) => x && x.tagNo !== tagNo)) {
+      await this.scanTag(t.tagNo, 'approval issue', { rfidNo: t.rfidNo });
+    }
     await this.fillMetalRateIfEmpty(metalRate);
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
