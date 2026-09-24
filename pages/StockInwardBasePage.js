@@ -524,6 +524,81 @@ class StockInwardBasePage extends BasePage {
     return true;
   }
 
+  /**
+   * Submit answering "Process with Barcode or Lot?" with YES (UI change
+   * 24-09-2026): a "Lot / Barcode" dialog follows with one select, "Lot or
+   * Barcode" (postInwardProcessType: Barcode | Lot).
+   *   Lot      -> a "Lot Employee" select (employeeID) appears; Submit saves
+   *               the inward AND generates its lot.
+   *   Barcode  -> a tag card per piece renders (Employee = the login user,
+   *               Gross Weight prefilled, optional OMS / Certificate / RFID /
+   *               HUID / Remarks); Submit saves the inward AND its tags.
+   * Every POST/PUT the dialog's Submit fires is collected for ~30 s and
+   * returned: { inward, others, all } with the bodies parsed.
+   */
+  async submitWithPostProcess({ mode = 'Lot', lotEmployee, grossWeight, remarks } = {}) {
+    await this.fillPureRateIfEmpty();
+    const saves = [];
+    const onResponse = async (r) => {
+      const url = r.url();
+      if (!['POST', 'PUT'].includes(r.request().method())) return;
+      if (/GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Dropdown|Translation|GetB2B|Get[A-Z]\w*$/i.test(url)) return;
+      if (!/Inward|Lot|Barcode|Tag/i.test(url)) return;
+      const body = await r.json().catch(() => null);
+      saves.push({ url: url.replace(/^https?:\/\/[^/]+/, ''), status: r.status(), body });
+      console.log(`${this.tabName} post-process save: ${r.status()} ${url.split('/').slice(-2).join('/')} ${JSON.stringify(body).slice(0, 200)}`);
+    };
+    this.page.on('response', onResponse);
+    try {
+      await this.submitBtn.click();
+      const confirm = this.page.locator('.swal2-popup, .modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Barcode or Lot/i }).last();
+      await confirm.waitFor({ state: 'visible', timeout: 15_000 });
+      await confirm.getByRole('button', { name: /^Yes$/i }).click();
+      console.log(`${this.tabName} submit: "Process with Barcode or Lot?" answered Yes`);
+
+      const dlg = this.page.locator('.modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Lot \/ Barcode|Lot or Barcode/i }).last();
+      await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+      await this.pick('postInwardProcessType', mode, { exact: true });
+      await this.waitForIdle();
+      await this.settle(1_500);
+      if (/lot/i.test(mode)) {
+        if (lotEmployee) await this.pick('employeeID', lotEmployee, { search: true });
+        else await this.pickFirstOption('employeeID');
+      } else {
+        // the tag card(s): Gross Weight is prefilled from the inward; the
+        // first number input of each card is that weight
+        if (grossWeight !== undefined) {
+          const weights = dlg.locator('input[type="number"]:not([disabled])').locator('visible=true');
+          const n = await weights.count();
+          for (let i = 0; i < n; i++) { await weights.nth(i).fill(String(grossWeight)); await weights.nth(i).blur(); }
+        }
+        if (remarks) {
+          const remarksBox = dlg.locator('xpath=.//*[normalize-space(text())="Remarks"]/following::input[1] | .//*[normalize-space(text())="Remarks"]/following::textarea[1]').first();
+          if (await remarksBox.count()) await remarksBox.fill(remarks).catch(() => {});
+        }
+      }
+      const cards = await dlg.locator('xpath=.//*[contains(normalize-space(text()), "Card ")]').count().catch(() => 0);
+      console.log(`${this.tabName} Lot / Barcode dialog: mode ${mode}${cards ? `, ${cards} tag card(s)` : ''}`);
+
+      // the dialog's own Submit (its accessible name carries an icon glyph)
+      const toast = this.watchSaveToast(130_000);
+      const dialogSubmit = dlg.getByRole('button', { name: /Submit\s*$/ }).last();
+      await dialogSubmit.click();
+      // wait for the inward save, then give the follow-up (lot / tags) time
+      const deadline = Date.now() + 120_000;
+      while (Date.now() < deadline && !saves.some((x) => /Inward/i.test(x.url) && x.status === 200)) await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(6_000);
+      await this.reportSaveToast(`${this.tabName} submit (${mode})`, toast).catch(() => {});
+    } finally {
+      this.page.off('response', onResponse);
+    }
+    const inward = saves.find((x) => /Inward/i.test(x.url) && x.status === 200);
+    if (!inward) throw new Error(`${this.tabName}: the Lot / Barcode dialog's Submit saved no inward - saves: ${JSON.stringify(saves.map((x) => x.url + ' ' + x.status))}`);
+    const failed = saves.filter((x) => x.status >= 400 || (x.body && x.body.errorCode));
+    if (failed.length) throw new Error(`${this.tabName}: post-process save rejected: ${JSON.stringify(failed.map((x) => x.url + ' ' + x.status + ' ' + (x.body && x.body.error)))}`);
+    return { inward: inward.body, others: saves.filter((x) => x !== inward).map((x) => x.body), all: saves };
+  }
+
   async submit() {
     const pattern = this.submitApiPattern || /Inward/i;
     // Grid refreshes and keep-alives are POSTs too - never count them as the
