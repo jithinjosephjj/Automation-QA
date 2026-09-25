@@ -29,7 +29,7 @@ test('PROBE material issue stock grids', async ({ loginPage, production, page })
   console.log(`employees offered (${emps.length}): ${JSON.stringify(emps)}`);
 
   // A) Metal / Jobwork Stock for Ubaid -> the job grid
-  await production.fillMaterialHeader({ employee: 'Ubaid', process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16', stockEntityType: 'Metal', stockIdentityType: 'Jobwork Stock' });
+  await production.fillMaterialHeader({ employee: 'Ubaid', process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16', stockEntityType: 'Material', stockIdentityType: 'Jobwork Stock' });
   const jobRows = await gridRows();
   console.log(`[Metal / Jobwork Stock, Ubaid, Casting, Sioniquser16] ${jobRows.length} rows: ${JSON.stringify(jobRows.slice(0, 5))}`);
   const locker = await page.locator('#lockerName, input[formcontrolname="lockerName"]').first().inputValue().catch(() => '?');
@@ -39,7 +39,7 @@ test('PROBE material issue stock grids', async ({ loginPage, production, page })
   for (const emp of emps.slice(0, 12)) {
     await production.openMaterialTabAdd('Issue');
     try {
-      await production.fillMaterialHeader({ employee: emp, process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16', stockEntityType: 'Metal', stockIdentityType: 'Stock' });
+      await production.fillMaterialHeader({ employee: emp, process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16', stockEntityType: 'Material', stockIdentityType: 'Stock' });
     } catch (e) { console.log(`  ${emp}: header failed (${String(e).split('\n')[0].slice(0, 100)})`); continue; }
     const lk = await page.locator('#lockerName, input[formcontrolname="lockerName"]').first().inputValue().catch(() => '?');
     const rows = await gridRows();
