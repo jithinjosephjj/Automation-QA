@@ -1609,7 +1609,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     }
     await this.pick('masterDataValueID_ProductionWorkerType', d.workerType || 'Inhouse Worker', { exact: true });
     await this.pick('vendorID', d.worker, { search: true });
-    await this.pick('masterDataValueID_StockEntityType', d.stockEntityType || 'Metal', { exact: true });
+    await this.pick('masterDataValueID_StockEntityType', d.stockEntityType || 'Material', { exact: true });
     if (d.stockIdentityType && (await this.select('masterDataValueID_StockIdentityType').count())) {
       await this.pick('masterDataValueID_StockIdentityType', d.stockIdentityType, { exact: true });
     }
@@ -1765,7 +1765,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     for (let round = 0; round < 3; round++) {
       const filled = await this.fillDialogMandatorySelects(dlg, {
         receiptPurityID: /91\.6/, // the item's purity, not the first purity in the master
-        metalStoneSettingID: /Met Stone Setting 5/i, // the issued stock row's metal type ...
+        metalStoneSettingID: /Metal Stone Setting 4/i, // the issued stock row's metal type ...
         productArticleID: /Tendulkar/i, // ... and article, so the metal returns to the SAME stock row
         ...(prefer || {}), // the caller knows which row was actually issued
       });

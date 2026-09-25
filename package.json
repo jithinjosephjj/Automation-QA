@@ -16,6 +16,7 @@
     "install:browsers": "playwright install chromium",
     "test:load": "playwright test tests/load --headed --project=no-auth",
     "test:cadm": "playwright test tests/masters/master-add-operations.noauth.spec.js --project=no-auth && playwright test tests/e2e/production-cad-material-workflow.noauth.spec.js --project=no-auth",
+    "test:mds": "playwright test tests/masters/master-add-operations.noauth.spec.js --project=no-auth && playwright test tests/e2e/production-master-design-settlement-workflow.noauth.spec.js --project=no-auth",
     "test:tag-transfer": "playwright test tests/e2e/ho-ho-tag-transfer-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/ho-branch-tag-transfer-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/branch-branch-tag-transfer-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/branch-ho-tag-transfer-workflow.noauth.spec.js --project=no-auth --headed"
   },
   "devDependencies": {

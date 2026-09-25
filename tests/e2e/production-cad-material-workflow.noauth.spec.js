@@ -33,7 +33,7 @@ const CASTING_WORKER = process.env.CASTING_WORKER || latestSioniqUser().displayN
  *   11 Process movement transfer         -> Casting Process / Casting Inspection, then accept
  *   12 Worker issue                      Casting / the newest Sioniquser<N> (masters suite, see CASTING_WORKER)
  *   13 Material issue                    Material Transaction > Issue: employee Asmi's locker stock
- *                                        (Metal / Stock, Gold,Ring-Tendulkar 91.60) -> 50 g to the casting
+ *                                        (Material / Stock, Gold,Ring-Tendulkar 91.60) -> 50 g to the casting
  *                                        worker, assigned to the job ("Metal - Configure" dialog: Assign
  *                                        Type Production + Production No)
  *   14 Material receipt                  Material Transaction > Receipt: 5 g back from the casting worker
@@ -77,10 +77,10 @@ const DATA = {
     // Material is issued ONLY at Casting; issue 50 g, receive 5 g back
     // before the worker settlement.
     employee: 'Asmi',
-    stockEntityType: 'Metal',
+    stockEntityType: 'Material', // 25-09-2026: the entity list is now Metal Stock / Stone / Material - QA lead: Material + Stock
     stockIdentityType: 'Stock',
     stockRow: 'Gold,Ring-Tendulkar', // the locker stock row to issue (preferred; see stockRowPatterns)
-    stockMetalType: 'Met Stone Setting 5', // that row's Metal Type - the receipt grid keys pending material by purity + metal type
+    stockMetalType: 'Metal Stone Setting 4', // that row's Metal Type - the receipt grid keys pending material by purity + metal type
     purity: '91.60',
     issueWeight: 50,
     receiptWeight: 5,
@@ -260,7 +260,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     return a.split(/[,-]/).pop().trim(); // "Gold,Ring-Tendulkar" -> "Tendulkar", "Gold,Bridal Classic1" -> "Bridal Classic1"
   };
 
-  test('TC-CADM-13 material issue (Metal / Stock) to the casting worker', async ({ loginPage, production }) => {
+  test('TC-CADM-13 material issue (Material / Stock) to the casting worker', async ({ loginPage, production }) => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
