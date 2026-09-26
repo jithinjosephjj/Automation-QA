@@ -35,6 +35,14 @@ class CustomerRegistrationPage extends StockInwardBasePage {
     return this.page.locator(`[formcontrolname="${controlname}"]`).first();
   }
 
+  /** The primary Mobile Number box (no formcontrolname since 26-09-2026); falls back to the old contactNumber control. */
+  mobileInput() {
+    return this.page
+      .locator('xpath=//label[normalize-space(.)="Mobile Number"]/following::input[@placeholder="Mobile number"][1]')
+      .or(this.page.locator('[formcontrolname="contactNumber"]'))
+      .first();
+  }
+
   async fillDate(id, value) {
     const el = this.page.locator(`#${id}`);
     await el.fill(value);
@@ -54,7 +62,16 @@ class CustomerRegistrationPage extends StockInwardBasePage {
 
     // Title carries the dot ("Mr."); pick then identity fields by controlname
     if (d.title) await this.pick('masterDataValueID_NameTitle', d.title).catch(() => {});
-    if (d.contactNumber) await this.input('contactNumber').fill(String(d.contactNumber));
+    // 26-09-2026 redesign: Mobile Number comes first (a +91 dial code + a
+    // text box WITHOUT a formcontrolname, placeholder "Mobile number" - shared
+    // with Alternate / WhatsApp / Nominee mobile, so anchor on the label).
+    // Typing it drives the "Name (Existing match)" lookup (New Customer).
+    if (d.contactNumber) {
+      await this.mobileInput().fill(String(d.contactNumber));
+      await this.mobileInput().blur();
+      await this.waitForIdle();
+      await this.settle(1_500);
+    }
     await this.input('name').fill(d.name);
     if (d.gender) await this.pick('masterDataValueID_Gender', d.gender, { exact: true }).catch(() => {});
     if (d.maritalStatus) await this.pick('masterDataValueID_MaritalStatus', d.maritalStatus).catch(() => {});
@@ -70,7 +87,18 @@ class CustomerRegistrationPage extends StockInwardBasePage {
     // clears when the doc is staged, so RE-SELECT it (documentTypeID is a
     // mandatory field on the Identity step).
     if (d.document) {
+      // 26-09-2026 redesign: the document fields live in a dialog behind the
+      // KYC Documents "Attach" button (Document Type / Document No / Upload
+      // File -> Add Document -> Done)
+      if (!(await this.select('documentTypeID').isVisible({ timeout: 1_000 }).catch(() => false))) {
+        await this.page.getByRole('button', { name: /Attach/ }).locator('visible=true').first().click();
+        await this.select('documentTypeID').waitFor({ state: 'visible', timeout: 15_000 });
+      }
       await this.pickDocType(d.document.type);
+      const docNo = this.page.locator('xpath=//label[contains(normalize-space(.),"Document No")]/following::input[1]').first();
+      if (d.document.number && (await docNo.isVisible({ timeout: 1_000 }).catch(() => false))) {
+        await docNo.fill(String(d.document.number));
+      }
       // no Browse click - the native picker would hang; set the hidden file
       // input directly, then Add Document
       await this.page.locator('input[type="file"]').last().setInputFiles(d.document.file);
@@ -81,6 +109,12 @@ class CustomerRegistrationPage extends StockInwardBasePage {
       // re-select the type if Add Document cleared it (mandatory validation)
       const dtVal = await this.selectValue('documentTypeID').catch(() => '');
       if (!dtVal) await this.pickDocType(d.document.type).catch(() => {});
+      // close the KYC dialog
+      const done = this.page.getByRole('button', { name: /^\s*Done\s*$/ }).locator('visible=true').last();
+      if (await done.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await done.click();
+        await this.settle(1_500);
+      }
     }
 
     // Address block (Communication Address) - ZIP CODE FIRST (QA lead): the

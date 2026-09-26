@@ -54,7 +54,7 @@ test.describe('Customer Registration - add record', () => {
       dob: '01/12/1996',
       anniversary: businessDate(0).replace(/-/g, '/'),
       email: `qa${Date.now()}@example.com`,
-      document: { type: 'Aadhar Card', file: DEMO_FILES.image1 }, // one demo image
+      document: { type: 'Aadhar Card', number: `5${String(Date.now()).slice(-11)}`, file: DEMO_FILES.image1 }, // one demo image + a 12-digit number
       // Communication Address: zip code first (it cascades the rest);
       // remaining fields fall back to the first available option
       address: {},
