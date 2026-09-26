@@ -64,6 +64,7 @@ async function login(loginPage, page) {
 test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
   test('TC-LGS-01 create the logistics inward', async ({ loginPage, logisticsSales, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new logistics inward starts a new chain - no stale inward / lot / tag numbers
     await login(loginPage, page);
 
     const logisticNo = uniqueRef('LGN').replace(/[^A-Za-z0-9]/g, '');
@@ -134,7 +135,9 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     expect(JSON.stringify(saved)).toMatch(/success/i);
     const inwardVoucherNo = await metalInward.voucherNumber();
     expect(inwardVoucherNo, 'generated inward voucher number').toBeTruthy();
-    state.writeState({ inwardVoucherNo });
+    // a new inward invalidates everything downstream - later steps must never
+    // act on the previous run's lot / tag (26-09-2026)
+    state.writeState({ inwardVoucherNo, lotNo: null, tagNo: null, rfidNo: null, allocationNo: null, counterAccepted: false, invoiceDocNo: null });
     console.log(`Metal inward saved: ${inwardVoucherNo}`);
 
     await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-lgs-03-print-preview.png' });
@@ -172,6 +175,8 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
       vendor: DATA.logistics.vendor,
       lotNo,
       grossWeight: DATA.barcode.grossWeight,
+      pieces: 1, // one tag per save (the lot holds 5 pieces)
+      additionalCharges: true, // QA lead 26-09-2026: Additional Charges -> add charges -> Submit
       descriptions: DATA.barcode.descriptions,
     });
     expect(saved, 'barcode save response').toBeTruthy();
@@ -185,27 +190,32 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
 
   test('TC-LGS-06 allocate the tag to a counter', async ({ loginPage, logisticsSales, page }) => {
     test.setTimeout(600_000);
-    const { tagNo } = state.readState();
+    const { tagNo, lotNo } = state.readState();
     expect(tagNo, 'run TC-LGS-05 first').toBeTruthy();
     await login(loginPage, page);
 
+    // fetch by LOT (tag numbers repeat on qa); the fetch answer's RFID is
+    // what the later tag-wise screens key on
     const allocationNo = await logisticsSales.counterAllocation({
       itemType: DATA.counter.itemType,
       groupCategory: DATA.counter.groupCategory,
       tagNo,
+      lotNo,
+      vendor: DATA.logistics.vendor,
     });
-    state.writeState({ allocationNo });
-    console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by tag'})`);
+    const rfidNo = (logisticsSales.lastScan && logisticsSales.lastScan.rfidNo) || '';
+    state.writeState({ allocationNo, rfidNo });
+    console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by lot'}, rfid ${rfidNo || 'not captured'})`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
   test('TC-LGS-07 accept the tag at the counter', async ({ loginPage, logisticsSales, page }) => {
     test.setTimeout(600_000);
-    const { tagNo } = state.readState();
+    const { tagNo, rfidNo } = state.readState();
     expect(tagNo, 'run TC-LGS-06 first').toBeTruthy();
     await login(loginPage, page);
 
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo });
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo });
     expect(body, 'counter accept save response').toBeTruthy();
     state.writeState({ counterAccepted: true });
     console.log('Counter accept saved');
@@ -214,7 +224,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
 
   test('TC-LGS-08 B2B metal sales invoice for the tag', async ({ loginPage, logisticsSales, page }) => {
     test.setTimeout(600_000);
-    const { tagNo, counterAccepted } = state.readState();
+    const { tagNo, rfidNo, counterAccepted } = state.readState();
     expect(tagNo && counterAccepted, 'run TC-LGS-07 first').toBeTruthy();
     await login(loginPage, page);
 
@@ -222,6 +232,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
       customer: DATA.invoice.customer,
       salesman: DATA.invoice.salesman,
       tagNo,
+      rfidNo,
     });
     state.writeState({ invoiceDocNo });
     console.log(`B2B sales invoice saved (doc: ${invoiceDocNo || 'keyed by tag'})`);

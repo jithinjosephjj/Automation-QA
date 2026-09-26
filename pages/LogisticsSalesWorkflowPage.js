@@ -21,6 +21,37 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
 
   /** These forms caption their fields with PLAIN TEXT nodes, not <label>
    *  elements - address inputs/selects by caption text. */
+  /**
+   * Cascade select by controlname: the wanted option (substring match) when
+   * given, else keep a back-filled value, else the first offered option.
+   * Logs the choice. Returns the picked label ('' when nothing offered).
+   */
+  async pickOrFirst(controlname, wanted) {
+    const host = this.select(controlname);
+    if (!(await host.isVisible({ timeout: 5_000 }).catch(() => false))) { console.log(`${controlname}: not on the form - skipped`); return ''; }
+    const current = ((await host.locator('.ng-value-label').first().textContent({ timeout: 500 }).catch(() => '')) || '').trim();
+    if (current && (!wanted || current.toLowerCase().includes(String(wanted).toLowerCase()))) { console.log(`${controlname}: keeps "${current}"`); return current; }
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
+      await host.locator('.ng-select-container').click({ timeout: 5_000 }).catch(() => {});
+      const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i });
+      if (await opts.first().waitFor({ state: 'visible', timeout: attempt * 3_000 }).then(() => true).catch(() => false)) {
+        const labels = (await opts.allTextContents()).map((t) => t.trim());
+        let idx = wanted ? labels.findIndex((l) => l.toLowerCase() === String(wanted).toLowerCase()) : -1;
+        if (idx < 0 && wanted) idx = labels.findIndex((l) => l.toLowerCase().includes(String(wanted).toLowerCase()));
+        if (idx < 0) idx = 0;
+        await opts.nth(idx).click();
+        console.log(`${controlname} -> ${labels[idx]}${wanted && !labels[idx].toLowerCase().includes(String(wanted).toLowerCase()) ? ` (wanted "${wanted}" not offered)` : ''} (of ${JSON.stringify(labels.slice(0, 8))})`);
+        await this.waitForIdle();
+        await this.settle(1_200);
+        return labels[idx];
+      }
+      await this.page.keyboard.press('Escape').catch(() => {});
+    }
+    console.log(`${controlname}: offered no option`);
+    return '';
+  }
+
   async pickTolerant(labelText, optionText, opts = {}) {
     await this.pickByCaption(labelText, optionText, { exact: !!opts.exact })
       .catch(() => this.pickByLabel(labelText, optionText, opts));
@@ -89,7 +120,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Logistics Inward: one flat form. Logistic/Invoice/Tracking numbers must
    * be dynamic. Metal Group/Category/Purity render after Material Type.
    */
-  async logisticsInward({ logisticVendor, logisticNo, vendor, invoiceNo, trackingNo, receivedDate, materialType = 'Metal', grossWithSeal, quantity, grossAsInvoice, stoneAsInvoice, metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', invoiceAmount, receivedBy, paymentStatus = 'Paid' }) {
+  async logisticsInward({ logisticVendor, logisticNo, vendor, invoiceNo, trackingNo, receivedDate, materialType = 'Metal', grossWithSeal, quantity, grossAsInvoice, stoneAsInvoice, metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', stoneGroup, stoneCategory, stoneSubCategory, invoiceAmount, receivedBy, paymentStatus = 'Paid' }) {
     await this.goto('/prc/view-logistics');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -105,14 +136,32 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.page.keyboard.press('Escape');
 
     await this.pick('materialType', materialType, { exact: true });
-    await this.fillByCaption('Gross Weight with Seal', grossWithSeal);
-    await this.fillByCaption('Quantity as per Invoice', quantity);
-    await this.fillByCaption('Gross Weight as per Invoice', grossAsInvoice);
-    await this.fillByCaption('Stone Weight as per Invoice', stoneAsInvoice);
+    if (materialType === 'Stone') {
+      // Stone (26-09-2026 probe): Stone Group / Category / Sub Category
+      // cascade + stone weights (stonegrswtseal / stoneqntwtinv /
+      // stonegrswtinv) replace the metal block
+      await this.waitForIdle();
+      await this.settle(1_500);
+      await this.pickOrFirst('stonegroup', stoneGroup);
+      await this.pickOrFirst('stonecategory', stoneCategory);
+      await this.pickOrFirst('stonesubcategory', stoneSubCategory);
+      for (const [ctl, val] of [['stonegrswtseal', grossWithSeal], ['stoneqntwtinv', quantity], ['stonegrswtinv', grossAsInvoice]]) {
+        if (val === undefined) continue;
+        // plain inputs carrying formcontrolname (no app-sioniq-input wrapper)
+        const input = this.page.locator(`input[formcontrolname="${ctl}"]`).or(this.inputCtl(ctl)).first();
+        await input.fill(String(val));
+        await input.blur();
+      }
+    } else {
+      await this.fillByCaption('Gross Weight with Seal', grossWithSeal);
+      await this.fillByCaption('Quantity as per Invoice', quantity);
+      await this.fillByCaption('Gross Weight as per Invoice', grossAsInvoice);
+      await this.fillByCaption('Stone Weight as per Invoice', stoneAsInvoice);
 
-    await this.pickTolerant('Metal Group', metalGroup, { exact: true });
-    await this.pickTolerant('Metal Category', metalCategory, { exact: true });
-    await this.pickTolerant('Metal Purity', purity);
+      await this.pickTolerant('Metal Group', metalGroup, { exact: true });
+      await this.pickTolerant('Metal Category', metalCategory, { exact: true });
+      await this.pickTolerant('Metal Purity', purity);
+    }
     await this.fillByCaption('Invoice Amount', invoiceAmount);
     await this.pick('receivedBy', receivedBy);
     await this.pick('paymentStatus', paymentStatus, { exact: true });
@@ -129,7 +178,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * manual metal picks. Tare goes in through the "+" Tare Weight dialog;
    * Gross = with-tare - tare, Net = Gross - Stone Weight, both calculated.
    */
-  async goodsReceipt({ vendor, generationType = 'Logistic Inward', logisticVendor, logisticRcNo, materialType = 'Metal', description, metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', quantity, grossWithTare, tareWeight, stoneWeight }) {
+  async goodsReceipt({ vendor, generationType = 'Logistic Inward', logisticVendor, logisticRcNo, materialType = 'Metal', description, metalGroup = 'Gold', metalCategory = 'Ring', purity = '91.60', stoneGroup, stoneCategory, stoneSubCategory, quantity, grossWithTare, tareWeight, stoneWeight }) {
     await this.goto('/prc/view-goods-receipt');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -145,20 +194,31 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.waitForIdle();
     await this.settle(2_000);
 
-    // these may back-fill from the logistics record - pick only when empty
-    for (const [label, val] of [['Metal Group Category', metalGroup], ['Metal Category', metalCategory], ['Purity', purity]]) {
-      await this.pickTolerant(label, val).catch((e) => console.log(`goods receipt: ${label} pick skipped -`, String(e).slice(0, 80)));
+    if (materialType === 'Stone') {
+      // Stone (26-09-2026 probe): Stone Group Category / Category / Sub
+      // Category (may back-fill from the logistics record), Quantity, Gross
+      // Weight with Tare - no purity / stone-weight fields
+      await this.pickOrFirst('stoneGroupCategory', stoneGroup);
+      await this.pickOrFirst('stoneCategory', stoneCategory);
+      await this.pickOrFirst('stoneSubcategory', stoneSubCategory);
+    } else {
+      // these may back-fill from the logistics record - pick only when empty
+      for (const [label, val] of [['Metal Group Category', metalGroup], ['Metal Category', metalCategory], ['Purity', purity]]) {
+        await this.pickTolerant(label, val).catch((e) => console.log(`goods receipt: ${label} pick skipped -`, String(e).slice(0, 80)));
+      }
     }
 
     await this.fillByCaption('Quantity', quantity);
     await this.fillByCaption('Gross Weight with Tare Weight', grossWithTare);
     if (tareWeight !== undefined) await this.addTareViaDialog(tareWeight);
-    const stone = this.inputCtl('stoneWeight');
-    if (await stone.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await stone.fill(String(stoneWeight));
-      await stone.blur();
-    } else {
-      await this.fillByCaption('Stone Weight', stoneWeight);
+    if (stoneWeight !== undefined) {
+      const stone = this.inputCtl('stoneWeight');
+      if (await stone.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await stone.fill(String(stoneWeight));
+        await stone.blur();
+      } else {
+        await this.fillByCaption('Stone Weight', stoneWeight);
+      }
     }
     console.log('goods receipt weights: gross', await this.inputCtl('grossWeight').inputValue({ timeout: 2_000 }).catch(() => '?'),
       'net', await this.inputCtl('netWeight').inputValue({ timeout: 2_000 }).catch(() => '?'));
@@ -352,7 +412,17 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.waitForIdle();
     await this.clickVisibleAdd();
 
-    await this.pickTolerant('Item Type *', itemType).catch(() => this.pickTolerant('Item Type', itemType));
+    // Item Type: by controlname when the form carries it (as Counter
+    // Allocation does), else by its "Item Type" caption. The old first try,
+    // caption "Item Type *", never matched (the asterisk is a separate
+    // element) and ran its four timed-out retries before the fallback
+    // (26-09-2026: the reported slowness)
+    const itemTypeHost = this.select('masterDataValueID_JewelleryItemType');
+    if (await itemTypeHost.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
+    } else {
+      await this.pickTolerant('Item Type', itemType, { exact: true });
+    }
     await this.waitForIdle();
     await this.settle(2_500);
 
@@ -497,9 +567,13 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     // terms, priced later) | JobWork
     await this.pickPreferred('transactionSubTypeID', new RegExp(`^${subType}$`, 'i'));
     await this.pick('b2BCustomerID', customer);
-    // Customer Branch gates the tag scan - pick the customer's branch
-    await this.pickByCaption('Customer Branch', 'BRANCH')
-      .catch(() => this.pickTolerant('Customer Branch', customer).catch(() => console.log('customer branch: no option picked')));
+    // Customer Branch gates the tag scan - pick the customer's branch. One
+    // open of the list, preferring the customer's own branch ("RAJA KOCHI
+    // BRANCH"): the old exact "BRANCH" match never hit and burnt ~1 min of
+    // retries before the fallback picked it (26-09-2026)
+    const esc = String(customer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await this.pickFirstByCaption('Customer Branch', new RegExp(`${esc}|branch`, 'i'))
+      .catch((e) => console.log(`customer branch: no option picked (${String(e).split('\n')[0]})`));
     if (salesman) await this.pick('salesmanIDs', salesman, { closePanel: true }).catch(() => {});
     await this.pickPreferred('masterDataValueID_StockSourceFrom', /counter/i).catch(() => {});
     if (approvalRcNo) {

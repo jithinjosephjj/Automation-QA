@@ -38,8 +38,13 @@ class StoneInwardPage extends StockInwardBasePage {
   }
 
   /** Step 1. Invoice date is mandatory; the value can be any valid date. */
-  async fillBasicDetails({ inwardType, purchaseType, vendor, invoiceNo, invoiceDate }) {
+  async fillBasicDetails({ subTransactionType, inwardType, purchaseType, vendor, invoiceNo, invoiceDate }) {
     const picked = {};
+    // Sub Transaction Type (Invoice / GRN) appeared on the stone tab in Sept
+    // 2026 - pick it when the caller names one and the form renders it
+    if (subTransactionType && (await this.select('subTransactionType').isVisible({ timeout: 2_000 }).catch(() => false))) {
+      picked.subTransactionType = await this.pick('subTransactionType', subTransactionType);
+    }
     picked.inwardType = await this.pick('inwardType', inwardType);
     picked.purchaseType = await this.pick('purchaseType', purchaseType);
     picked.vendor = await this.pick('vendor', vendor);
@@ -58,10 +63,55 @@ class StoneInwardPage extends StockInwardBasePage {
    * Item entry on Build Items & Submit. Searching the article back-fills the
    * stone hierarchy; rateUom sets itself from the rate config (disabled).
    */
-  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, tareWeight, discountPercent, returnPercent, assortedStock }) {
-    await this.pick('refType', refType);
-    await this.pick('stoneArticle', stoneArticle, { search: true });
-    await this.pick('entryMode', entryMode);
+  /**
+   * Item entry against a Goods Receipt (Purchase Type "Goods Receipt"): pick
+   * the receipt, let it back-fill what it carries, then the usual item
+   * entry - fields the receipt already filled (or disabled) are left alone.
+   */
+  async fillItemFromGoodsReceipt({ goodsReceiptNo, ...item }) {
+    // the receipt select is controlname "gReceipt" (26-09-2026: a label pick
+    // missed it and the inward saved UNLINKED - SS18)
+    await this.pick('gReceipt', String(goodsReceiptNo), { search: true })
+      .catch(() => this.pick('gReceipt', String(goodsReceiptNo)));
+    await this.waitForIdle();
+    await this.settle(2_500);
+    const linked = (await this.selectValue('gReceipt').catch(() => '')).trim();
+    if (!linked.includes(String(goodsReceiptNo))) {
+      throw new Error(`stone inward: Goods Receipt select holds "${linked}", not ${goodsReceiptNo} - refusing to save an unlinked inward`);
+    }
+    const state = await this.page.evaluate(() => [...document.querySelectorAll('sioniq-ng-select')].filter((n) => n.offsetParent)
+      .map((n) => `${n.getAttribute('controlname')}=${(n.querySelector('.ng-value-label')?.textContent || '').trim()}${n.querySelector('ng-select')?.classList.contains('ng-select-disabled') ? '(ro)' : ''}`));
+    console.log(`stone GR item after the receipt pick: ${JSON.stringify(state)}`);
+    await this.fillItem({ ...item, onlyEmpty: true });
+  }
+
+  /** Pick unless the select already holds the wanted value (or is disabled, when onlyEmpty). */
+  async pickUnlessSet(controlname, value, opts = {}, onlyEmpty = false) {
+    if (value === undefined) return;
+    const current = (await this.selectValue(controlname).catch(() => '')).trim();
+    if (current && current.toLowerCase().includes(String(value).toLowerCase())) return;
+    if (onlyEmpty) {
+      const disabled = await this.select(controlname).evaluate((el) => el.classList.contains('ng-select-disabled')).catch(() => false);
+      if (disabled) { console.log(`${controlname}: "${current}" set by the goods receipt (disabled) - kept`); return; }
+    }
+    await this.pick(controlname, value, opts);
+  }
+
+  /** Fill a labelled number box unless onlyEmpty and it is disabled / already non-zero. */
+  async fillUnlessSet(label, value, onlyEmpty, opts = {}) {
+    if (value === undefined) return;
+    if (onlyEmpty) {
+      const input = this.inputByLabel(label);
+      if (await input.isDisabled().catch(() => false)) { console.log(`${label}: disabled (from the goods receipt) - kept`); return; }
+      if (Number((await input.inputValue().catch(() => '')) || 0)) { console.log(`${label}: already ${await input.inputValue()} - kept`); return; }
+    }
+    await this.fillByLabel(label, value, opts);
+  }
+
+  async fillItem({ refType, stoneArticle, entryMode, uom, noOfPcs, grossWeight, tareWeight, discountPercent, returnPercent, assortedStock, onlyEmpty = false }) {
+    await this.pickUnlessSet('refType', refType, {}, onlyEmpty);
+    await this.pickUnlessSet('stoneArticle', stoneArticle, { search: true }, onlyEmpty);
+    await this.pickUnlessSet('entryMode', entryMode, {}, onlyEmpty);
     // With Tare mode AUTO-SETS the UOM (Gram) and disables the select - only
     // pick when it is still open for choosing
     const uomValue = await this.selectValue('uom').catch(() => '');
@@ -72,8 +122,8 @@ class StoneInwardPage extends StockInwardBasePage {
       else await this.pick('uom', uom);
     }
 
-    await this.fillByLabel('Stone No Of Pcs', noOfPcs, { exact: false });
-    await this.fillByLabel('Gross Weight', grossWeight);
+    await this.fillUnlessSet('Stone No Of Pcs', noOfPcs, onlyEmpty, { exact: false });
+    await this.fillUnlessSet('Gross Weight', grossWeight, onlyEmpty);
     // With Tare mode shows tare as a read-only total next to a "+" button
     // that opens the "Tare Weight Information" dialog: pick Item + Tare
     // Weight Type, enter the weight, Add Item, Close. Net = Gross - Tare.
@@ -144,6 +194,20 @@ class StoneInwardPage extends StockInwardBasePage {
     }
     // mandatory custom description dropdowns (app change, Sept 2026)
     await this.fillMandatoryEmptySelects();
+  }
+
+  /**
+   * QA lead 26-09-2026: "before Add Item, click Additional Charges and
+   * submit, then Add Item". The item-level Additional Charges (the first
+   * button) go in first whenever the form offers the button; pass
+   * { additionalCharges: false } to skip, or an object to pick the charge.
+   */
+  async addItem({ additionalCharges } = {}) {
+    const btn = this.page.getByRole('button', { name: /Additional Charges/ }).locator('visible=true').first();
+    if (additionalCharges !== false && (await btn.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      await this.addAdditionalCharges({ ...(additionalCharges && typeof additionalCharges === 'object' ? additionalCharges : {}), index: 0 });
+    }
+    return super.addItem();
   }
 }
 

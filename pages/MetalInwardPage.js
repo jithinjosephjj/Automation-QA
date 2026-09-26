@@ -119,7 +119,9 @@ class MetalInwardPage extends StockInwardBasePage {
     if (!(await this.selectValue('referenceType'))) await this.pick('referenceType', referenceType);
     if (!(await this.selectValue('article'))) await this.pick('article', article, { search: true });
     if (!(await this.selectValue('purity'))) await this.pick('purity', purity);
-    if (noOfPcs !== undefined && !(await this.noOfPcs.inputValue())) await this.noOfPcs.fill(String(noOfPcs));
+    // the box shows "0" when empty - a truthy string - so compare numerically
+    // (26-09-2026: "0" was taken as filled and the inward saved 0 pieces)
+    if (noOfPcs !== undefined && !Number(await this.noOfPcs.inputValue().catch(() => 0))) await this.noOfPcs.fill(String(noOfPcs));
     const gwt = this.inputByLabel('Gross Weight With Tare');
     if (grossWeightWithTare !== undefined && !Number(await gwt.inputValue({ timeout: 2_000 }).catch(() => 0))) {
       await this.fillByLabel('Gross Weight With Tare', grossWeightWithTare);
@@ -133,6 +135,10 @@ class MetalInwardPage extends StockInwardBasePage {
       await this.makingCharges.blur();
     }
     await this.settle(2_000);
+    // mandatory custom description dropdowns (Sept 2026): Add Item is a
+    // silent no-op while any is empty - same as fillItem (26-09-2026: the GR
+    // path skipped them and the retry then refilled a reset form with junk)
+    await this.fillMandatoryEmptySelects();
     console.log('GR item state: article', await this.selectValue('article').catch(() => ''),
       '| gross with tare', await gwt.inputValue({ timeout: 2_000 }).catch(() => '?'),
       '| making charges', mc);

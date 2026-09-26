@@ -34,6 +34,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     grossWeight,
     pieces, // defaults to the form's value, capped to the lot's piece count
     descriptions = { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    additionalCharges, // true | { chargeType, chargeName, amount } - see addAdditionalCharges
   }) {
     await this.open();
     await this.waitForSpinner();
@@ -130,6 +131,16 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     if (amount !== undefined) await this.fillByLabel('Amount', amount);
     await this.settle(1_500);
+
+    // Additional Charges (QA lead 26-09-2026: "click on additional charges,
+    // add charges, then submit"): without them Submit fires nothing and flags
+    // no invalid control - seen on goods-receipt AND GRN lots, so they are
+    // added whenever the form offers the button; additionalCharges: false
+    // opts out, an object picks the charge
+    const chargesBtn = this.page.getByRole('button', { name: /Additional Charges/ }).locator('visible=true').first();
+    if (additionalCharges !== false && (await chargesBtn.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      await this.addAdditionalCharges(additionalCharges && typeof additionalCharges === 'object' ? additionalCharges : {});
+    }
 
     const resp = this.page.waitForResponse(
       (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(r.url()),

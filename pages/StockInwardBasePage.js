@@ -438,6 +438,65 @@ class StockInwardBasePage extends BasePage {
    * is empty. That Rate is the PURE rate - 15000 per the QA lead
    * (24-09-2026), see PURE_RATE - entered into every empty "Rate" input.
    */
+  /**
+   * "Additional Charges" button -> dialog (Barcode, Stone Inward - QA lead
+   * 26-09-2026): every select the dialog leaves empty gets the wanted option
+   * (chargeType / chargeName, matched by substring) or its first offered one
+   * ("Barcode charge" / "Test charge"), an empty amount input gets `amount`,
+   * Add inserts the row when the dialog has one, then Submit / Close / Save
+   * / Done shuts it. `index` picks the button when a form carries two
+   * (item-level first, bill-level second). Logs what the dialog offered.
+   */
+  async addAdditionalCharges({ chargeType, chargeName, amount, index = 0 } = {}) {
+    const tag = `${this.tabName} charges`;
+    await this.page.getByRole('button', { name: /Additional Charges/ }).locator('visible=true').nth(index).click({ timeout: 15_000 });
+    const dlg = this.page.locator('[role="dialog"], .modal, ngb-modal-window, .offcanvas').filter({ hasText: /Additional Charges/ }).locator('visible=true').last();
+    await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.settle(1_500);
+    const wanted = [chargeType, chargeName];
+    const hosts = dlg.locator('ng-select').locator('visible=true');
+    const n = await hosts.count();
+    for (let i = 0; i < n; i++) {
+      const host = hosts.nth(i);
+      const ctl = await host.evaluate((el) => (el.closest('[controlname]') || el).getAttribute('controlname') || '').catch(() => '');
+      if (((await host.locator('.ng-value-label').first().textContent({ timeout: 500 }).catch(() => '')) || '').trim()) continue;
+      if (await host.evaluate((el) => el.classList.contains('ng-select-disabled')).catch(() => false)) continue;
+      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
+      await host.locator('.ng-select-container').click().catch(() => {});
+      await this.page.waitForTimeout(900);
+      const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i });
+      const labels = (await opts.allTextContents()).map((t) => t.trim());
+      const want = wanted[i];
+      let idx = want ? labels.findIndex((l) => l.toLowerCase().includes(String(want).toLowerCase())) : -1;
+      if (idx < 0) idx = 0;
+      console.log(`${tag}: "${ctl}" offers ${JSON.stringify(labels.slice(0, 10))} -> ${labels[idx] ?? '(nothing)'}`);
+      if (labels.length) await opts.nth(idx).click();
+      else await this.page.keyboard.press('Escape');
+      await this.settle(1_500); // Calculation Base / Rate auto-fill
+    }
+    if (amount !== undefined) {
+      const amt = dlg.locator('input[type="number"]:not([disabled]):not([readonly]), input[formcontrolname*="mount" i]:not([disabled])').locator('visible=true');
+      for (let i = 0; i < await amt.count(); i++) {
+        if (!Number((await amt.nth(i).inputValue().catch(() => '')) || 0)) { await amt.nth(i).fill(String(amount)); await amt.nth(i).blur(); }
+      }
+    }
+    const inputs = await dlg.locator('input:not([type=checkbox])').locator('visible=true').evaluateAll((els) => els.map((e) => `${e.getAttribute('formcontrolname') || e.id || e.placeholder}=${e.value}${e.disabled || e.readOnly ? '(ro)' : ''}`)).catch(() => []);
+    const buttons = (await dlg.locator('button').locator('visible=true').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    console.log(`${tag}: dialog inputs ${JSON.stringify(inputs)}; buttons ${JSON.stringify(buttons)}`);
+    const add = dlg.locator('button').filter({ hasText: /^\s*\+?\s*Add\s*$/ }).last();
+    if (await add.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await add.click();
+      await this.settle(1_000);
+    }
+    const rows = dlg.locator('table tbody tr').filter({ hasNotText: /No (Data|records)/i });
+    await rows.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    console.log(`${tag}: ${await rows.count()} charge row(s) -> ${(await rows.allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).join(' | ').slice(0, 300)}`);
+    await dlg.locator('button').filter({ hasText: /Submit|Close|Save|Done|Ok/i }).last().click();
+    await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    await this.waitForIdle();
+    await this.settle(1_500);
+  }
+
   async fillRateAfterAdd(rate = this.pureRate) {
     if (rate === undefined || rate === null) return 0;
     await this.settle(1_200);
@@ -466,6 +525,11 @@ class StockInwardBasePage extends BasePage {
       await this.addItemBtn.click();
       return;
     }
+    // a successful Add Item also RESETS the item form (the article select
+    // empties): on the Goods Receipt path the summary's piece count does not
+    // move (26-09-2026), and retrying on a reset form filled it with junk
+    // (first-option article / purity) - so a cleared article counts as added
+    const articleBefore = await this.selectValue('article').catch(() => '');
     for (let attempt = 1; attempt <= 3; attempt++) {
       await this.waitForIdle();
       await this.settle(1_500);
@@ -473,7 +537,9 @@ class StockInwardBasePage extends BasePage {
       const deadline = Date.now() + 15_000;
       while (Date.now() < deadline) {
         const now = await this.summaryPieces();
-        if (now !== null && now > before) {
+        const articleNow = articleBefore ? await this.selectValue('article').catch(() => articleBefore) : articleBefore;
+        if ((now !== null && now > before) || (articleBefore && !articleNow)) {
+          if (!(now !== null && now > before)) console.log(`${this.tabName} Add Item: form reset (article "${articleBefore}" cleared) - item added; summary count ${now}`);
           await this.fillRateAfterAdd();
           return;
         }
