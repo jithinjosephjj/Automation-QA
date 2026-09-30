@@ -59,6 +59,7 @@ function rowKey() {
 test.describe('Job Work Direct - Inhouse - Production - Workflow', () => {
   test('TC-JW-DIR-01 create the DIRECT inhouse job work', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new job work starts a new chain - no stale production number (26-09-2026: J421.1 made the receipt refuse)
     await login(loginPage, page);
 
     const jobWorkNo = await production.createDirectInhouseJobWork({
@@ -75,7 +76,9 @@ test.describe('Job Work Direct - Inhouse - Production - Workflow', () => {
     test.setTimeout(420_000);
     expect(rowKey(), 'run TC-JW-DIR-01 first').toBeTruthy();
     await login(loginPage, page);
-    await production.assignJob({
+    // the assignment allots the PRODUCTION number (J-series) the later grids
+    // and the settlement receipt key on
+    const productionNo = await production.assignJob({
       sourceType: 'Job Work',
       generationType: 'Direct',
       itemType: 'Metal',
@@ -83,7 +86,8 @@ test.describe('Job Work Direct - Inhouse - Production - Workflow', () => {
       subProcess: DATA.round.subProcess,
       rowText: rowKey(),
     });
-    console.log(`Direct job work assigned to ${DATA.round.process} / ${DATA.round.subProcess}`);
+    if (productionNo) state.writeState({ productionNo });
+    console.log(`Direct job work assigned to ${DATA.round.process} / ${DATA.round.subProcess} - production no ${productionNo || '(not captured)'}`);
   });
 
   test('TC-JW-DIR-03 process movement accept (Casting)', async ({ loginPage, production, page }) => {

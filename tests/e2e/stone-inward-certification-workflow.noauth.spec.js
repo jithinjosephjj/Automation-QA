@@ -31,8 +31,8 @@ const DATA = {
       stoneArticle: 'Jerald',
       entryMode: 'Without Tare',
       uom: 'Gram',
-      noOfPcs: 8,
-      grossWeight: 87,
+      noOfPcs: 4, // under the 2,000,000 Stone Rule approval limit (29-09-2026)
+      grossWeight: 6,
       discountPercent: 7,
       returnPercent: 6, // mandatory per the stone-inward guide
       assortedStock: true, // certification eligibility gate
@@ -48,6 +48,7 @@ async function login(loginPage, page) {
 test.describe('Stone Inward - Certification - Workflow', () => {
   test('TC-CRT-01 create the stone inward (stock)', async ({ loginPage, stoneInward, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new inward starts a new chain - no stale lot / tag numbers (26-09-2026: stale lots made barcode exceed the lot weight)
     await login(loginPage, page);
 
     await stoneInward.open();

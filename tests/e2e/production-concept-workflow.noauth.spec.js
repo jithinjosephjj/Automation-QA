@@ -1,5 +1,8 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
-const { readState, writeState } = require('../../utils/e2e-state');
+const { makeState } = require('../../utils/e2e-state');
+
+const state = makeState('e2e-production-state.json');
+const { readState, writeState } = state;
 
 /**
  * PRODUCTION END-TO-END WORKFLOW (integration testing).
@@ -68,6 +71,7 @@ function rowKey() {
 test.describe('Production - Concept - Workflow', () => {
   test('TC-PRD-E2E-01 create, upload and approve a production concept', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new concept starts a new chain - no stale production number (26-09-2026: J363.1 made the receipt refuse)
     await login(loginPage, page);
 
     const conceptNo = await production.createConcept(DATA.concept);
@@ -108,12 +112,15 @@ test.describe('Production - Concept - Workflow', () => {
     expect(conceptNo, 'run the chain from TC-PRD-E2E-01').toBeTruthy();
     await login(loginPage, page);
 
-    await production.assignJob({
+    // the assignment allots the PRODUCTION number (J-series) the later grids
+    // and the settlement receipt key on
+    const productionNo = await production.assignJob({
       process: DATA.round1.process,
       subProcess: DATA.round1.subProcess,
       rowText: conceptNo, // assignment grid rows carry the concept no
     });
-    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
+    if (productionNo) writeState({ productionNo });
+    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess} - production no ${productionNo || '(not captured)'}`);
   });
 
   test('TC-PRD-E2E-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {

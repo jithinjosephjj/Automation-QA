@@ -13,3 +13,5 @@ olg-*.txt
 probe-out.txt
 
 auth/sessions/
+blob-reports/
+logs/

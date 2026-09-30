@@ -63,6 +63,7 @@ function rowKey() {
 test.describe('Order - Inhouse - Production - Workflow', () => {
   test('TC-PRD-OB-01 create the stock order booking', async ({ loginPage, orderBooking, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new order starts a new chain - no stale production number (26-09-2026: J413.1 made the receipt refuse)
     await login(loginPage, page);
 
     await orderBooking.open();
@@ -128,7 +129,9 @@ test.describe('Order - Inhouse - Production - Workflow', () => {
     const { jobWorkNo } = state.readState();
     expect(jobWorkNo, 'run TC-PRD-OB-02 first').toBeTruthy();
     await login(loginPage, page);
-    await production.assignJob({
+    // the assignment allots the PRODUCTION number (J-series) the later grids
+    // and the settlement receipt key on
+    const productionNo = await production.assignJob({
       generationType: 'Order',
       itemType: 'Metal',
       location: 'Cochin',
@@ -136,7 +139,8 @@ test.describe('Order - Inhouse - Production - Workflow', () => {
       subProcess: DATA.round1.subProcess,
       rowText: rowKey(),
     });
-    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
+    if (productionNo) state.writeState({ productionNo });
+    console.log(`Job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess} - production no ${productionNo || '(not captured)'}`);
   });
 
   test('TC-PRD-OB-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {

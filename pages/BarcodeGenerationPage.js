@@ -1,4 +1,5 @@
 const { StockInwardBasePage } = require('./StockInwardBasePage');
+const { T } = require('../utils/timeouts');
 
 /**
  * Barcode Generation — Inventory > Operations > Barcode.
@@ -20,7 +21,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
 
   async open() {
     await this.goto('/inv/view-barcode-generation');
-    await this.addBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.addBtn.waitFor({ state: 'visible', timeout: T(30_000) });
   }
 
   /** Generate one tag from a lot. Returns the save-response body. */
@@ -38,8 +39,8 @@ class BarcodeGenerationPage extends StockInwardBasePage {
   }) {
     await this.open();
     await this.waitForSpinner();
-    await this.addBtn.click({ timeout: 60_000 });
-    await this.select('masterDataValueID_JewelleryItemType').waitFor({ state: 'visible', timeout: 30_000 });
+    await this.addBtn.click({ timeout: T(60_000) });
+    await this.select('masterDataValueID_JewelleryItemType').waitFor({ state: 'visible', timeout: T(30_000) });
 
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.pick('masterDataValueID_StockIdentityType', stockIdentityType, { exact: true });
@@ -181,7 +182,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
   async pickFirstOption(controlname) {
     await this.select(controlname).locator('.ng-select-container').click();
     const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
-    await opt.waitFor({ state: 'visible', timeout: 20_000 });
+    await opt.waitFor({ state: 'visible', timeout: T(20_000) });
     await opt.click();
   }
 

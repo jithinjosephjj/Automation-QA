@@ -197,12 +197,12 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
 
   test('TC-AIR-05 counter accept of both tags', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
-    const { tagNo, rfidNo } = state.readState();
+    const { tagNo, rfidNo, lotNo } = state.readState();
     const tags = tagsFromState();
     expect(tagNo, 'run TC-AIR-04 first').toBeTruthy();
     await login(loginPage);
 
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, tags });
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, tags, lotNo });
     expect(body, 'counter accept save response').toBeTruthy();
     state.writeState({ counterAccepted: true });
     console.log('Counter accept saved');

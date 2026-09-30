@@ -1,4 +1,9 @@
 const { selectNgOption, getNgValue, clearNgSelect } = require('../utils/ng-select');
+const { T } = require('../utils/timeouts');
+
+// settle() floor and cap - see settle() below. Env overrides for A/B runs.
+const SETTLE_GRACE = Number(process.env.PW_SETTLE_GRACE || 300);
+const SETTLE_CAP = Number(process.env.PW_SETTLE_CAP || 1_500);
 
 /**
  * Shared plumbing for every page object.
@@ -15,11 +20,11 @@ class BasePage {
 
   async goto(path) {
     try {
-      await this.page.goto(path, { waitUntil: 'commit', timeout: 20_000 });
+      await this.page.goto(path, { waitUntil: 'commit', timeout: T(20_000) });
     } catch (e) {
       // a navigation that hangs is retried once before it counts as a failure
       console.log(`goto ${path}: first attempt did not settle (${String(e).split(/\r?\n/)[0]}) - retrying`);
-      await this.page.goto(path, { waitUntil: 'commit', timeout: 30_000 });
+      await this.page.goto(path, { waitUntil: 'commit', timeout: T(30_000) });
     }
     await this.waitForIdle();
   }
@@ -28,7 +33,7 @@ class BasePage {
   async waitForIdle() {
     const n = await this.spinner.count();
     for (let i = 0; i < n; i++) {
-      await this.spinner.nth(i).waitFor({ state: 'hidden', timeout: 30_000 }).catch(() => {});
+      await this.spinner.nth(i).waitFor({ state: 'hidden', timeout: T(30_000) }).catch(() => {});
     }
   }
 
@@ -37,11 +42,16 @@ class BasePage {
    * app is actually quiet - no request in flight, none started for `quiet`
    * ms, and the ngx-spinner overlay gone - but never before `grace` ms
    * (debounced filters and the spinner start a few hundred ms after the
-   * triggering action). `max` caps the wait at the old sleep length, so the
-   * worst case is unchanged and the typical case is ~0.6 s; only a spinner
-   * that is still up may extend it, up to 30 s.
+   * triggering action). `max` caps the wait when the network never goes
+   * quiet; only a spinner that is still up may extend it, up to 30 s.
+   *
+   * 30-09-2026 speed pass: the 364 call sites made the 600 ms floor ~20 % of
+   * a serial run, so the floor is 300 ms and `max` is capped at SETTLE_CAP
+   * (1.5 s; the old 2-2.5 s sleeps). PW_SETTLE_GRACE / PW_SETTLE_CAP restore
+   * the old values for a comparison run (600 / 2500).
    */
-  async settle(max = 2_000, { grace = 600, quiet = 600 } = {}) {
+  async settle(max = 2_000, { grace = SETTLE_GRACE, quiet = SETTLE_GRACE } = {}) {
+    max = Math.min(max, SETTLE_CAP);
     const page = this.page;
     const start = Date.now();
     let inflight = 0;
@@ -67,6 +77,39 @@ class BasePage {
       page.off('requestfinished', onDone);
       page.off('requestfailed', onDone);
     }
+  }
+
+  /**
+   * Tick the grid row matching rowText (via the subclass's rowMatcher) and
+   * VERIFY it took. PrimeNG re-renders the table after a filter / sort /
+   * data refresh, and a click that lands mid-render toggles nothing:
+   * "Clicking the checkbox did not change its state" (TC-AIR-05, 30-09-2026,
+   * as soon as the settle floor dropped to 300 ms). Each attempt re-resolves
+   * the row, clicks, and accepts either the checkbox reporting checked or
+   * the grid's "n of m selected" / "n Records selected" counter going up.
+   * ProductionWorkflowPage keeps its own richer variant.
+   */
+  async checkRow(rowText) {
+    const label = Array.isArray(rowText) ? rowText.join('|') : String(rowText);
+    await this.rowMatcher(rowText).first().waitFor({ state: 'visible', timeout: T(30_000) });
+    const selectedCount = async () => {
+      const t = await this.page.getByText(/\d+ (?:of \d+ )?(?:Records? )?selected/i).first().textContent({ timeout: 1_000 }).catch(() => '');
+      const m = (t || '').match(/(\d+) (?:of \d+ )?(?:Records? )?selected/i);
+      return m ? Number(m[1]) : 0;
+    };
+    const isOn = (box) => box.isChecked({ timeout: 1_000 }).catch(() => false);
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      const box = this.rowMatcher(rowText).first().getByRole('checkbox').first();
+      if (await isOn(box)) { await this.settle(1_000); return; }
+      const before = await selectedCount();
+      await box.click({ force: true, timeout: T(10_000) }).catch(() => {});
+      await this.settle(1_000);
+      if (await isOn(box)) return;
+      if ((await selectedCount()) > before) { console.log(`checkRow: the grid counted the selection of "${label}"`); return; }
+      console.log(`checkRow: tick did not stick for "${label}" (attempt ${attempt}) - grid re-rendered, retrying`);
+      await this.page.waitForTimeout(500);
+    }
+    throw new Error(`row checkbox for "${label}" never took the tick after 4 attempts`);
   }
 
   /**
@@ -117,7 +160,7 @@ class BasePage {
   async clickAndWaitForApi(locator, urlPattern, { status = 200 } = {}) {
     const waiter = this.page.waitForResponse(
       (r) => matches(r.url(), urlPattern) && r.status() === status,
-      { timeout: 30_000 },
+      { timeout: T(30_000) },
     );
     await locator.click();
     const res = await waiter;

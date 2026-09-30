@@ -8,6 +8,7 @@
     "test:headed": "playwright test --headed --project=chromium",
     "test:ui": "playwright test --ui",
     "test:serial": "playwright test --workers=1",
+    "test:parallel": "node scripts/run-parallel.js",
     "test:inward": "playwright test tests/inward --headed",
     "auth": "playwright test --project=setup",
     "report": "playwright show-report",

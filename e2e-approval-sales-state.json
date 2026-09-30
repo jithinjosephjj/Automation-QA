@@ -1,0 +1,32 @@
+{
+  "startedAt": "2026-09-30T09:37:18.938Z",
+  "inwardVoucherNo": "M451",
+  "updatedAt": "2026-09-30T09:42:38.986Z",
+  "lotNo": "NN114",
+  "tagNo": "2026-06-2500047",
+  "tags": [
+    {
+      "tagNo": "2026-06-2500047",
+      "rfidNo": "27254114A9024DEF81A6B906"
+    },
+    {
+      "tagNo": "2026-06-2500048",
+      "rfidNo": "19C05809701C42668FEA0BC7"
+    }
+  ],
+  "allocationNo": "cc82",
+  "rfidNo": "27254114A9024DEF81A6B906",
+  "counterAccepted": true,
+  "approvalRcNo": "LLLLL3",
+  "approvalReceiptNo": "RRRR21",
+  "approvalReceived": true,
+  "receivedTag": {
+    "tagNo": "2026-06-2500047",
+    "rfidNo": "27254114A9024DEF81A6B906"
+  },
+  "invoiceDocNo": "SSS24",
+  "invoicedTag": {
+    "tagNo": "2026-06-2500048",
+    "rfidNo": "19C05809701C42668FEA0BC7"
+  }
+}

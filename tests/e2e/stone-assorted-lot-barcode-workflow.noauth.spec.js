@@ -28,8 +28,8 @@ const DATA = {
       stoneArticle: 'Jerald',
       entryMode: 'Without Tare',
       uom: 'Gram',
-      noOfPcs: 5,
-      grossWeight: 10,
+      noOfPcs: 4, // under the 2,000,000 Stone Rule approval limit (29-09-2026)
+      grossWeight: 6,
       returnPercent: 5, // mandatory per the stone-inward guide
       // NO assortedStock - this chain assorts via the issue/receipt cycle
     },
@@ -40,7 +40,7 @@ const DATA = {
     user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // barcode runs as a different user
     itemType: 'Stone',
     stockIdentityType: 'Stock',
-    grossWeight: 10,
+    grossWeight: 6,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
   },
 };
@@ -52,6 +52,7 @@ async function login(loginPage, page) {
 test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
   test('TC-SAL-01 create the stone inward (stock, not assorted)', async ({ loginPage, stoneInward, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new inward starts a new chain - no stale lot / tag numbers (26-09-2026: stale lots made barcode exceed the lot weight)
     await login(loginPage, page);
 
     await stoneInward.open();

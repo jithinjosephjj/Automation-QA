@@ -9,7 +9,7 @@ const state = makeState('e2e-assorted-cert-tare-state.json');
  * ASSORTING RECEIPT / CERTIFICATION ISSUE / CERTIFICATION RECEIPT.
  *
  * Tare-weight variant of TC-SAC: the inward is entered "With Tare" (gross
- * 76g, TARE 10g, net 66g) and the weights are verified through the chain.
+ * gross / tare / net per WEIGHTS - 8 g / 2 g / 6 g, 4 pcs since 29-09-2026) and the weights are verified through the chain.
  *
  * VERIFIED DOMAIN BEHAVIOR: the tare lives up to the ASSORTING ISSUE
  * (gross 76 / tare 10 / net 66 in its Add Stone Details panel). Assorting
@@ -21,7 +21,7 @@ const state = makeState('e2e-assorted-cert-tare-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const WEIGHTS = { gross: 76, tare: 10, net: 66, pcs: 14 };
+const WEIGHTS = { gross: 8, tare: 2, net: 6, pcs: 4 }; // under the 2,000,000 Stone Rule approval limit (29-09-2026)
 // grid cells print "76.000" style; \b keeps 10 from matching inside 2026 etc.
 const ISSUE_WEIGHTS = [
   new RegExp(`\\b${WEIGHTS.gross}(\\.\\d+)?\\b`),
@@ -44,7 +44,7 @@ const DATA = {
       stoneArticle: 'Jerald',
       entryMode: 'With Tare',
       uom: 'Gram',
-      noOfPcs: 14,
+      noOfPcs: WEIGHTS.pcs,
       grossWeight: WEIGHTS.gross,
       tareWeight: WEIGHTS.tare,
       discountPercent: 2,
@@ -60,8 +60,9 @@ async function login(loginPage, page) {
 }
 
 test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
-  test('TC-SACT-01 create the stone inward with 10g tare', async ({ loginPage, stoneInward, page }) => {
+  test('TC-SACT-01 create the stone inward with tare weight', async ({ loginPage, stoneInward, page }) => {
     test.setTimeout(600_000);
+    state.reset(); // a new inward starts a new chain - no stale lot / tag numbers (26-09-2026: stale lots made barcode exceed the lot weight)
     await login(loginPage, page);
 
     await stoneInward.open();
@@ -93,7 +94,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     const summary = await stoneInward.summaryText();
     expect(summary).toContain(`Stone Gross Weight : ${WEIGHTS.gross}.000`);
     expect(summary).toContain(`Stone Net Weight : ${WEIGHTS.net}.000`);
-    expect(summary, 'tare weight shown in the item summary').toMatch(/10\.000/);
+    expect(summary, 'tare weight shown in the item summary').toContain(`Stone Tare Weight : ${WEIGHTS.tare}.000`);
 
     if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
       await stoneInward.nextBtn.click();
@@ -104,7 +105,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     const inwardVoucherNo = await stoneInward.voucherNumber();
     expect(inwardVoucherNo, 'generated inward voucher number').toBeTruthy();
     state.writeState({ inwardVoucherNo });
-    console.log(`Stone inward saved (tare 10g): ${inwardVoucherNo} (invoice ${invoiceNo})`);
+    console.log(`Stone inward saved (tare ${WEIGHTS.tare} g): ${inwardVoucherNo} (invoice ${invoiceNo})`);
 
     await stoneInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-sact-01-print-preview.png' });
     await page.locator('.btn-close').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
@@ -122,7 +123,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
       vendor: DATA.assorted.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.assorted.employee,
-      expectInRow: ISSUE_WEIGHTS, // gross 76 / tare 10 / net 66 in the panel
+      expectInRow: ISSUE_WEIGHTS, // gross / tare / net (WEIGHTS) in the panel
     });
     expect(assortedIssueNo, 'generated assorting issue number').toBeTruthy();
     state.writeState({ assortedIssueNo });
@@ -139,7 +140,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     const assortedReceiptNo = await stoneAssortedWorkflow.assortedReceipt({
       issueNo: assortedIssueNo,
       employee: DATA.assorted.employee,
-      // tare consumed by assorting: net 66 is now the gross, tare 0.000
+      // tare consumed by assorting: the net weight is now the gross, tare 0.000
       expectInRow: [...POST_ASSORT_WEIGHTS, /Tare Weight 0\.000/],
     });
     expect(assortedReceiptNo, 'generated assorting receipt number').toBeTruthy();
@@ -160,7 +161,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
       sourceType: DATA.certification.sourceType,
       transactionType: DATA.certification.transactionType,
       inwardNo: stoneAssortedWorkflow.docCore(assortedReceiptNo),
-      expectInRow: POST_ASSORT_WEIGHTS, // 66.000 / 14 pcs post-assorting
+      expectInRow: POST_ASSORT_WEIGHTS, // net weight / pcs (WEIGHTS) post-assorting
     });
     expect(issueNo, 'generated certification issue number').toBeTruthy();
     state.writeState({ issueNo });

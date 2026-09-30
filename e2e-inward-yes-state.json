@@ -1,0 +1,13 @@
+{
+  "lotFlow": {
+    "inwardVoucherNo": "M427",
+    "lotNo": "NNN98",
+    "at": "2026-09-29T13:15:38.707Z"
+  },
+  "updatedAt": "2026-09-29T13:17:29.162Z",
+  "barcodeFlow": {
+    "inwardVoucherNo": "M428",
+    "tagNo": "2026-06-2500023",
+    "at": "2026-09-29T13:17:29.161Z"
+  }
+}

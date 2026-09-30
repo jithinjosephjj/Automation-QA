@@ -33,7 +33,63 @@ const { InternalStockTransferPage } = require('../pages/InternalStockTransferPag
  *
  *   test('TC-MI-001 ...', async ({ metalInward }) => { ... });
  */
+/**
+ * The app's invisible "transparent" ngx-spinner overlay covers the whole
+ * page while data loads; under load (parallel runs, a slow qa) it stays up
+ * longer than the 15 s action timeout and clicks fail with "element
+ * intercepts pointer events" (26-09-2026 full run: IST-01, CADM-13,
+ * LGS-08, BBI-02, B2B-SR-03). Playwright runs this handler before any
+ * action whenever the overlay is visible: wait for it to clear (up to
+ * OVERLAY_WAIT_MS, default 60 s), then the action proceeds.
+ */
+const handled = new WeakSet();
+async function installOverlayHandler(page) {
+  if (handled.has(page)) return;
+  handled.add(page);
+  const overlayWait = Number(process.env.OVERLAY_WAIT_MS || 60_000);
+  await page.addLocatorHandler(page.locator('.ngx-spinner-overlay').first(), async (overlay) => {
+    await overlay.waitFor({ state: 'hidden', timeout: overlayWait }).catch(() => {});
+  }, { noWaitAfter: true });
+}
+
+/**
+ * ONE BROWSER CONTEXT PER WORKER (30-09-2026, "one login per chain").
+ *
+ * Playwright's own `page` fixture opens a fresh context for every test, so
+ * every chain step paid a session replay + app boot (8-15 s, ~130 steps a
+ * run) and the two /login stalls of 30-09 hit exactly there. This override
+ * hands every test of the worker the same page: the first step logs in,
+ * the later steps find the session live and skip the login
+ * (LoginPage.ensureLoggedIn); a user / business-unit switch mid-chain still
+ * logs in as before. Each step starts with a goto, so nothing of the
+ * previous step's screen carries over. Traces, failure screenshots and
+ * error-context.md still work: Playwright's artifacts recorder attaches to
+ * every context that exists when a test starts. Playwright restarts the
+ * worker after a failed test, which drops the context - the next step
+ * simply logs in again. CHAIN_CONTEXT=0 restores a context per test.
+ */
+const CHAIN_CONTEXT = process.env.CHAIN_CONTEXT !== '0';
+let shared = null; // { context, page } of this worker process
+
+const pageFixture = CHAIN_CONTEXT
+  ? async ({ browser, baseURL, viewport, deviceScaleFactor, ignoreHTTPSErrors, storageState }, use) => {
+    if (!shared || shared.page.isClosed() || !browser.isConnected()) {
+      if (shared) await shared.context.close().catch(() => {});
+      const context = await browser.newContext({ baseURL, viewport, deviceScaleFactor, ignoreHTTPSErrors, storageState });
+      shared = { context, page: await context.newPage() };
+      console.log('chain context: opened the worker\'s shared browser context');
+    }
+    await installOverlayHandler(shared.page);
+    await use(shared.page);
+  }
+  : async ({ page }, use) => {
+    await installOverlayHandler(page);
+    await use(page);
+  };
+
 const test = base.test.extend({
+  page: pageFixture,
+
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
   },

@@ -1,4 +1,5 @@
 const { StockInwardBasePage } = require('./StockInwardBasePage');
+const { T } = require('../utils/timeouts');
 
 /**
  * Lot Generation — Inventory > Operations > Lot Generation.
@@ -19,7 +20,7 @@ class LotGenerationPage extends StockInwardBasePage {
 
   async open() {
     await this.goto('/inv/view-lot-generation');
-    await this.addBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.addBtn.waitFor({ state: 'visible', timeout: T(30_000) });
   }
 
   rowMatcher(rowText) {
@@ -34,8 +35,8 @@ class LotGenerationPage extends StockInwardBasePage {
   async generateLot({ itemType = 'Metal', sourceType = 'Inward', transactionType = 'Metal Inward', vendor = 'RAJA', inwardNo, employee, businessUnit = 'Cochin' }) {
     await this.open();
     await this.waitForSpinner();
-    await this.addBtn.click({ timeout: 60_000 });
-    await this.select('masterDataValueID_JewelleryItemType').waitFor({ state: 'visible', timeout: 30_000 });
+    await this.addBtn.click({ timeout: T(60_000) });
+    await this.select('masterDataValueID_JewelleryItemType').waitFor({ state: 'visible', timeout: T(30_000) });
 
     await this.pick('masterDataValueID_JewelleryItemType', itemType, { exact: true });
     await this.pick('masterDataValueID_StockSourceType', sourceType, { exact: true });
@@ -49,7 +50,7 @@ class LotGenerationPage extends StockInwardBasePage {
 
     // check the inward's grid row - this opens the item panel
     const row = this.rowMatcher(inwardNo).first();
-    await row.waitFor({ state: 'visible', timeout: 30_000 });
+    await row.waitFor({ state: 'visible', timeout: T(30_000) });
     await row.getByRole('checkbox').first().check({ force: true });
     await this.settle(2_500);
 

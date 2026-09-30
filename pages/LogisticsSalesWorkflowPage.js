@@ -406,8 +406,40 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Counter Accept: filter by item type, find the allocated tag's row,
    * check it and Accept.
    */
-  /** optional: true returns { skipped: true } when nothing is pending for the tag (a 'Return to Counter' transfer lands approved, with no acceptance step). */
-  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, tags, optional = false }) {
+  /**
+   * Filter a paged grid through its Search box so the wanted row is on the
+   * visible page. Returns false when the page has no Search box.
+   */
+  async searchGrid(term) {
+    const search = this.page.getByRole('textbox', { name: 'Search' }).locator('visible=true').first();
+    if (!term || !(await search.count())) return false;
+    await search.fill('');
+    await search.fill(String(term));
+    await this.waitForIdle();
+    // the filter is debounced and PrimeNG re-renders the rows: wait for the
+    // row count to hold still (3 x 200 ms) before anyone clicks into the grid
+    let last = -1; let stable = 0;
+    for (let i = 0; i < 25 && stable < 3; i++) {
+      await this.page.waitForTimeout(200);
+      const n = await this.page.getByRole('row').count().catch(() => -1);
+      stable = n === last ? stable + 1 : 0;
+      last = n;
+    }
+    await this.settle(1_000);
+    console.log(`grid search: ${term}`);
+    return true;
+  }
+
+  /**
+   * optional: true returns { skipped: true } when nothing is pending for the tag (a 'Return to Counter' transfer lands approved, with no acceptance step).
+   * lotNo: the allocation's lot - the Pending Transfers grid is PAGED (20 rows
+   * a page; 31 pending on 30-09-2026, every failed run leaves its allocation
+   * un-accepted), so a fresh allocation sits on page 2 where the row lookup
+   * never saw it (TC-AIR-05 red in 3 runs). The grid is filtered through its
+   * Search box first: by lot when the caller has it (both tags of a 2-piece
+   * lot on one page), else by each tag in turn.
+   */
+  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, tags, lotNo, optional = false }) {
     await this.goto('/sls/view-counter-accept-reject');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -426,6 +458,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.waitForIdle();
     await this.settle(2_500);
 
+    await this.searchGrid(lotNo || tagNo);
     // tag numbers repeat on qa - the RFID row wins when the grid shows it
     const key = rfidNo && (await this.rowMatcher(rfidNo).count()) ? rfidNo : tagNo;
     if (optional && !(await this.rowMatcher(key).first().isVisible({ timeout: 15_000 }).catch(() => false))) {
@@ -435,6 +468,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     await this.checkRow(key);
     // further tags of the same allocation (a 2-piece lot) - tick their rows too
     for (const t of (tags || []).filter((x) => x && x.tagNo !== tagNo)) {
+      if (!lotNo) await this.searchGrid(t.tagNo); // the ticked row stays selected behind the filter
       const k = t.rfidNo && (await this.rowMatcher(t.rfidNo).count()) ? t.rfidNo : t.tagNo;
       await this.checkRow(k);
     }

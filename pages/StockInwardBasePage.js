@@ -1,4 +1,5 @@
 const { BasePage } = require('./BasePage');
+const { T } = require('../utils/timeouts');
 
 /**
  * Shared machinery for the Stock Inward wizards (Metal / Brand / Stone tabs
@@ -59,7 +60,7 @@ class StockInwardBasePage extends BasePage {
 
   async open() {
     await this.goto('/prc/stock-inward-setup');
-    await this.addBtn.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.addBtn.waitFor({ state: 'visible', timeout: T(30_000) });
   }
 
   /** Wait out the transparent ngx-spinner overlay that swallows clicks. */
@@ -67,7 +68,7 @@ class StockInwardBasePage extends BasePage {
     await this.page
       .locator('.ngx-spinner-overlay')
       .last()
-      .waitFor({ state: 'hidden', timeout: 60_000 })
+      .waitFor({ state: 'hidden', timeout: T(60_000) })
       .catch(() => {});
   }
 
@@ -80,10 +81,10 @@ class StockInwardBasePage extends BasePage {
 
   async openAddWizard() {
     await this.waitForSpinner();
-    await this.addBtn.click({ timeout: 60_000 });
+    await this.addBtn.click({ timeout: T(60_000) });
     // inwardType is the one dropdown all three wizards share (Stone has no
     // subTransactionType) - its visibility marks the wizard as ready.
-    await this.select('inwardType').waitFor({ state: 'visible', timeout: 30_000 });
+    await this.select('inwardType').waitFor({ state: 'visible', timeout: T(30_000) });
   }
 
   /** The ng-select inside a <sioniq-ng-select controlname="..."> wrapper. */
@@ -341,7 +342,7 @@ class StockInwardBasePage extends BasePage {
    * Must be armed BEFORE the save click - toasts auto-dismiss within seconds,
    * so checking after long post-save waits produces false misses.
    */
-  watchSaveToast(timeout = 15_000) {
+  watchSaveToast(timeout = T(15_000)) {
     const toast = this.page.getByText(/saved successfully/i).first()
       .or(this.page.locator('.toast-success, .p-toast-message-success, ngb-toast.bg-success').first());
     return toast.first().waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false);
@@ -354,9 +355,12 @@ class StockInwardBasePage extends BasePage {
    * toast-misses.jsonl for the run report. Never fails the flow - the record
    * IS saved.
    */
-  async reportSaveToast(what, watcher, grace = 8_000) {
+  async reportSaveToast(what, watcher, grace = T(8_000)) {
     // the watcher was armed at click time; give it a bounded grace window
-    // after the save instead of waiting out its full timeout on a miss
+    // after the save instead of waiting out its full timeout on a miss.
+    // Load-scaled (T): under 4 lanes on 29-09-2026 the UI rendered the toast
+    // more than 8 s after the API response and 42 saves were logged as
+    // TOAST-BUG although the toast does appear (QA lead's manual M420).
     const shown = await Promise.race([
       watcher,
       new Promise((res) => setTimeout(() => res(false), grace)),
@@ -582,9 +586,9 @@ class StockInwardBasePage extends BasePage {
    */
   async answerBarcodeOrLotDialog(answer = 'No') {
     const dialog = this.page.locator('.swal2-popup, .modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Barcode or Lot/i }).last();
-    if (!(await dialog.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false))) return false;
+    if (!(await dialog.waitFor({ state: 'visible', timeout: T(10_000) }).then(() => true).catch(() => false))) return false;
     const button = dialog.getByRole('button', { name: new RegExp(`^${answer}$`, 'i') }).last();
-    await button.click({ timeout: 5_000 });
+    await button.click({ timeout: T(15_000) }); // 5 s expired under load (29-09-2026)
     console.log(`${this.tabName} submit: "Process with Barcode or Lot?" answered ${answer}`);
     await this.settle(1_000);
     return true;
@@ -698,7 +702,7 @@ class StockInwardBasePage extends BasePage {
   /** The RC / voucher number shown on the post-submit Print dialog (e.g. M137). */
   async voucherNumber() {
     const p = this.printDialog.locator('p');
-    await p.first().waitFor({ state: 'visible', timeout: 30_000 });
+    await p.first().waitFor({ state: 'visible', timeout: T(30_000) });
     for (const t of await p.allTextContents()) {
       const m = t.trim().match(/^[A-Z]+\d+$/);
       if (m) return m[0];
@@ -760,7 +764,7 @@ class StockInwardBasePage extends BasePage {
     // The preview opens EITHER a popup window OR an inline surface - race the
     // two instead of waiting a fixed 15 s for a popup that rarely comes.
     let popup = null;
-    this.page.waitForEvent('popup', { timeout: 30_000 }).then((p) => { popup = p; }).catch(() => {});
+    this.page.waitForEvent('popup', { timeout: T(30_000) }).then((p) => { popup = p; }).catch(() => {});
     await previewBtn.click();
 
     // A rendered template shows as a PDF viewer / iframe / canvas / blob

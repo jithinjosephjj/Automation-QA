@@ -1,9 +1,13 @@
 const { BasePage } = require('./BasePage');
+const { T } = require('../utils/timeouts');
 const { getNgOptions } = require('../utils/ng-select');
 const env = require('../utils/env');
 const sessionCache = require('../utils/session-cache');
 
 const firstLine = (e) => String(e).split(/\r?\n/)[0];
+
+// who is logged in on a browser context (user@BU), set by ensureLoggedIn
+const SESSION_KEY = Symbol.for('sioniq.session');
 
 /**
  * Sioniq login.
@@ -73,7 +77,7 @@ class LoginPage extends BasePage {
       if (attempt > 1) {
         console.log(`login attempt ${attempt}: retrying after "${lastProblem}" - reloading /login`);
         await this.page.reload({ waitUntil: 'domcontentloaded' });
-        await this.username.waitFor({ state: 'visible', timeout: 30_000 });
+        await this.username.waitFor({ state: 'visible', timeout: T(30_000) });
         await this.settle(1_500);
       }
 
@@ -123,6 +127,13 @@ class LoginPage extends BasePage {
    *
    * Works both on a fresh page (about:blank) and mid-chain when switching to
    * another user: the injected values replace whatever the page held.
+   *
+   * ONE LOGIN PER CHAIN (30-09-2026): the fixtures keep one browser context
+   * per worker, so the page usually arrives already logged in from the
+   * previous step. The context remembers who is logged in (user@BU); when
+   * that matches and the app shell is still rendered off /login, nothing is
+   * done. A different user or BU, or a session the app dropped, goes through
+   * the replay / form path as before.
    * @param {{user?: string, pwd?: string, bu?: string}} [creds]
    */
   async ensureLoggedIn(creds = {}) {
@@ -130,27 +141,56 @@ class LoginPage extends BasePage {
     const pwd = creds.pwd ?? env.PWD;
     const bu = creds.bu ?? env.BU;
 
+    const context = this.page.context();
+    const key = `${user}@${bu}`;
+    if (context[SESSION_KEY] === key && (await this.sessionLooksLive())) {
+      console.log(`session reuse: ${key} still logged in from the previous step`);
+      return;
+    }
+    context[SESSION_KEY] = null;
+
     const cached = sessionCache.load(user, bu);
     if (cached) {
       const ok = await this.bootFromSession(cached).catch((e) => {
         console.log(`session replay for ${user}@${bu} failed: ${firstLine(e)}`);
         return false;
       });
-      if (ok) return;
+      if (ok) { context[SESSION_KEY] = key; return; }
       console.log(`session cache for ${user}@${bu} was rejected - logging in through the form`);
       sessionCache.clear(user, bu);
     }
 
+    await this.dropSession();
     await this.open();
     await this.login({ user, pwd, bu });
     await this.throwIfGated();
     // Landing anywhere other than /login is the success signal - the app
     // redirects to its returnUrl, which is not a fixed route.
-    await this.page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 60_000 });
+    await this.page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: T(60_000) });
     await this.page.waitForLoadState('domcontentloaded');
-    await this.shell.first().waitFor({ state: 'visible', timeout: 30_000 });
+    await this.shell.first().waitFor({ state: 'visible', timeout: T(30_000) });
     await sessionCache.save(user, bu, this.page);
+    context[SESSION_KEY] = key;
     console.log(`form login as ${user}@${bu} - session cached for replay`);
+  }
+
+  /** The authenticated shell is on screen and the URL is not /login. */
+  async sessionLooksLive() {
+    const url = this.page.url();
+    if (!url.startsWith('http') || new URL(url).pathname.includes('/login')) return false;
+    return this.shell.first().isVisible().catch(() => false);
+  }
+
+  /**
+   * Forget the app's session in this context before a FORM login: with a
+   * shared context the page may still hold another user's cookies and
+   * storage, and /login would bounce a logged-in user back to the app.
+   */
+  async dropSession() {
+    const url = this.page.url();
+    if (!url.startsWith('http')) return;
+    await this.page.context().clearCookies().catch(() => {});
+    await this.page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); }).catch(() => {});
   }
 
   /**
@@ -183,12 +223,12 @@ class LoginPage extends BasePage {
 
     const landing = cached.landing || '/dsb/e-commerce';
     try {
-      await page.goto(landing, { waitUntil: 'commit', timeout: 20_000 }); // the shell wait below is the real readiness check
+      await page.goto(landing, { waitUntil: 'commit', timeout: T(20_000) }); // the shell wait below is the real readiness check
     } catch (e) {
       console.log(`session replay: landing navigation hung (${firstLine(e)}) - retrying once`);
-      await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.goto(landing, { waitUntil: 'domcontentloaded', timeout: T(30_000) });
     }
-    await page.locator(`${this.shellSelector}, form.login-form, #username`).first().waitFor({ state: 'visible', timeout: 30_000 });
+    await page.locator(`${this.shellSelector}, form.login-form, #username`).first().waitFor({ state: 'visible', timeout: T(30_000) });
     if (new URL(page.url()).pathname.includes('/login')) return false;
     if (!(await this.shell.first().isVisible().catch(() => false))) return false;
     const token = await page.evaluate((k) => sessionStorage.getItem(k), sessionCache.TOKEN_KEY);

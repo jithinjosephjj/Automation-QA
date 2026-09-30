@@ -38,13 +38,7 @@ class SampleWorkflowPage extends StockInwardBasePage {
     return this.page.getByRole('row').filter({ hasText: new RegExp(esc, 'i') });
   }
 
-  async checkRow(rowText) {
-    const row = this.rowMatcher(rowText).first();
-    await row.waitFor({ state: 'visible', timeout: 30_000 });
-    const box = row.getByRole('checkbox').first();
-    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
-    await this.settle(1_500);
-  }
+  // checkRow: the verified, retrying version in BasePage (30-09-2026)
 
   /** Capture the save response for a submit-like button click. */
   async clickAndCaptureSave(button, { pattern = /create|save|submit/i } = {}) {

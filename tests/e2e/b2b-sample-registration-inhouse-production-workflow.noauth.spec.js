@@ -59,7 +59,8 @@ const DATA = {
   },
   issue: { itemType: 'Metal', productionUnit: 'Cochin', submissionMethod: 'In Person', receivedFrom: 'Raja', contactNumber: '6565455555' },
   // single production round: both streams are assigned directly to Casting
-  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: 'Sioniquser16' },
+  // own casting worker so the samples lane can run in parallel with the production lane (Sioniquser16's queue) - SAMPLE_WORKER overrides
+  round: { process: 'Casting Process', subProcess: 'Casting Inspection', worker: process.env.SAMPLE_WORKER || 'Sioniquser33' },
   // the JOB WORK settlement receipt: Production No auto-selects the offered
   // pending job, then item details, then Move to Job Finalize + Add Items
   receiptItem: { article: 'Tendulkar', articleSearch: 'ring', purity: '91.6', weight: 40 },

@@ -28,9 +28,17 @@ module.exports = defineConfig({
     headless: false,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    actionTimeout: 15_000,
-    navigationTimeout: 30_000,
+    // Video off (30-09-2026): it was encoded for every test and thrown away
+    // on pass, costing CPU the headed browser needs on an 8 GB laptop; the
+    // trace already replays a failure step by step. PW_VIDEO=1 turns it
+    // back on (retain-on-failure) for a run that needs the recording.
+    video: process.env.PW_VIDEO ? 'retain-on-failure' : 'off',
+    // 15 s / 30 s suit one lane on a quiet qa. Parallel lanes (scripts/
+    // run-parallel.js) raise them through the env: 4 browsers kept the
+    // loading overlay up for 15-60 s per page on 29-09-2026 and the action
+    // timeout caps every click, overlay handler included.
+    actionTimeout: Number(process.env.PW_ACTION_TIMEOUT || 15_000),
+    navigationTimeout: Number(process.env.PW_NAV_TIMEOUT || 30_000),
     // Full-screen (maximized) window: viewport null lets the page use the
     // real window size, and --start-maximized maximizes it. Both are needed;
     // a fixed viewport would clamp the page regardless of the window.
@@ -75,7 +83,23 @@ module.exports = defineConfig({
       },
     },
 
-    // Enable when cross-browser coverage is needed:
+    // Same specs on Firefox. scripts/run-parallel.js puts some lanes here
+    // (--firefox=3,4) so a 4-lane run is 2 Chromium + 2 Firefox windows.
+    // Firefox knows none of the Chromium launch args above, so they are
+    // cleared; there is no Local Network Access prompt to disable on Firefox.
+    // A fixed viewport replaces --start-maximized (Firefox has no such flag).
+    {
+      name: 'no-auth-firefox',
+      testMatch: /.*\.noauth\.spec\.js/,
+      use: {
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1600, height: 900 },
+        launchOptions: { args: [] },
+        storageState: { cookies: [], origins: [] },
+      },
+    },
+
+    // Enable when cross-browser coverage of the saved-session specs is needed:
     // { name: 'firefox', dependencies: ['setup'],
     //   use: { ...devices['Desktop Firefox'], storageState: 'auth/admin-cochin.json' } },
   ],
