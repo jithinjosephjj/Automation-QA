@@ -179,3 +179,31 @@
 {"when":"2026-09-30T12:59:27.103Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
 {"when":"2026-09-30T13:06:41.003Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
 {"when":"2026-09-30T13:11:43.481Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T05:27:58.208Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T05:33:44.775Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-01T05:35:22.629Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T05:38:43.637Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T05:52:06.070Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T05:52:37.366Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T06:04:03.166Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T06:04:32.462Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T06:18:58.083Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T06:19:28.929Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T06:31:14.051Z","action":"barcode tag generation","url":"https://qa.sioniq.com/inv/view-barcode-generation"}
+{"when":"2026-10-01T06:51:26.447Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T07:36:01.520Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T07:38:35.850Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T07:48:59.453Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T07:52:24.156Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T07:58:39.862Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T08:01:11.686Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T08:05:09.383Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T08:11:07.448Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T08:13:29.266Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T08:18:10.953Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T09:14:31.326Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T09:19:05.718Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T10:08:18.863Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T10:13:37.382Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-01T10:21:27.111Z","action":"lot generation","url":"https://qa.sioniq.com/inv/view-lot-generation"}
+{"when":"2026-10-01T10:23:41.784Z","action":"barcode tag generation","url":"https://qa.sioniq.com/inv/view-barcode-generation"}

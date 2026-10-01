@@ -87,10 +87,15 @@ class StockInwardBasePage extends BasePage {
     await this.select('inwardType').waitFor({ state: 'visible', timeout: T(30_000) });
   }
 
-  /** The ng-select inside a <sioniq-ng-select controlname="..."> wrapper. */
+  /**
+   * The ng-select inside a <sioniq-ng-select controlname="..."> wrapper - or
+   * a raw <ng-select formcontrolname="..."> (the barcode form's Counter,
+   * 01-10-2026: invalidControls() reported "counterID" but the wrapper-only
+   * locator never found it, so the fill was skipped and Submit stayed blocked).
+   */
   select(controlname) {
     return this.page
-      .locator(`sioniq-ng-select[controlname="${controlname}"] ng-select`)
+      .locator(`sioniq-ng-select[controlname="${controlname}"] ng-select, ng-select[formcontrolname="${controlname}"]`)
       .first();
   }
 

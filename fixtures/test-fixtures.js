@@ -73,10 +73,16 @@ let shared = null; // { context, page } of this worker process
 
 const pageFixture = CHAIN_CONTEXT
   ? async ({ browser, baseURL, viewport, deviceScaleFactor, ignoreHTTPSErrors, storageState }, use) => {
-    if (!shared || shared.page.isClosed() || !browser.isConnected()) {
+    if (!shared || shared.crashed || shared.page.isClosed() || !browser.isConnected()) {
       if (shared) await shared.context.close().catch(() => {});
       const context = await browser.newContext({ baseURL, viewport, deviceScaleFactor, ignoreHTTPSErrors, storageState });
-      shared = { context, page: await context.newPage() };
+      shared = { context, page: await context.newPage(), crashed: false };
+      // a crashed page is NOT "closed": remember it so the next test gets a
+      // fresh context instead of a dead one (01-10-2026, out-of-memory crash)
+      // (context 'close' / browser 'disconnected' also fire on Playwright's
+      // normal worker teardown after a failed test - not logged, they read
+      // like crashes; 'crash' is the real signal)
+      shared.page.on('crash', () => { shared.crashed = true; console.log('chain context: the page CRASHED (browser out of memory?) - a fresh context will be opened for the next test'); });
       console.log('chain context: opened the worker\'s shared browser context');
     }
     await installOverlayHandler(shared.page);

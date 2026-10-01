@@ -1,13 +1,13 @@
 {
   "lotFlow": {
-    "inwardVoucherNo": "M461",
-    "lotNo": "NN123",
-    "at": "2026-09-30T11:50:42.831Z"
+    "inwardVoucherNo": "M478",
+    "lotNo": "NN138",
+    "at": "2026-10-01T07:10:42.076Z"
   },
-  "updatedAt": "2026-09-30T11:52:15.792Z",
+  "updatedAt": "2026-10-01T07:12:11.974Z",
   "barcodeFlow": {
-    "inwardVoucherNo": "M462",
-    "tagNo": "2026-06-2500004",
-    "at": "2026-09-30T11:52:15.788Z"
+    "inwardVoucherNo": "M479",
+    "tagNo": "2026-06-2500065",
+    "at": "2026-10-01T07:12:11.973Z"
   }
 }

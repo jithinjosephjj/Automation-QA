@@ -1,11 +1,11 @@
 {
-  "startedAt": "2026-10-01T05:02:40.200Z",
-  "inwardVoucherNo": "M472",
-  "updatedAt": "2026-10-01T05:05:33.043Z",
-  "lotNo": "NN131",
-  "tagNo": "2026-06-2500057",
-  "allocationNo": "cc90",
-  "rfidNo": "FF21D59916994A979BFF65AB",
+  "startedAt": "2026-10-01T07:14:22.414Z",
+  "inwardVoucherNo": "M481",
+  "updatedAt": "2026-10-01T07:18:13.670Z",
+  "lotNo": "NN140",
+  "tagNo": "2026-06-2500066",
+  "allocationNo": "cc94",
+  "rfidNo": "78AB24A2E226428BA746B430",
   "counterAccepted": true,
-  "invoiceDocNo": "SSS27"
+  "invoiceDocNo": "SSS31"
 }

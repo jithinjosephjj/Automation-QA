@@ -133,6 +133,32 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     if (amount !== undefined) await this.fillByLabel('Amount', amount);
     await this.settle(1_500);
 
+    // Counter: prefilled on stock lots, but EMPTY and mandatory on a
+    // jobwork-return lot (01-10-2026 TC-JW-DOL-04: Submit silently blocked,
+    // invalid select "counterID", the form showed "Please Select") - take the
+    // first counter offered when the select is on screen and still empty
+    // (visible=true: a hidden counterID select earlier in the DOM - the list
+    // view's filter - made the plain .first() look invisible and skip this)
+    const counter = this.page.locator('sioniq-ng-select[controlname="counterID"] ng-select, ng-select[formcontrolname="counterID"]').locator('visible=true').first();
+    if (await counter.count()) {
+      const val = ((await counter.locator('.ng-value').first().textContent({ timeout: 1_000 }).catch(() => '')) || '').trim();
+      if (!val) {
+        try {
+          await counter.locator('.ng-select-container').click();
+          const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
+          await opt.waitFor({ state: 'visible', timeout: T(20_000) });
+          const label = (await opt.textContent().catch(() => '')).trim();
+          await opt.click();
+          console.log(`barcode: Counter was empty - picked "${label}"`);
+        } catch (e) {
+          console.log(`barcode: Counter stayed empty - ${String(e).split(/\r?\n/)[0].slice(0, 100)}`);
+        }
+        await this.settle(1_000);
+      }
+    } else {
+      console.log('barcode: no Counter select on this form');
+    }
+
     // Additional Charges (QA lead 26-09-2026: "click on additional charges,
     // add charges, then submit"): without them Submit fires nothing and flags
     // no invalid control - seen on goods-receipt AND GRN lots, so they are

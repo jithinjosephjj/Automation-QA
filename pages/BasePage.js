@@ -19,12 +19,22 @@ class BasePage {
   }
 
   async goto(path) {
+    // Every attempt is raced against a LOCAL timer: when the browser process
+    // has died (01-10-2026 TC-GRGRN-01: context gone 3 s into the step, out
+    // of memory) page.goto never honours its own timeout and the step burnt
+    // its whole 600 s budget. Now it fails in ~35 s with a clear message.
+    const attempt = (ms) => Promise.race([
+      this.page.goto(path, { waitUntil: 'commit', timeout: ms }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`goto ${path}: browser unresponsive for ${Math.round((ms + 5_000) / 1000)} s (crashed / out of memory?)`)), ms + 5_000)),
+    ]);
+    if (this.page.isClosed()) throw new Error(`goto ${path}: the page is already closed (browser crashed / out of memory?)`);
     try {
-      await this.page.goto(path, { waitUntil: 'commit', timeout: T(20_000) });
+      await attempt(T(20_000));
     } catch (e) {
+      if (/unresponsive|has been closed/.test(String(e))) throw e;
       // a navigation that hangs is retried once before it counts as a failure
       console.log(`goto ${path}: first attempt did not settle (${String(e).split(/\r?\n/)[0]}) - retrying`);
-      await this.page.goto(path, { waitUntil: 'commit', timeout: T(30_000) });
+      await attempt(T(30_000));
     }
     await this.waitForIdle();
   }
