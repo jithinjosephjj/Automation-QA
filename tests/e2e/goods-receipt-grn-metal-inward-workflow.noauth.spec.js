@@ -74,7 +74,7 @@ test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
       purchaser: 'Ajin G',
       invoiceNo: uniqueRef('MI-GRGRN'), // "Voucher Number" on the GRN header
     });
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
 
     await metalInward.fillItemFromGoodsReceipt({ goodsReceiptNo, ...DATA.inward.item });
@@ -86,7 +86,7 @@ test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
       .poll(async () => metalInward.summaryText(), { timeout: 20_000 })
       .toMatch(/No\. of Pieces\s*:\s*\d+/);
 
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: 'Tendulkar' })).toHaveCount(1, { timeout: 30_000 });
 

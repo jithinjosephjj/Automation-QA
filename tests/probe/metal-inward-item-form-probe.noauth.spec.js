@@ -10,7 +10,7 @@ test('PROBE metal inward item form', async ({ loginPage, metalInward, page }) =>
   await metalInward.open();
   await metalInward.openAddWizard();
   await metalInward.fillBasicDetails({ subTransactionType: 'Invoice', businessUnit: 'Cochin', inwardType: 'Stock', purchaseType: 'Direct', vendor: 'RAJA', purchaser: 'Abc', invoiceNo: uniqueInvoiceNo() });
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   const describe = async (label) => {
     const info = await page.evaluate(() => {

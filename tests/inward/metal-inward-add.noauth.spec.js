@@ -68,7 +68,7 @@ test.describe('Metal Inward - add record', () => {
     await expect(metalInward.hallmark).toBeChecked();
 
     // ---- Step 20: Next -> Inward Metal Items ----
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await expect(metalInward.select('referenceType')).toBeVisible({ timeout: 30_000 });
 
     // ---- Steps 21-39: item entry ----
@@ -120,7 +120,7 @@ test.describe('Metal Inward - add record', () => {
     expect(taxable).toBeCloseTo(metal + making + amount('Stone Amount') + amount('Diamond Amount'), 1);
 
     // ---- Step 50: Next -> Review & Submit ----
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await expect(metalInward.submitBtn).toBeVisible({ timeout: 30_000 });
 
     // Step 51: the review grid holds exactly the one inserted item

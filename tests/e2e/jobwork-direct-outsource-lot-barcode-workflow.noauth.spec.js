@@ -83,7 +83,7 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
       invoiceDate: businessDate(0).replace(/-/g, '/'),
     });
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
 
     // Inward Type "Order" shows the jobwork item picker: one pick fills the
@@ -91,7 +91,7 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
     const article = await metalInward.addJobworkItem(`${jobWorkNo}.001`);
     expect(article, 'article auto-filled from the job work item').toContain('Tendulkar');
 
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: 'Tendulkar' })).toHaveCount(1, { timeout: 30_000 });
 

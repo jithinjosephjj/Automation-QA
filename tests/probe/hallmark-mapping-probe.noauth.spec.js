@@ -54,7 +54,7 @@ test('PROBE hallmark flow mapping', async ({ loginPage, metalInward, hallmarkWor
   for (const c of ['subTransactionType', 'inwardType', 'purchaseType']) await options(c);
   await metalInward.fillBasicDetails({ subTransactionType: 'Invoice', businessUnit: 'Cochin', inwardType: 'Stock', purchaseType: 'Direct', vendor: 'Luxurio', purchaser: 'Abc', invoiceNo: uniqueInvoiceNo() });
   await dump('INWARD basic (filled)');
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   await dump('INWARD item (empty)');
   for (const c of ['entryMode', 'referenceType', 'purity', 'makingType']) await options(c);
@@ -62,7 +62,7 @@ test('PROBE hallmark flow mapping', async ({ loginPage, metalInward, hallmarkWor
   await dump('INWARD item (filled, before Add Item)');
   await metalInward.addItem();
   await dump('INWARD after Add Item');
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   await dump('INWARD review');
   const inward = await metalInward.submit();

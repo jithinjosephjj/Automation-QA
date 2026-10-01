@@ -59,7 +59,7 @@ test.describe('Brand Inward - add record', () => {
     await expect(brandInward.dueDate).not.toHaveValue('');
 
     // ---- step 2: Brand Items & Summary ----
-    await brandInward.nextBtn.click();
+    await brandInward.clickNext();
     await expect(brandInward.select('referenceType')).toBeVisible({ timeout: 30_000 });
 
     // Hierarchy is manual and mandatory on Brand (article does not back-fill)
@@ -103,7 +103,7 @@ test.describe('Brand Inward - add record', () => {
     // "Brand Items & Summary" step. Sometimes the wizard advances there on
     // its own, sometimes it stays on the form - advance manually if needed.
     if (!(await brandInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await brandInward.nextBtn.click();
+      await brandInward.clickNext();
     }
     await expect(brandInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const response = await brandInward.submit();

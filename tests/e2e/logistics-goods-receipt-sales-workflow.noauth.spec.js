@@ -120,13 +120,13 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
       purchaser: DATA.inward.purchaser,
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
     });
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
 
     await metalInward.fillItemFromGoodsReceipt({ goodsReceiptNo, ...DATA.inward.item });
     await metalInward.addItem();
     await metalInward.waitForIdle();
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: 'Tendulkar' })).toHaveCount(1, { timeout: 30_000 });
 

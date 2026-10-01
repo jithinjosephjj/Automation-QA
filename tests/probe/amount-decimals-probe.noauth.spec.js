@@ -119,7 +119,7 @@ test('stone inward item grid (no submit)', async ({ loginPage, stoneInward, page
   await reportForm(page, 'stone inward LIST', 'list-stone-inward');
   await stoneInward.openAddWizard();
   await stoneInward.fillBasicDetails({ inwardType: 'Stock', purchaseType: 'Direct', vendor: 'RAJA', invoiceNo: uniqueInvoiceNo().replace(/[^A-Za-z0-9]/g, ''), invoiceDate: businessDate(0).replace(/-/g, '/') });
-  await stoneInward.nextBtn.click();
+  await stoneInward.clickNext();
   await stoneInward.waitForIdle();
   await stoneInward.fillItem({ refType: 'Combination', stoneArticle: 'Jerald', entryMode: 'Without Tare', uom: 'Gram', noOfPcs: 4, grossWeight: 6, discountPercent: 7, returnPercent: 5 });
   await stoneInward.addItem();
@@ -133,13 +133,13 @@ test('metal inward item grid (no submit)', async ({ loginPage, metalInward, page
   await metalInward.open();
   await metalInward.openAddWizard();
   await metalInward.fillBasicDetails({ subTransactionType: 'Invoice', businessUnit: 'Cochin', inwardType: 'Stock', purchaseType: 'Direct', vendor: 'RAJA', purchaser: 'Abc', invoiceNo: uniqueInvoiceNo() });
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   await metalInward.fillItem({ entryMode: 'SINGLE TAG', referenceType: 'Combination', article: 'Tendulkar', purity: '91.60', noOfPcs: 1, grossWeightWithTare: 60 });
   await metalInward.addItem();
   await metalInward.settle(2_000);
   await reportForm(page, 'metal inward ITEM GRID (step 2)', 'form-metal-inward-item-grid');
-  await metalInward.nextBtn.click().catch(() => {});
+  await metalInward.clickNext().catch(() => {});
   await metalInward.waitForIdle();
   await metalInward.settle(2_500);
   await reportForm(page, 'metal inward REVIEW GRID (step 3)', 'form-metal-inward-review-grid');
@@ -154,7 +154,7 @@ test('brand inward item grid (no submit)', async ({ loginPage, brandInward, page
   await reportForm(page, 'brand inward LIST', 'list-brand-inward');
   await brandInward.openAddWizard();
   await brandInward.fillBasicDetails({ vendor: 'RAJA', purchaseType: 'Direct', costCenter: 'Cochin', inwardType: 'Stock', purchaser: 'Ajin G', invoiceNo: uniqueRef('BI-DEC') });
-  await brandInward.nextBtn.click();
+  await brandInward.clickNext();
   await brandInward.waitForIdle();
   await brandInward.fillItem({ referenceType: 'Combination', groupCategory: 'Gold', category: 'Ring', brand: 'Amraa', article: 'Tendulkar', purity: '91.60', noOfPcs: 10, grossWeight: 20, mrp: 100000, discountPercent: 5 });
   await brandInward.addItem();

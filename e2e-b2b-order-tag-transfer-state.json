@@ -1,13 +1,13 @@
 {
-  "startedAt": "2026-09-30T09:43:09.573Z",
-  "orderNo": "B216",
-  "updatedAt": "2026-09-30T09:49:24.798Z",
-  "jobWorkNo": "P252",
-  "productionNo": "J504.1",
-  "tagReceiptNo": "0087",
-  "tagNo": "2026-06-2500049",
-  "allocationNo": "cc83",
+  "startedAt": "2026-09-30T10:02:49.481Z",
+  "orderNo": "B217",
+  "updatedAt": "2026-09-30T10:09:39.342Z",
+  "jobWorkNo": "P253",
+  "productionNo": "J505.1",
+  "tagReceiptNo": "0088",
+  "tagNo": "2026-06-2500052",
+  "allocationNo": "cc85",
   "counterAccepted": true,
-  "transferOutNo": "cc86",
-  "transferInNo": "AA63"
+  "transferOutNo": "cc87",
+  "transferInNo": "AA64"
 }

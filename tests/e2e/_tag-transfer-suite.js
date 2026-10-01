@@ -74,7 +74,7 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
         purchaser: DATA.inward.purchaser,
         invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
       });
-      await metalInward.nextBtn.click();
+      await metalInward.clickNext();
       await metalInward.waitForIdle();
 
       await metalInward.fillItem(DATA.inward.item);
@@ -84,7 +84,7 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
       // into the per-metal Rate strip the app renders after Add Item
       // (UI change 23/24-09-2026)
       await metalInward.addItem();
-      await metalInward.nextBtn.click();
+      await metalInward.clickNext();
       await metalInward.waitForIdle();
       await expect(metalInward.gridRows.filter({ hasText: DATA.inward.item.article })).toHaveCount(1, { timeout: 30_000 });
       // the review step's "Pure Rate" input stays EMPTY where the location

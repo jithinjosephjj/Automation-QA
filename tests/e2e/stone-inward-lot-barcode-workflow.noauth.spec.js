@@ -72,7 +72,7 @@ test.describe('Stone Inward - Lot - Barcode - Workflow', () => {
       invoiceNo,
       invoiceDate: businessDate(0).replace(/-/g, '/'),
     });
-    await stoneInward.nextBtn.click();
+    await stoneInward.clickNext();
     await expect(stoneInward.select('refType')).toBeVisible({ timeout: 30_000 });
 
     await stoneInward.fillItem(DATA.inward.item);
@@ -82,7 +82,7 @@ test.describe('Stone Inward - Lot - Barcode - Workflow', () => {
       .toMatch(/Vendor Name\s*:\s*RAJA/);
 
     if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await stoneInward.nextBtn.click();
+      await stoneInward.clickNext();
     }
     await expect(stoneInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const saved = await stoneInward.submit();

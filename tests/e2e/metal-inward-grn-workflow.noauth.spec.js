@@ -67,7 +67,7 @@ test.describe('Metal Inward - GRN workflow', () => {
     await expect(metalInward.hallmark).not.toBeChecked();
 
     // ---- Next -> Inward Metal Items ----
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await expect(metalInward.select('referenceType')).toBeVisible({ timeout: 30_000 });
 
     await metalInward.fillItem({
@@ -116,7 +116,7 @@ test.describe('Metal Inward - GRN workflow', () => {
     expect(amount('Making Amount')).toBeCloseTo(makingCharges * 60, 1);
 
     // ---- Next -> Review & Submit ----
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await expect(metalInward.submitBtn).toBeVisible({ timeout: 30_000 });
 
     const reviewRow = metalInward.gridRows.first();

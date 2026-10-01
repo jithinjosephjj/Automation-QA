@@ -92,7 +92,7 @@ test.describe('Brand Inward - Sales Invoice - Workflow', () => {
       purchaser: DATA.inward.purchaser,
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
     });
-    await brandInward.nextBtn.click();
+    await brandInward.clickNext();
     await expect(brandInward.select('referenceType')).toBeVisible({ timeout: 30_000 });
 
     await brandInward.fillItem(DATA.inward.item);
@@ -102,7 +102,7 @@ test.describe('Brand Inward - Sales Invoice - Workflow', () => {
       .toContain(`No. of Pieces : ${DATA.inward.item.noOfPcs}`);
 
     if (!(await brandInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await brandInward.nextBtn.click();
+      await brandInward.clickNext();
     }
     await expect(brandInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const saved = await brandInward.submit(); // answers "Process with Barcode or Lot?" with No when asked

@@ -77,7 +77,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
       invoiceNo,
       invoiceDate: businessDate(0).replace(/-/g, '/'),
     });
-    await stoneInward.nextBtn.click();
+    await stoneInward.clickNext();
     await expect(stoneInward.select('refType')).toBeVisible({ timeout: 30_000 });
 
     await stoneInward.fillItem(DATA.inward.item);
@@ -97,7 +97,7 @@ test.describe('Stone Assorting - Certification - Tare Weight Workflow', () => {
     expect(summary, 'tare weight shown in the item summary').toContain(`Stone Tare Weight : ${WEIGHTS.tare}.000`);
 
     if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await stoneInward.nextBtn.click();
+      await stoneInward.clickNext();
     }
     await expect(stoneInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const saved = await stoneInward.submit();

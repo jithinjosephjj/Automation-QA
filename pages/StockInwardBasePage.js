@@ -669,6 +669,33 @@ class StockInwardBasePage extends BasePage {
     return { inward: inward.body, others: saves.filter((x) => x !== inward).map((x) => x.body), all: saves };
   }
 
+  /**
+   * The wizard's "Next". Since 01-10-2026 the Metal Inward item step ends in
+   * Submit (the separate review step is gone; the "Metal Inward Summary"
+   * panel on the right replaced it), while the Stone / Brand wizards still
+   * show Next. So: click Next when it is on screen; when only Submit is,
+   * there is no next step and this is a no-op; otherwise wait for either.
+   * Returns true when Next was clicked.
+   */
+  async clickNext() {
+    const next = this.nextBtn.locator('visible=true').last();
+    const submit = this.submitBtn.locator('visible=true').last();
+    const deadline = Date.now() + T(15_000);
+    while (Date.now() < deadline) {
+      if (await next.isVisible().catch(() => false)) {
+        await next.click();
+        return true;
+      }
+      if (await submit.isVisible().catch(() => false)) {
+        console.log(`${this.tabName} wizard: no Next step on screen - Submit is already offered`);
+        return false;
+      }
+      await this.page.waitForTimeout(300);
+    }
+    await next.click(); // neither appeared: let the normal timeout report it
+    return true;
+  }
+
   async submit() {
     const pattern = this.submitApiPattern || /Inward/i;
     // Grid refreshes and keep-alives are POSTs too - never count them as the

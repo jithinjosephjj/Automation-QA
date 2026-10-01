@@ -1,32 +1,32 @@
 {
-  "startedAt": "2026-09-30T09:37:18.938Z",
-  "inwardVoucherNo": "M451",
-  "updatedAt": "2026-09-30T09:42:38.986Z",
-  "lotNo": "NN114",
-  "tagNo": "2026-06-2500047",
+  "startedAt": "2026-09-30T09:56:55.289Z",
+  "inwardVoucherNo": "M452",
+  "updatedAt": "2026-09-30T10:02:49.342Z",
+  "lotNo": "NN115",
+  "tagNo": "2026-06-2500050",
   "tags": [
     {
-      "tagNo": "2026-06-2500047",
-      "rfidNo": "27254114A9024DEF81A6B906"
+      "tagNo": "2026-06-2500050",
+      "rfidNo": "AD7D4A4CDF5C45D5B51D7FAF"
     },
     {
-      "tagNo": "2026-06-2500048",
-      "rfidNo": "19C05809701C42668FEA0BC7"
+      "tagNo": "2026-06-2500051",
+      "rfidNo": "B43FC63F70A847EA93ACEBE6"
     }
   ],
-  "allocationNo": "cc82",
-  "rfidNo": "27254114A9024DEF81A6B906",
+  "allocationNo": "cc84",
+  "rfidNo": "AD7D4A4CDF5C45D5B51D7FAF",
   "counterAccepted": true,
-  "approvalRcNo": "LLLLL3",
-  "approvalReceiptNo": "RRRR21",
+  "approvalRcNo": "LLLLL4",
+  "approvalReceiptNo": "RRRR22",
   "approvalReceived": true,
   "receivedTag": {
-    "tagNo": "2026-06-2500047",
-    "rfidNo": "27254114A9024DEF81A6B906"
+    "tagNo": "2026-06-2500050",
+    "rfidNo": "AD7D4A4CDF5C45D5B51D7FAF"
   },
-  "invoiceDocNo": "SSS24",
+  "invoiceDocNo": "SSS25",
   "invoicedTag": {
-    "tagNo": "2026-06-2500048",
-    "rfidNo": "19C05809701C42668FEA0BC7"
+    "tagNo": "2026-06-2500051",
+    "rfidNo": "B43FC63F70A847EA93ACEBE6"
   }
 }

@@ -79,12 +79,12 @@ test.describe('Metal Inward GRN - GRN Sales Invoice - Workflow', () => {
       invoiceNo: uniqueRef('MI-GRN'), // the "Voucher Number" on a GRN
     });
     expect(picked.subTransactionType).toContain('GRN');
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
 
     await metalInward.fillItem(DATA.inward.item);
     await metalInward.addItem(); // verified Add Item (mandatory description selects; pure rate strip when offered)
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: DATA.inward.item.article })).toHaveCount(1, { timeout: 30_000 });
 

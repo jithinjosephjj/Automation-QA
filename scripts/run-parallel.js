@@ -112,7 +112,7 @@ const PROJECT = { chromium: 'no-auth', firefox: 'no-auth-firefox' };
 // ALONE, after lanes 1-4, legs in relay order (each leg reads the previous leg's state)
 const TAIL = {
   name: 'tail-tag-relay',
-  steps: ['ho-ho-tag-transfer', 'ho-branch-tag-transfer', 'branch-branch-tag-transfer', 'branch-ho-tag-transfer'].map((n) => [E2E(n)]),
+  steps: ['tag-relay-1-ho-ho', 'tag-relay-2-ho-branch', 'tag-relay-3-branch-branch', 'tag-relay-4-branch-ho'].map((n) => [E2E(n)]),
 };
 
 const args = process.argv.slice(2);

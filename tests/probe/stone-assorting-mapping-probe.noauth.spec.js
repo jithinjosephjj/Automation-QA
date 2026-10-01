@@ -80,7 +80,7 @@ test('PROBE stone assorting flow mapping', async ({ loginPage, stoneInward, ston
   const invoiceNo = uniqueInvoiceNo().replace(/[^A-Za-z0-9]/g, '');
   await stoneInward.fillBasicDetails({ subTransactionType: 'Invoice', inwardType: 'Stock', purchaseType: 'Direct', vendor: 'RAJA', invoiceNo, invoiceDate: businessDate(0).replace(/-/g, '/') });
   await dump('INWARD basic (filled)');
-  await stoneInward.nextBtn.click();
+  await stoneInward.clickNext();
   await stoneInward.waitForIdle();
   await dump('INWARD item (empty)');
   for (const c of ['refType', 'entryMode', 'uom']) await options(c);
@@ -89,7 +89,7 @@ test('PROBE stone assorting flow mapping', async ({ loginPage, stoneInward, ston
   await stoneInward.addItem();
   await dump('INWARD after Add Item');
   if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-    await stoneInward.nextBtn.click();
+    await stoneInward.clickNext();
     await stoneInward.waitForIdle();
   }
   await dump('INWARD before Submit');

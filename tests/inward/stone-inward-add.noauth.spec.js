@@ -56,7 +56,7 @@ test.describe('Stone Inward - add record', () => {
     expect(await stoneInward.inputByLabel('Invoice Number').inputValue()).toBe(invoiceNo);
 
     // ---- Step 12: Next -> Build Items & Submit ----
-    await stoneInward.nextBtn.click();
+    await stoneInward.clickNext();
     await expect(stoneInward.select('refType')).toBeVisible({ timeout: 30_000 });
 
     // ---- Steps 13-30: item entry ----
@@ -105,7 +105,7 @@ test.describe('Stone Inward - add record', () => {
 
     // ---- Step 34: Submit ----
     if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await stoneInward.nextBtn.click();
+      await stoneInward.clickNext();
     }
     await expect(stoneInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const response = await stoneInward.submit();

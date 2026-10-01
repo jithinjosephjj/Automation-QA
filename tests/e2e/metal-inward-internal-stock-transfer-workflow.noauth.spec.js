@@ -73,11 +73,11 @@ test.describe('Metal Inward - Internal Stock Transfer (Department -> Locker -> L
       purchaser: DATA.inward.purchaser,
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
     });
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await metalInward.fillItem(DATA.inward.item);
     await metalInward.addItem(); // mandatory description selects; pure rate 15000 after Add Item
-    await metalInward.nextBtn.click();
+    await metalInward.clickNext();
     await metalInward.waitForIdle();
     await expect(metalInward.gridRows.filter({ hasText: DATA.inward.item.article })).toHaveCount(1, { timeout: 30_000 });
 

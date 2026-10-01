@@ -139,13 +139,13 @@ test.describe('Logistics - Stone Goods Receipt - Sales - Workflow', () => {
       invoiceNo,
       invoiceDate: businessDate(0).replace(/-/g, '/'),
     });
-    await stoneInward.nextBtn.click();
+    await stoneInward.clickNext();
     await expect(stoneInward.select('refType')).toBeVisible({ timeout: 30_000 });
 
     await stoneInward.fillItemFromGoodsReceipt({ goodsReceiptNo, ...DATA.inward.item });
     await stoneInward.addItem(); // Additional Charges first, then Add Item (QA lead 26-09-2026)
     if (!(await stoneInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await stoneInward.nextBtn.click();
+      await stoneInward.clickNext();
     }
     await expect(stoneInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const saved = await stoneInward.submit();

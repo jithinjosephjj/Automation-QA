@@ -109,9 +109,26 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.settle(2_500);
 
     // the inward grid pages (dozens of records, not strictly newest-first)
-    // - narrow it via the form's own RC No typeahead before picking the row
-    await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true })
-      .catch((e) => console.log('assorting issue: RC No pick skipped -', String(e).slice(0, 100)));
+    // - narrow it via the form's own RC No typeahead before picking the row.
+    // The pick MUST land: the employee select only renders once an RC No is
+    // chosen, and a swallowed pick (30-09-2026 TC-SACT-02: the select stayed
+    // covered by the grid-load spinner past the 15 s action timeout) sent
+    // pickEmptyRaw hunting for 6 minutes. Retry after the page goes idle,
+    // then fail with the real reason.
+    let rcPicked = false; let rcProblem = '';
+    for (let attempt = 1; attempt <= 3 && !rcPicked; attempt++) {
+      await this.waitForIdle();
+      await this.waitForSpinner().catch(() => {});
+      try {
+        await this.pickByCaption('RC No', this.docCore(inwardNo), { exact: false, search: true });
+        rcPicked = true;
+      } catch (e) {
+        rcProblem = String(e).split(/\r?\n/)[0].slice(0, 120);
+        console.log(`assorting issue: RC No pick attempt ${attempt} failed - ${rcProblem}`);
+        await this.settle(2_000);
+      }
+    }
+    if (!rcPicked) throw new Error(`assorting issue: RC No "${this.docCore(inwardNo)}" could not be picked after 3 attempts (${rcProblem})`);
     await this.waitForIdle();
     await this.settle(2_500);
     await this.checkRow(inwardNo).catch(() => this.checkRow(this.docCore(inwardNo)));

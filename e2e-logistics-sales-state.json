@@ -1,5 +1,13 @@
 {
-  "startedAt": "2026-09-30T04:55:30.258Z",
-  "logisticsNo": "ll10",
-  "updatedAt": "2026-09-30T04:56:06.633Z"
+  "startedAt": "2026-10-01T04:57:37.891Z",
+  "logisticsNo": "ll13",
+  "updatedAt": "2026-10-01T05:02:39.745Z",
+  "goodsReceiptNo": "1119",
+  "inwardVoucherNo": "M471",
+  "lotNo": "NN130",
+  "tagNo": "2026-06-2500056",
+  "rfidNo": "F256AFF8B3DE48E998B0B453",
+  "allocationNo": "cc89",
+  "counterAccepted": true,
+  "invoiceDocNo": "SSS26"
 }

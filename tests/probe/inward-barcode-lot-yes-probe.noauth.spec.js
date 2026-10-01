@@ -41,11 +41,11 @@ test('PROBE inward: process with barcode and lot = Yes', async ({ loginPage, met
   await metalInward.open();
   await metalInward.openAddWizard();
   await metalInward.fillBasicDetails({ subTransactionType: 'Invoice', businessUnit: 'Cochin', inwardType: 'Stock', purchaseType: 'Direct', vendor: 'RAJA', purchaser: 'Abc', invoiceNo: uniqueInvoiceNo() });
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   await metalInward.fillItem({ entryMode: 'SINGLE TAG', referenceType: 'Combination', article: 'Tendulkar', purity: '91.60', noOfPcs: 1, grossWeightWithTare: 60, rate: 6000 });
   await metalInward.addItem();
-  await metalInward.nextBtn.click();
+  await metalInward.clickNext();
   await metalInward.waitForIdle();
   await metalInward.fillPureRateIfEmpty();
 

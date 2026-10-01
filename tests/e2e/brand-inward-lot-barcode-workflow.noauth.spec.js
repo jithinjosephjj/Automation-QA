@@ -75,7 +75,7 @@ test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
       purchaser: DATA.inward.purchaser,
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
     });
-    await brandInward.nextBtn.click();
+    await brandInward.clickNext();
     await expect(brandInward.select('referenceType')).toBeVisible({ timeout: 30_000 });
 
     await brandInward.fillItem(DATA.inward.item);
@@ -89,7 +89,7 @@ test.describe('Brand Inward - Lot - Barcode - Workflow', () => {
     // Submit lives on the summary step - advance manually when the wizard
     // stays on the cleared item form
     if (!(await brandInward.submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      await brandInward.nextBtn.click();
+      await brandInward.clickNext();
     }
     await expect(brandInward.submitBtn).toBeVisible({ timeout: 30_000 });
     const saved = await brandInward.submit();
