@@ -46,6 +46,9 @@ const DATA = {
     stockIdentityType: 'Jobwork Stock',
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    // a jobwork-return lot's Counter is empty + mandatory and must be an ORDER-type counter (QA lead 06-10-2026)
+    counter: 'Counter 1',
+    subCounter: 'Sub Counter1',
   },
 };
 
@@ -140,6 +143,8 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
       lotNo,
       grossWeight: DATA.barcode.grossWeight,
       descriptions: DATA.barcode.descriptions,
+      counter: DATA.barcode.counter,
+      subCounter: DATA.barcode.subCounter,
     });
     expect(saved, 'barcode save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);

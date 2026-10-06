@@ -36,6 +36,8 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     pieces, // defaults to the form's value, capped to the lot's piece count
     descriptions = { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
     additionalCharges, // true | { chargeType, chargeName, amount } - see addAdditionalCharges
+    counter, // jobwork-return lots: the Counter is empty + mandatory and must be an ORDER-type counter (QA lead 06-10-2026: "Counter 1")
+    subCounter, // its Sub Counter (QA lead: "Sub Counter 1"); first offered when omitted
   }) {
     await this.open();
     await this.waitForSpinner();
@@ -133,31 +135,13 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     if (amount !== undefined) await this.fillByLabel('Amount', amount);
     await this.settle(1_500);
 
-    // Counter: prefilled on stock lots, but EMPTY and mandatory on a
-    // jobwork-return lot (01-10-2026 TC-JW-DOL-04: Submit silently blocked,
-    // invalid select "counterID", the form showed "Please Select") - take the
-    // first counter offered when the select is on screen and still empty
-    // (visible=true: a hidden counterID select earlier in the DOM - the list
-    // view's filter - made the plain .first() look invisible and skip this)
-    const counter = this.page.locator('sioniq-ng-select[controlname="counterID"] ng-select, ng-select[formcontrolname="counterID"]').locator('visible=true').first();
-    if (await counter.count()) {
-      const val = ((await counter.locator('.ng-value').first().textContent({ timeout: 1_000 }).catch(() => '')) || '').trim();
-      if (!val) {
-        try {
-          await counter.locator('.ng-select-container').click();
-          const opt = this.page.locator('.ng-dropdown-panel .ng-option').first();
-          await opt.waitFor({ state: 'visible', timeout: T(20_000) });
-          const label = (await opt.textContent().catch(() => '')).trim();
-          await opt.click();
-          console.log(`barcode: Counter was empty - picked "${label}"`);
-        } catch (e) {
-          console.log(`barcode: Counter stayed empty - ${String(e).split(/\r?\n/)[0].slice(0, 100)}`);
-        }
-        await this.settle(1_000);
-      }
-    } else {
-      console.log('barcode: no Counter select on this form');
-    }
+    // Counter + Sub Counter: prefilled on stock / B2B lots, but EMPTY and
+    // mandatory on a jobwork-return lot (TC-JW-DOL-04, TC-OLG-05: Submit
+    // silently blocked, invalid select "counterID"). Picking a Counter then
+    // renders a dependent SUB COUNTER that is mandatory too (06-10-2026).
+    // visible=true: a hidden counterID select earlier in the DOM (the list
+    // view's filter) made a plain .first() look invisible and skip this.
+    await this.fillCounterAndSubCounter({ counter, subCounter });
 
     // Additional Charges (QA lead 26-09-2026: "click on additional charges,
     // add charges, then submit"): without them Submit fires nothing and flags
@@ -193,6 +177,106 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     await this.closeVisibleDialog();
     return body;
+  }
+
+  /** The visible ng-select of a wrapper controlname / raw formcontrolname ('' when the form has none). */
+  visibleSelect(controlname) {
+    return this.page
+      .locator(`sioniq-ng-select[controlname="${controlname}"] ng-select, ng-select[formcontrolname="${controlname}"]`)
+      .locator('visible=true').first();
+  }
+
+  /**
+   * Open a select and return its option labels - the ng-select panel opened
+   * too early shows nothing / "No items found" until reopened (stale-panel
+   * behaviour seen on TC-OLG-05: the Counter list stayed empty for 20 s), so
+   * each attempt closes and reopens it and waits a little longer.
+   */
+  async optionsOf(sel, { attempts = 3 } = {}) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) {
+        await this.page.keyboard.press('Escape');
+        await this.page.waitForTimeout(300);
+      }
+      await sel.locator('.ng-select-container').click({ timeout: T(10_000) });
+      const options = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found/i });
+      const found = await options.first().waitFor({ state: 'visible', timeout: T(attempt * 4_000) }).then(() => true).catch(() => false);
+      if (found) return { options, labels: (await options.allTextContents()).map((t) => t.trim()) };
+      console.log(`barcode: select offered no options (attempt ${attempt}) - reopening`);
+      await this.settle(1_500);
+    }
+    await this.page.keyboard.press('Escape').catch(() => {});
+    return { options: null, labels: [] };
+  }
+
+  /**
+   * Counter + Sub Counter of a jobwork-return lot. The app validates the
+   * counter's TYPE ("Invalid Counter: the selected counter is not an Order
+   * counter. Please select a counter with Counter Type = Order", 06-10-2026)
+   * and the dropdown labels do not show the type, so the caller names the
+   * counter (QA lead: "Counter 1", the only Order-type counter on qa) and
+   * its sub counter ("Sub Counter 1"). Without names: the first counter that
+   * offers a sub counter (kept for forms that do not validate the type).
+   */
+  async fillCounterAndSubCounter({ counter: wantCounter, subCounter: wantSub } = {}) {
+    const counter = this.visibleSelect('counterID');
+    if (!(await counter.count())) { console.log('barcode: no Counter select on this form'); return; }
+    const valueOf = async (sel) => ((await sel.locator('.ng-value').first().textContent({ timeout: 1_000 }).catch(() => '')) || '').trim();
+    if (await valueOf(counter)) return; // prefilled (stock / B2B lots)
+
+    const norm = (s) => String(s).replace(/\s+/g, '').toLowerCase(); // "Sub Counter 1" == "Sub Counter1" (the app's spelling)
+    const indexOf = (labels, want) => {
+      let i = labels.findIndex((l) => norm(l) === norm(want));
+      if (i < 0) i = labels.findIndex((l) => norm(l).includes(norm(want)));
+      return i;
+    };
+    const pickSub = async (want, underLabel) => {
+      const sub = this.visibleSelect('subCounterID');
+      if (!(await sub.count()) || (await valueOf(sub))) return true; // no sub counter needed, or prefilled
+      const subOpts = await this.optionsOf(sub, { attempts: 2 });
+      if (!subOpts.options) return false;
+      let i = want ? indexOf(subOpts.labels, want) : 0;
+      if (i < 0) {
+        console.log(`barcode: Sub Counter "${want}" not offered under "${underLabel}" (${JSON.stringify(subOpts.labels.slice(0, 8))}) - taking the first`);
+        i = 0;
+      }
+      await subOpts.options.nth(i).click();
+      await this.settle(1_000);
+      console.log(`barcode: Sub Counter picked "${subOpts.labels[i]}" under "${underLabel}"`);
+      return true;
+    };
+
+    const { options, labels } = await this.optionsOf(counter);
+    if (!options) throw new Error('barcode: the Counter select is mandatory here but offered no option (3 attempts)');
+
+    if (wantCounter) {
+      const i = indexOf(labels, wantCounter);
+      if (i < 0) {
+        await this.page.keyboard.press('Escape').catch(() => {});
+        throw new Error(`barcode: Counter "${wantCounter}" is not offered - the list has ${labels.length} counters: ${JSON.stringify(labels.slice(0, 12))}`);
+      }
+      await options.nth(i).click();
+      await this.settle(1_500);
+      console.log(`barcode: Counter picked "${labels[i]}"`);
+      if (!(await pickSub(wantSub, labels[i]))) throw new Error(`barcode: Counter "${labels[i]}" offers no Sub Counter and the form needs one`);
+      return;
+    }
+
+    // no name given: the first counter that offers a sub counter
+    for (let i = 0; i < Math.min(labels.length, 4); i++) {
+      if (i > 0) {
+        const again = await this.optionsOf(counter);
+        if (!again.options) break;
+        await again.options.nth(i).click();
+      } else {
+        await options.nth(i).click();
+      }
+      await this.settle(1_500);
+      console.log(`barcode: Counter was empty - picked "${labels[i]}"`);
+      if (await pickSub(null, labels[i])) return;
+      console.log(`barcode: counter "${labels[i]}" offers no sub counter - trying the next counter`);
+    }
+    throw new Error(`barcode: no Counter with a selectable Sub Counter among ${JSON.stringify(labels.slice(0, 4))}`);
   }
 
   /** A number from the lot summary panel, e.g. "Lot Weight : 350.000" -> 350; null when absent. */
