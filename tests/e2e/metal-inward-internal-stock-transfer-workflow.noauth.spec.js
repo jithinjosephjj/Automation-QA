@@ -8,15 +8,15 @@ const state = makeState('e2e-internal-transfer-state.json');
  * METAL INWARD -> INTERNAL STOCK TRANSFER (Department -> Locker -> Locker).
  *
  * QA lead, 25-09-2026. qa has no "Process" transfer option, so the metal
- * inward goes Department -> Asmi's locker, then Asmi's locker -> Bhavani's,
+ * inward goes Department -> Asmi's locker, then Asmi's locker -> Dwani's,
  * each accepted on Internal Transfer > Accept. Stock Entity Type Material,
  * Stock Identity Type Stock throughout:
  *
  *   TC-IST-01  Metal Inward              Invoice / Stock / Direct, RAJA, 1 pc Tendulkar 91.60, gross 100 g
  *   TC-IST-02  Internal Transfer         Department -> Locker (Asmi), Material, Transaction Type Metal Inward, the inward's line
  *   TC-IST-03  Internal Stock Accept     at Asmi's locker, received from Department
- *   TC-IST-04  Internal Transfer         Locker -> Locker, Asmi -> Bhavani, Material / Stock, 100 g
- *   TC-IST-05  Internal Stock Accept     at Bhavani's locker, received from Locker (Asmi)
+ *   TC-IST-04  Internal Transfer         Locker -> Locker, Asmi -> Dwani, Material / Stock, 100 g
+ *   TC-IST-05  Internal Stock Accept     at Dwani's locker, received from Locker (Asmi)
  *
  * One continuous business flow: each test consumes the previous test's
  * output via e2e-internal-transfer-state.json, so the chain resumes where it
@@ -44,7 +44,7 @@ const DATA = {
     },
   },
   first: { employee: 'Asmi' },
-  second: { employee: 'Bhavani' },
+  second: { employee: 'Dwani' }, // own locker "Locker Counter" - Bhavani shares Asmi's "Conter Ab" and the app refuses a same-locker transfer (06-10-2026)
   stockEntityType: 'Material',
   stockIdentityType: 'Stock',
   weight: 100,
@@ -129,7 +129,7 @@ test.describe('Metal Inward - Internal Stock Transfer (Department -> Locker -> L
     console.log(`Transfer ${transfer1No} accepted at ${DATA.first.employee}'s locker: ${docNo(body)}`);
   });
 
-  test('TC-IST-04 internal transfer Locker -> Locker (Asmi -> Bhavani, 100 g)', async ({ loginPage, internalTransfer }) => {
+  test('TC-IST-04 internal transfer Locker -> Locker (Asmi -> Dwani, 100 g)', async ({ loginPage, internalTransfer }) => {
     test.setTimeout(420_000);
     const { accept1No, transfer1No } = state.readState();
     expect(transfer1No && accept1No !== undefined, 'run TC-IST-03 first').toBeTruthy();
@@ -151,7 +151,7 @@ test.describe('Metal Inward - Internal Stock Transfer (Department -> Locker -> L
     console.log(`Internal transfer ${transferNo}: ${DATA.first.employee} -> ${DATA.second.employee}`);
   });
 
-  test('TC-IST-05 internal stock accept at Bhavani\'s locker (from Asmi\'s locker)', async ({ loginPage, internalTransfer }) => {
+  test('TC-IST-05 internal stock accept at Dwani\'s locker (from Asmi\'s locker)', async ({ loginPage, internalTransfer }) => {
     test.setTimeout(420_000);
     const { transfer2No } = state.readState();
     expect(transfer2No, 'run TC-IST-04 first').toBeTruthy();

@@ -113,25 +113,42 @@ class InternalStockTransferPage extends ProductionWorkflowPage {
     return texts[idx];
   }
 
-  /** Enter the transfer weight in the ticked row / its dialog when the screen asks for one. */
+  /**
+   * The item dialog that opens on the row tick. Since 06-10-2026 ticking a
+   * Department -> Locker row opens a "Metal Transfer" dialog (group / category
+   * / article / purity read-only, No Of Pcs, Gross Weight prefilled with the
+   * line's weight and its Max, Close / Add) and the transfer only continues
+   * after Add - with the dialog still open the Next / Submit underneath are
+   * unreachable (TC-IST-02 timed out on Submit). So the dialog is ALWAYS
+   * confirmed when it appears; `weight` (optional) overrides the prefilled
+   * Gross Weight first (the Locker -> Locker step moves 100 g).
+   */
   async fillTransferWeight(weight) {
-    if (weight === undefined) return;
     const dlg = this.page.locator('.modal, ngb-modal-window, [role="dialog"], .offcanvas').locator('visible=true').last();
-    const scope = (await dlg.count()) ? dlg : this.page;
-    const input = scope.locator('xpath=.//*[contains(normalize-space(text()),"Gross Weight")]/following::input[not(@disabled) and not(@readonly)][1]').first();
-    if (await input.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await input.fill(String(weight));
-      await input.blur();
-      await this.settle(1_500);
-      console.log(`internal transfer: transfer gross weight -> ${weight}`);
-    }
-    if (await dlg.count()) {
-      const add = dlg.locator('button').filter({ hasText: /^\s*(Add|Add to Grid|Save|Ok)\s*$/i }).last();
-      if (await add.isVisible({ timeout: 1_000 }).catch(() => false)) {
-        await add.click();
-        await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
-        await this.settle(1_000);
+    // the dialog opens after a load spinner - give it a moment
+    const opened = await dlg.waitFor({ state: 'visible', timeout: 6_000 }).then(() => true).catch(() => false);
+    if (!opened && weight === undefined) return;
+    const scope = opened ? dlg : this.page;
+    if (weight !== undefined) {
+      const input = scope.locator('xpath=.//*[contains(normalize-space(text()),"Gross Weight")]/following::input[not(@disabled) and not(@readonly)][1]').first();
+      if (await input.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await input.fill(String(weight));
+        await input.blur();
+        await this.settle(1_500);
+        console.log(`internal transfer: transfer gross weight -> ${weight}`);
+      } else {
+        console.log('internal transfer: no editable Gross Weight input - keeping the prefilled weight');
       }
+    }
+    if (opened) {
+      const title = ((await dlg.locator('h5, h4, .modal-title').first().textContent({ timeout: 1_000 }).catch(() => '')) || '').trim();
+      const add = dlg.locator('button').filter({ hasText: /^\s*(Add|Add to Grid|Save|Ok)\s*$/i }).last();
+      await add.waitFor({ state: 'visible', timeout: 5_000 });
+      await add.click();
+      const closed = await dlg.waitFor({ state: 'hidden', timeout: 10_000 }).then(() => true).catch(() => false);
+      if (!closed) throw new Error(`internal transfer: the "${title || 'item'}" dialog is still open after Add - the row did not land in the transfer`);
+      console.log(`internal transfer: "${title || 'item'}" dialog confirmed with Add`);
+      await this.settle(1_000);
     }
   }
 
@@ -215,7 +232,9 @@ class InternalStockTransferPage extends ProductionWorkflowPage {
       { timeout: 60_000 },
     );
     resp.catch(() => {});
-    await this.page.getByRole('button', { name: /^\s*Accept\s*$/ }).locator('visible=true').last().click();
+    // the footer buttons carry their icon's glyph in the accessible name
+    // (" Accept", " Reject" - 06-10-2026), so match the trailing text
+    await this.page.getByRole('button', { name: /Accept\s*$/ }).locator('visible=true').last().click();
     // a confirmation may ask "are you sure"
     const confirm = this.page.locator('.swal2-confirm, .modal-footer button').filter({ hasText: /^\s*(Yes|Ok|Confirm|Accept)\s*$/i }).locator('visible=true').first();
     if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click();
