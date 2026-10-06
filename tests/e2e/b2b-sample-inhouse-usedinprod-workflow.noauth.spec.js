@@ -77,6 +77,19 @@ function jobWorkKey() {
   return state.readState().jobWorkNo;
 }
 
+/**
+ * Grid / dropdown keys of this chain's JOB: the job work no (P-series) AND
+ * the production no (J-series) allotted at TC-B2B-SUP-04. The Casting
+ * receipt's Production No dropdown lists J-numbers only, so with the P-key
+ * alone the page object fell back to "the first offered" and, after the
+ * 06-10-2026 qa outage had skipped this job's issue, picked another job
+ * (J569.1). With the J-key present the page object stops instead.
+ */
+function jobKeys() {
+  const s = state.readState();
+  return [s.jobWorkNo, s.productionNo].filter(Boolean);
+}
+
 test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
   test('TC-B2B-SUP-01 create the B2B order with a sample', async ({ loginPage, b2bOrderBooking, sampleWorkflow, page }) => {
     test.setTimeout(600_000);
@@ -178,15 +191,19 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     test.setTimeout(420_000);
     expect(jobWorkKey(), 'run TC-B2B-SUP-02 first').toBeTruthy();
     await login(loginPage, page);
-    await production.assignJob({
+    // the assignment allots the PRODUCTION number (J-series) that the Casting
+    // receipt's Production No dropdown is keyed by - keep it
+    const productionNo = await production.assignJob({
       sourceType: 'Job Work',
       generationType: 'Order',
       itemType: 'Metal',
       process: DATA.round.process,
       subProcess: DATA.round.subProcess,
-      rowText: jobWorkKey(),
+      rowText: jobKeys(),
     });
-    console.log(`Job work assigned to ${DATA.round.process} / ${DATA.round.subProcess}`);
+    expect(productionNo, 'production number allotted by the assignment').toBeTruthy();
+    state.writeState({ productionNo });
+    console.log(`Job work assigned to ${DATA.round.process} / ${DATA.round.subProcess} - production no ${productionNo}`);
   });
 
   test('TC-B2B-SUP-05 assign the SAMPLE to Casting Process / Casting Inspection', async ({ loginPage, production, page }) => {
@@ -216,7 +233,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
       process: DATA.round.process,
       sourceType: 'Job Work',
       itemType: 'Metal',
-      rowText: jobWorkKey(),
+      rowText: jobKeys(),
     });
     expect(result, 'job work pending at Process Movement Accept (not skipped)').toBe('accepted');
     console.log('Process movement accepted (job work) at Casting');
@@ -240,7 +257,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
   test('TC-B2B-SUP-08 worker issue - JOB WORK (Casting)', async ({ loginPage, production, page }) => {
     test.setTimeout(600_000);
     await login(loginPage, page);
-    const result = await production.workerIssue({ ...DATA.round, productionSource: 'Job Work', itemType: 'Metal', rowText: jobWorkKey() });
+    const result = await production.workerIssue({ ...DATA.round, productionSource: 'Job Work', itemType: 'Metal', rowText: jobKeys() });
     expect(result, 'job work issuable at Worker Issue (not skipped)').not.toBe('skipped');
     console.log('Worker issue (job work) done at Casting');
   });
@@ -264,7 +281,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
       ...DATA.round,
       productionSource: 'Job Work',
       itemType: 'Metal',
-      rowText: jobWorkKey(),
+      rowText: jobKeys(),
       item: {
         article: DATA.receiptItem.article,
         articleSearch: DATA.receiptItem.articleSearch,
