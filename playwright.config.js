@@ -82,26 +82,9 @@ module.exports = defineConfig({
         storageState: 'auth/admin-cochin.json',
       },
     },
-
-    // Same specs on Firefox. scripts/run-parallel.js puts some lanes here
-    // (--firefox=3,4) so a 4-lane run is 2 Chromium + 2 Firefox windows.
-    // Firefox knows none of the Chromium launch args above, so they are
-    // cleared; there is no Local Network Access prompt to disable on Firefox.
-    // A fixed viewport replaces --start-maximized (Firefox has no such flag).
-    {
-      name: 'no-auth-firefox',
-      testMatch: /.*\.noauth\.spec\.js/,
-      use: {
-        ...devices['Desktop Firefox'],
-        viewport: { width: 1600, height: 900 },
-        launchOptions: { args: [] },
-        storageState: { cookies: [], origins: [] },
-      },
-    },
-
-    // Enable when cross-browser coverage of the saved-session specs is needed:
-    // { name: 'firefox', dependencies: ['setup'],
-    //   use: { ...devices['Desktop Firefox'], storageState: 'auth/admin-cochin.json' } },
+    // Chromium only (06-10-2026): the Firefox project was removed - this 8 GB
+    // laptop cannot carry a second headed browser, and the suite's Device
+    // Radar / Local Network Access handling is Chromium-specific.
   ],
 
   // JSON output is what maps spec titles (TC IDs) into the 5-sheet Excel workbook.

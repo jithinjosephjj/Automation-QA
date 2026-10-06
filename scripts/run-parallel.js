@@ -22,16 +22,13 @@
  * dir) and a blob report; they are merged into playwright-report/ (HTML) and
  * results.json at the end. Logs: logs/parallel/<lane>.log.
  *
- * Four lane groupings, 3 running at a time (--concurrency=N), all on Chromium;
- * --firefox=<lanes> runs those lanes on the no-auth-firefox project (the
- * prewarm and the tail stay on Chromium).
+ * Four lane groupings, 3 running at a time (--concurrency=N), all on Chromium
+ * (the project's only browser since 06-10-2026).
  *
  * Usage:
  *   npm run test:parallel                    all lanes (3 at a time) + tail
  *   npm run test:parallel -- --concurrency=4 all 4 lanes at once (needs more than 8 GB RAM)
  *   npm run test:parallel -- --lanes=1,3     only lanes 1 and 3 (no tail)
- *   npm run test:parallel -- --firefox=3,4   lanes 3 and 4 on Firefox, 1 and 2 on Chromium
- *   npm run test:parallel -- --chromium      every lane on Chromium
  *   npm run test:parallel -- --no-tail       lanes 1-4 without the relay
  *   npm run test:parallel -- --failed        re-run the spec files that failed last time
  *   npm run test:parallel -- --dry-run       print the plan, run nothing
@@ -45,8 +42,7 @@ const E2E = (n) => `tests/e2e/${n}-workflow.noauth.spec.js`;
 
 const PREWARM = { name: 'prewarm', steps: [['tests/setup/prewarm-sessions.noauth.spec.js']] };
 
-// FOUR lanes, 2 Chromium + 2 Firefox (29-09-2026). The shared resources
-// decide the grouping:
+// FOUR lanes (29-09-2026). The shared resources decide the grouping:
 //   lane 1 - Cochin inward -> lot -> barcode (as suja) -> counter / sales,
 //            plus the stone and other inward chains (nothing shared beyond
 //            the barcode user);
@@ -58,18 +54,12 @@ const PREWARM = { name: 'prewarm', steps: [['tests/setup/prewarm-sessions.noauth
 // CONCURRENCY: at most 3 lanes run at the same time (--concurrency=N); the
 // 4th starts when the first finishes. Four headed browsers with video
 // recording exhaust this 8 GB machine (29-09-2026: CPU 100 %, 88 MB free ->
-// page loads hung 60-90 s, 18 chains lost a step in the 4-Chromium run; the
+// page loads hung 60-90 s, 18 chains lost a step in the 4-Chromium run; a
 // 2 Chromium + 2 Firefox run lost both Firefox lanes entirely). Raise it only
 // on a machine with more memory.
-// Browser per lane: `browser` below is the default (all Chromium);
-// --firefox=3,4 puts those lanes on the no-auth-firefox project of
-// playwright.config.js, --chromium forces every lane back. Firefox passes the
-// qa login gate and the session replay, so it works for cross-browser runs,
-// but it needs the same memory headroom as a Chromium lane.
 const LANES = [
   {
     name: 'lane1-inward-barcode-sales-stone',
-    browser: 'chromium',
     steps: [[
       'approval-issue-receipt-sales', 'logistics-goods-receipt-sales', 'metal-inward-grn-to-grn-sales-invoice',
       'metal-inward-purchase-return', 'metal-inward-barcode-lot-yes', 'b2b-order-outsource-lot-barcode',
@@ -82,7 +72,6 @@ const LANES = [
   },
   {
     name: 'lane2-production',
-    browser: 'chromium',
     steps: [[
       'production-concept', 'order-inhouse-production', 'b2b-order-inhouse-production',
       'b2b-order-inhouse-barcode-counter-transfer', 'production-master-design', 'jobwork-direct-inhouse-production',
@@ -91,7 +80,6 @@ const LANES = [
   },
   {
     name: 'lane3-samples',
-    browser: 'chromium',
     steps: [[
       'b2b-sample-outsource-delivery', 'b2b-sample-registration-outsource', 'b2b-sample-inhouse',
       'b2b-sample-inhouse-usedinprod', 'b2b-sample-registration-inhouse-production',
@@ -99,7 +87,6 @@ const LANES = [
   },
   {
     name: 'lane4-masters-material',
-    browser: 'chromium',
     steps: [
       // masters first: the CAD / MD-settlement chains cast with the Sioniquser it creates
       ['tests/masters/master-add-operations.noauth.spec.js'],
@@ -107,7 +94,7 @@ const LANES = [
     ],
   },
 ];
-const PROJECT = { chromium: 'no-auth', firefox: 'no-auth-firefox' };
+const PROJECT = 'no-auth'; // the Chromium project of playwright.config.js
 
 // ALONE, after lanes 1-4, legs in relay order (each leg reads the previous leg's state)
 const TAIL = {
@@ -120,16 +107,7 @@ const dryRun = args.includes('--dry-run');
 const noTail = args.includes('--no-tail');
 const laneArg = (args.find((a) => a.startsWith('--lanes=')) || '').split('=')[1];
 const pickLanes = laneArg ? laneArg.split(',').map((x) => Number(x.trim())) : null;
-// --firefox=3,4 runs those lanes (1-based) on Firefox and the rest on Chromium;
-// --chromium runs every lane on Chromium; neither keeps each lane's default.
-const firefoxArg = (args.find((a) => a.startsWith('--firefox=')) || '').split('=')[1];
-const firefoxLanes = firefoxArg ? firefoxArg.split(',').map((x) => Number(x.trim())) : null;
-const allChromium = args.includes('--chromium');
 const concurrency = Math.max(1, Number((args.find((a) => a.startsWith('--concurrency=')) || '').split('=')[1] || 3));
-LANES.forEach((lane, i) => {
-  if (allChromium) lane.browser = 'chromium';
-  else if (firefoxLanes) lane.browser = firefoxLanes.includes(i + 1) ? 'firefox' : 'chromium';
-});
 // --smoke: 2 short READ-ONLY lanes at the same time - checks the runner
 // itself (parallel processes, per-lane output, blob merge) in ~5 minutes
 const SMOKE = [
@@ -183,10 +161,10 @@ function stamp() { return new Date().toTimeString().slice(0, 8); }
 function mins(ms) { return `${(ms / 60000).toFixed(1)} min`; }
 
 /** One `playwright test` run (1 worker) for a list of files; resolves {code, passed, failed}. */
-function runStep(laneName, stepIndex, files, log, browser = 'chromium') {
+function runStep(laneName, stepIndex, files, log) {
   return new Promise((resolve) => {
     const tag = `${laneName}#${stepIndex + 1}`;
-    const project = PROJECT[browser] || PROJECT.chromium;
+    const project = PROJECT;
     const missing = files.filter((f) => !fs.existsSync(path.join(ROOT, f)));
     if (missing.length) {
       log.write(`[${stamp()}] ${tag}: MISSING spec files ${JSON.stringify(missing)} - step skipped\n`);
@@ -215,7 +193,7 @@ function runStep(laneName, stepIndex, files, log, browser = 'chromium') {
       const lines = buf.split(/\r?\n/);
       buf = lines.pop();
       for (const l of lines) {
-        const m = l.match(/^\s+(ok|x|✓|✘)\s+\d+\s+\[no-auth(?:-firefox)?\]\s+›\s+(\S+?)(?::\d+:\d+)?\s+›\s+(.*)$/);
+        const m = l.match(/^\s+(ok|x|✓|✘)\s+\d+\s+\[no-auth\]\s+›\s+(\S+?)(?::\d+:\d+)?\s+›\s+(.*)$/);
         if (m) {
           const ok = m[1] === 'ok' || m[1] === '✓';
           if (ok) passed++; else failed++;
@@ -235,9 +213,9 @@ async function runLane(lane) {
   const log = fs.createWriteStream(path.join(LOG_DIR, `${lane.name}.log`), { flags: 'w' });
   const t0 = Date.now();
   let passed = 0; let failed = 0; let worst = 0;
-  console.log(`[${stamp()}] ${lane.name}: start (${lane.steps.reduce((n, s) => n + s.length, 0)} spec files, ${lane.steps.length} step(s), ${lane.browser || 'chromium'})`);
+  console.log(`[${stamp()}] ${lane.name}: start (${lane.steps.reduce((n, s) => n + s.length, 0)} spec files, ${lane.steps.length} step(s))`);
   for (const [i, files] of lane.steps.entries()) {
-    const r = await runStep(lane.name, i, files, log, lane.browser);
+    const r = await runStep(lane.name, i, files, log);
     passed += r.passed; failed += r.failed; worst = Math.max(worst, r.code || 0);
   }
   log.end();
@@ -248,7 +226,7 @@ async function runLane(lane) {
 
 function printPlan() {
   const show = (l) => {
-    console.log(`\n${l.name} [${l.browser || 'chromium'}]`);
+    console.log(`\n${l.name}`);
     l.steps.forEach((s, i) => console.log(`  step ${i + 1}: ${s.map((f) => path.basename(f).replace('.noauth.spec.js', '')).join(', ')}`));
   };
   console.log(`PLAN (${Math.min(concurrency, lanes.length)} lane(s) at a time; the tail runs alone afterwards)`);
