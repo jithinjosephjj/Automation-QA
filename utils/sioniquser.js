@@ -54,7 +54,18 @@ function nextSioniqUser() {
 
 /** Call only after employee + user + smith have ALL saved. */
 function commit(n) {
-  fs.writeFileSync(COUNTER_FILE, JSON.stringify({ next: n + 1 }, null, 2));
+  setNext(n + 1);
+}
+
+/**
+ * Point the counter at iteration n. The masters suite calls this at the
+ * start of a run after reading qa: the last Sioniquser on the Employee list
+ * + 1 when its chain is complete, the same number when it was cut short.
+ * qa is the source of truth; the file only mirrors it for the later steps
+ * and for latestSioniqUser().
+ */
+function setNext(n) {
+  fs.writeFileSync(COUNTER_FILE, JSON.stringify({ next: n }, null, 2));
 }
 
 /**
@@ -68,4 +79,4 @@ function latestSioniqUser() {
   return { n, displayName: `Sioniquser${n}` };
 }
 
-module.exports = { nextSioniqUser, latestSioniqUser, commit, currentN };
+module.exports = { nextSioniqUser, latestSioniqUser, commit, setNext, currentN };

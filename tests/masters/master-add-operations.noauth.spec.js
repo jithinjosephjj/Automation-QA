@@ -1,5 +1,5 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
-const { nextSioniqUser, commit } = require('../../utils/sioniquser');
+const { nextSioniqUser, commit, currentN, setNext } = require('../../utils/sioniquser');
 
 /**
  * Master-data add operations for one Sioniquser<N> iteration, in dependency
@@ -9,8 +9,10 @@ const { nextSioniqUser, commit } = require('../../utils/sioniquser');
  *
  * Each test is independent (own login/session), idempotent for the current
  * iteration (skips what already exists), and creates its own employee
- * prerequisite when run alone. The counter in sioniquser-counter.json is
- * advanced ONLY by the smith test - the chain's final step.
+ * prerequisite when run alone. The iteration number comes from qa: the
+ * first step reads the last Sioniquser on the Employee list and writes
+ * sioniquser-counter.json to match (see resolveIteration); the final step
+ * advances the counter once the whole chain has saved.
  *
  *   run everything : npx playwright test tests/masters --headed
  *   run one page   : npx playwright test -g "TC-USR-001" --headed
@@ -36,14 +38,58 @@ async function createEmployee(employeePage, u) {
   return response;
 }
 
+/**
+ * qa decides the iteration number, not the counter file (QA lead, 07-10-2026:
+ * "when you see Sioniquser45 as the last user in qa, add user 46").
+ *
+ * The highest Sioniquser<N> on qa's Employee list (page 1, newest first) is
+ * the last iteration that was started. When its final artifact - the locker
+ * assignment - exists, that iteration is complete and this run creates
+ * N+1; when it is missing, the iteration was cut short and this run resumes
+ * it (every step skips what already saved). The counter file is then
+ * written to match, so the later steps and the production chains (which
+ * issue to the Sioniquser created last) agree with qa.
+ *
+ * Why: the counter used to advance only in the last step, so a run killed
+ * after the assignment saved left it stale and the next run skipped all
+ * five steps as "already exists" and created nothing (04-10 -> 07-10-2026,
+ * iteration 39). A reset qa database or a hand-made Sioniquser would have
+ * confused it the same way.
+ */
+async function resolveIteration(employeePage, counterPage) {
+  await employeePage.open();
+  await employeePage.waitForIdle();
+  await employeePage.settle(2_000);
+  let highest = 0;
+  for (const text of await employeePage.gridRows.allInnerTexts()) {
+    for (const m of text.matchAll(/\bSioniquser(\d+)\b/g)) highest = Math.max(highest, Number(m[1]));
+  }
+  let n = currentN();
+  if (highest === 0) {
+    console.log(`qa Employee list shows no Sioniquser - keeping the counter's iteration ${n}`);
+  } else {
+    await counterPage.open();
+    await counterPage.selectAssignmentTab();
+    const complete = (await counterPage.gridRows.filter({ hasText: `Sioniquser${highest}` }).count()) > 0;
+    n = complete ? highest + 1 : highest;
+    console.log(`qa shows Sioniquser${highest} as the last employee, its iteration is ${complete ? 'complete' : 'incomplete'} - ${complete ? 'creating' : 'resuming'} Sioniquser${n}`);
+  }
+  setNext(n);
+  const u = nextSioniqUser();
+  console.log(`Iteration ${u.n}: employee "${u.displayName}", sales code ${u.salesCode}`);
+  return u;
+}
+
 test.describe('Master add operations - Employee, User, Smith', () => {
   // ================= 1. EMPLOYEE =================
-  test('TC-EMP-001 create employee Sioniquser<N>', async ({ loginPage, employeePage, userPage, page }) => {
+  test('TC-EMP-001 create employee Sioniquser<N>', async ({ loginPage, employeePage, userPage, counterPage, page }) => {
     test.setTimeout(420_000);
-    const u = nextSioniqUser();
-    console.log(`Iteration ${u.n}: employee "${u.displayName}", sales code ${u.salesCode}`);
 
     await login(loginPage, page);
+
+    // qa decides N: the last Sioniquser on qa + 1 when its chain is complete,
+    // the same N when the chain was cut short (the steps resume it).
+    const u = await resolveIteration(employeePage, counterPage);
 
     // Already created? (an existing user implies the employee exists too -
     // once the user exists the employee leaves the mapping dropdown)
