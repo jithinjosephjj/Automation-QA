@@ -147,17 +147,23 @@ class RemodelWorkflowPage extends StockInwardBasePage {
   }
 
   /**
-   * Remodel Receipt: Remodel Type (+ vendor select that renders after it),
-   * Sub Transaction Type preset Invoice, RANDOM invoice number, invoice
-   * date, credit days; then Stock Source "Inward", the issue's grid row,
-   * Add (stages it), re-check the staged row, Submit.
+   * Remodel Receipt: Vendor FIRST, then Remodel Type (10-10-2026, QA lead:
+   * the Remodel Type list stays "No items found" until a vendor is picked -
+   * the form now renders Vendor before Remodel Type), Sub Transaction Type
+   * preset Invoice, RANDOM invoice number, invoice date, credit days; then
+   * Stock Source "Inward", the issue's grid row, Add (stages it), re-check
+   * the staged row, Submit.
    */
   async remodelReceipt({ remodelType, vendor, invoiceNo, invoiceDate, creditDays = 20, issueNo }) {
     await this.openTab('/inv/app-receipt-list');
     await this.clickVisibleAdd();
 
+    // vendor by its controlname (same control as the Issue form), by its
+    // label when the receipt form names it differently
+    await this.pick('vendorCatalogID', vendor, { exact: true })
+      .catch(() => this.pickByLabel('Vendor', vendor, { exact: true }));
+    await this.settle(2_000); // the vendor pick loads the Remodel Type list
     await this.pick('masterDataValueID_RemodelType', remodelType, { exact: true });
-    await this.fillEmptySelects([vendor]);
     await this.page.getByPlaceholder('Enter Invoice Number').fill(invoiceNo);
     const dd = this.page.locator('#invoiceDate');
     await dd.fill(invoiceDate);
