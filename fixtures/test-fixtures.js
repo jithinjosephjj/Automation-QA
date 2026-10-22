@@ -23,6 +23,8 @@ const { StoneAssortedWorkflowPage } = require('../pages/StoneAssortedWorkflowPag
 const { BullionBookingPage } = require('../pages/BullionBookingPage');
 const { LogisticsSalesWorkflowPage } = require('../pages/LogisticsSalesWorkflowPage');
 const { TransfersPage } = require('../pages/TransfersPage');
+const { OrderEstimationPage } = require('../pages/OrderEstimationPage');
+const { AdvanceRegistrationPage } = require('../pages/AdvanceRegistrationPage');
 const { CustomerRegistrationPage } = require('../pages/CustomerRegistrationPage');
 const { DepartmentProcessPage } = require('../pages/DepartmentProcessPage');
 const { InternalStockTransferPage } = require('../pages/InternalStockTransferPage');
@@ -138,6 +140,14 @@ const test = base.test.extend({
 
   orderBooking: async ({ page }, use) => {
     await use(new OrderBookingPage(page));
+  },
+
+  orderEstimation: async ({ page }, use) => {
+    await use(new OrderEstimationPage(page));
+  },
+
+  advanceRegistration: async ({ page }, use) => {
+    await use(new AdvanceRegistrationPage(page));
   },
 
   b2bOrderBooking: async ({ page }, use) => {

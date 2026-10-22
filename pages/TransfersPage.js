@@ -53,6 +53,142 @@ class TransfersPage extends StockInwardBasePage {
     if (!ok) { await this.closePanel(); throw new Error(`Transfers: option ${re} not found for "${label}"`); }
   }
 
+  /**
+   * Transfer Out an ORDER (Transaction Mode "Order", mapped 22-10-2026: the
+   * mode shows a grid of the branch's registered orders with a search box)
+   * to another BU - the retail estimation + advance chain hands the order to
+   * the head office this way. `orderNo` is searched in the grid; the first
+   * matching row is ticked. Returns the save-response body.
+   */
+  async transferOutOrder({ destination = 'Kakkanad', orderNo, transferMode = 'Confirmed' }) {
+    await this.open();
+    await this.openTab('Transfer Out');
+    await this.addBtn.click({ timeout: 30_000 });
+    await this.settle(2_000);
+    await this.pickByLabelText('Transfer Mode', new RegExp(`^\\s*${transferMode}\\s*$`));
+    await this.pickByLabelText('Destination Business Unit', new RegExp(destination));
+    await this.pickByLabelText('Transaction Mode', /^\s*Order\s*$/);
+    await this.waitForIdle();
+    await this.settle(2_500);
+
+    const grid = this.page.locator('table').locator('visible=true').last();
+    const search = this.page.locator('input[placeholder*="Search" i]').locator('visible=true').last();
+    if (orderNo && (await search.count())) {
+      await search.fill(String(orderNo));
+      await search.press('Enter');
+      await this.waitForIdle();
+      await this.settle(2_500);
+    }
+    const headers = (await grid.locator('thead th').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const rows = (await grid.locator('tbody tr').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim());
+    console.log(`transfer out (Order): columns ${JSON.stringify(headers.slice(0, 14))}; rows ${JSON.stringify(rows.slice(0, 6))}`);
+    const row = orderNo ? grid.locator('tbody tr').filter({ hasText: new RegExp(String(orderNo).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first() : grid.locator('tbody tr').first();
+    if (!(await row.count()) || /No Data|No records/i.test((await row.innerText().catch(() => '')) || '')) {
+      throw new Error(`Transfer Out (Order): no row for "${orderNo}" - rows: ${JSON.stringify(rows.slice(0, 6))}`);
+    }
+    await row.getByRole('checkbox').first().check({ force: true });
+    await this.settle(2_000);
+    const addSel = this.page.getByRole('button', { name: /Add Selected to Transfer/i }).locator('visible=true').last();
+    if (await addSel.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await addSel.click();
+      await this.waitForIdle();
+      await this.settle(2_000);
+    }
+
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /transfer|create|save/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|List|Search/i.test(r.url()),
+      { timeout: 60_000 },
+    ).catch(() => null);
+    const submit = this.page.getByRole('button', { name: /Submit\s*$/ }).locator('visible=true').last();
+    await submit.scrollIntoViewIfNeeded().catch(() => {});
+    await submit.click({ timeout: 15_000, force: true });
+    await this.settle(1_500);
+    const confirm = this.page.locator('[role="dialog"], .modal, ngb-modal-window').filter({ hasText: /Are you sure|Confirm/i }).getByRole('button', { name: /Yes|Ok|Confirm|Submit/i }).locator('visible=true').last();
+    if (await confirm.isVisible({ timeout: 3_000 }).catch(() => false)) await confirm.click({ timeout: 3_000 }).catch(() => {});
+    const r = await resp;
+    if (!r) {
+      const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      throw new Error(`Transfer Out (Order) Submit fired no save request - alerts: ${JSON.stringify(alerts)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log('transfer out (Order) save:', r.status(), r.url().split('/').slice(-1)[0], JSON.stringify(body).slice(0, 250));
+    if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`Transfer Out (Order) rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
+    await this.page.locator('.btn-light, .btn-close').last().click({ timeout: 6_000 }).catch(() => {});
+    return body;
+  }
+
+  /**
+   * Transfer In an ORDER sent by another BU (Transaction Mode "Order"): From
+   * Business Unit -> Transaction Mode Order -> (Transfer Out ID when offered)
+   * -> incoming order grid -> tick the row -> receiver -> Accept. Returns the
+   * save-response body. Mirrors transferIn() without the stock-only filters.
+   */
+  async transferInOrder({ fromBU = 'Cochin', transferOutNo, orderNo, receiver = 'JJ', remarks, action = 'Accept' }) {
+    await this.open();
+    await this.openTab('Transfer In');
+    await this.addBtn.click({ timeout: 30_000 });
+    await this.settle(2_000);
+
+    await this.pickByLabelText('From Business Unit', new RegExp(fromBU));
+    await this.pickByLabelText('Transaction Mode', /^\s*Order\s*$/);
+    await this.waitForIdle();
+    await this.settle(2_000);
+    if (await this.selectByLabel('Transfer Out ID').count()) {
+      await this.pickTransferOutId(transferOutNo).catch((e) => console.log(`transfer in (Order): Transfer Out ID pick skipped - ${String(e).slice(0, 100)}`));
+    }
+    await this.waitForIdle();
+    await this.settle(2_500);
+    if (!(await this.page.locator('[id^="item-"], table tbody tr input[type="checkbox"]').first().isVisible({ timeout: 3_000 }).catch(() => false))) {
+      await this.page.getByRole('button', { name: /^\s*Search\s*$/ }).locator('visible=true').last().click({ timeout: 6_000 }).catch(() => {});
+      await this.waitForIdle();
+      await this.settle(2_500);
+    }
+    const grid = this.page.locator('table').locator('visible=true').last();
+    const headers = (await grid.locator('thead th').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const rows = (await grid.locator('tbody tr').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim());
+    console.log(`transfer in (Order): columns ${JSON.stringify(headers.slice(0, 14))}; rows ${JSON.stringify(rows.slice(0, 6))}`);
+    const wanted = orderNo ? grid.locator('tbody tr').filter({ hasText: new RegExp(String(orderNo).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).first() : null;
+    const row = wanted && (await wanted.count()) ? wanted : grid.locator('tbody tr').first();
+    if (wanted && !(await wanted.count())) console.log(`transfer in (Order): no row for "${orderNo}" - taking the first incoming row`);
+    const box = row.locator('input[type="checkbox"]').first();
+    await box.waitFor({ state: 'visible', timeout: 30_000 });
+    if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) await box.check({ force: true });
+    await this.settle(1_500);
+
+    const rec = this.page.getByRole('textbox', { name: /Enter receiver name/i }).locator('visible=true').first();
+    if (await rec.isVisible({ timeout: 8_000 }).catch(() => false)) { await rec.click(); await rec.fill(String(receiver)); }
+    if (remarks) {
+      const rem = this.page.locator('//label[contains(.,"Remarks")]/following::textarea[1] | //label[contains(.,"Remarks")]/following::input[1]').locator('visible=true').first();
+      if (await rem.isVisible({ timeout: 3_000 }).catch(() => false)) await rem.fill(String(remarks)).catch(() => {});
+    }
+    await this.page.waitForTimeout(800);
+
+    const actionRe = new RegExp(`^\\s*${action}\\s*$`, 'i');
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /transfer|accept|create|save|return|reject/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|List|Search/i.test(r.url()),
+      { timeout: 60_000 },
+    ).catch(() => null);
+    const actionBtn = this.page.locator('button').filter({ hasText: actionRe }).locator('visible=true').last();
+    await actionBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await actionBtn.click({ timeout: 15_000, force: true });
+    await this.settle(1_500);
+    const dialog = this.page.locator('[role="dialog"], .modal, ngb-modal-window').filter({ hasText: /Are you sure|Confirm|Return|Reason|Remark/i }).locator('visible=true').last();
+    if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      const confirm = dialog.getByRole('button', { name: /Yes|Ok|Confirm|Accept|Submit/i }).locator('visible=true').last();
+      if (await confirm.isVisible({ timeout: 2_000 }).catch(() => false)) await confirm.click({ timeout: 3_000 }).catch(() => {});
+    }
+    const r = await resp;
+    if (!r) {
+      const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      throw new Error(`Transfer In (Order) ${action} fired no save request - alerts: ${JSON.stringify(alerts)}`);
+    }
+    const body = await r.json().catch(() => null);
+    console.log(`transfer in (Order) ${action.toLowerCase()} save:`, r.status(), r.url().split('/').slice(-1)[0], JSON.stringify(body).slice(0, 250));
+    if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`Transfer In (Order) ${action} rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
+    await this.page.locator('.btn-light, .btn-close').last().click({ timeout: 6_000 }).catch(() => {});
+    return body;
+  }
+
   /** Transfer Out a tag to another BU. Returns the save-response body. */
   async transferOut({
     destination = 'Aluva', transactionMode = 'Stock', itemType = 'Metal', groupCategory = 'Gold',
