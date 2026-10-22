@@ -39,9 +39,9 @@ const DATA = {
   // From Transaction Type "Stone Inward" appears for ASSORTED inwards
   // (QA lead 04-09-2026); plain stone inwards only ever route via the
   // assorting/certification receipts
-  lot: { itemType: 'Stone', transactionType: 'Stone Inward', employee: 'Ubaid', businessUnit: 'Cochin' },
+  lot: { itemType: 'Stone', transactionType: 'Stone Inward', employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
     itemType: 'Stone',
     stockIdentityType: 'Stock',
     grossWeight: 6, // the full 6 g lot
@@ -101,7 +101,7 @@ test.describe('Stone Inward - Lot - Barcode - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-SLB-01 first').toBeTruthy();
-    await login(loginPage, page);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       itemType: DATA.lot.itemType,
@@ -109,6 +109,7 @@ test.describe('Stone Inward - Lot - Barcode - Workflow', () => {
       vendor: DATA.inward.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: DATA.lot.businessUnit,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

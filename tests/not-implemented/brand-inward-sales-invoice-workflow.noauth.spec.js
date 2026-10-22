@@ -31,7 +31,7 @@ const state = makeState('e2e-brand-sales-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
 
 const DATA = {
   inward: {
@@ -55,9 +55,9 @@ const DATA = {
       discountPercent: 0,
     },
   },
-  lot: { itemType: 'Brand', transactionType: 'Brand Inward', employee: 'Ubaid' },
+  lot: { itemType: 'Brand', transactionType: 'Brand Inward', employee: 'Ubaid', location: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: BU }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
     itemType: 'Brand',
     stockIdentityType: 'Stock',
     grossWeight: 10, // within the inward's 20 g
@@ -120,7 +120,7 @@ test.describe('Brand Inward - Sales Invoice - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-BSI-01 first').toBeTruthy();
-    await login(loginPage);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       itemType: DATA.lot.itemType,
@@ -128,6 +128,7 @@ test.describe('Brand Inward - Sales Invoice - Workflow', () => {
       vendor: DATA.inward.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: BU,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

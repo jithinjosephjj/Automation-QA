@@ -47,7 +47,7 @@ test.describe('Metal Inward - Direct Purchase Return - Workflow', () => {
     await metalInward.openAddWizard();
     await metalInward.fillBasicDetails({
       subTransactionType: DATA.inward.subTransactionType,
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       inwardType: DATA.inward.inwardType,
       purchaseType: DATA.inward.purchaseType,
       vendor: DATA.inward.vendor,

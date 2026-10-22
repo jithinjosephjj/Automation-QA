@@ -46,9 +46,9 @@ const DATA = {
     purchaser: 'Abc',
     item: { entryMode: 'SINGLE TAG', referenceType: 'Combination', article: 'Tendulkar', purity: '91.60', noOfPcs: 5, grossWeightWithTare: 118, makingType: 'Direct', makingCharges: 1200 },
   },
-  lot: { employee: 'Ubaid', businessUnit: 'Cochin' },
+  lot: { employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
     stockIdentityType: 'Stock', // options: Jobwork Stock | Stock (purchase inwards = Stock)
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
@@ -113,7 +113,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     await metalInward.openAddWizard();
     await metalInward.fillBasicDetails({
       subTransactionType: DATA.inward.subTransactionType,
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       inwardType: DATA.inward.inwardType,
       purchaseType: DATA.inward.purchaseType,
       vendor: DATA.logistics.vendor,
@@ -149,12 +149,13 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-LGS-03 first').toBeTruthy();
-    await login(loginPage, page);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.logistics.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: DATA.lot.businessUnit,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

@@ -30,9 +30,12 @@ const state = makeState('e2e-jwd-outsource-lot-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
+// VENDOR=<name> runs the chain against another vendor (21-10-2026: "Coral" for the new Coral Jewellery vendor); substring match
+const VENDOR = process.env.VENDOR || 'RAJA';
+
 const DATA = {
   jobWork: {
-    vendor: 'RAJA',
+    vendor: VENDOR,
     itemType: 'Metal',
     orderType: 'Stock',
     makingType: 'Regular',
@@ -40,14 +43,14 @@ const DATA = {
     deliveryNote: 'Urgent',
     item: { referenceType: 'Combination', groupCategory: 'Gold', category: 'Ring', article: 'Tendulkar', purity: '91.60', pieceWeight: 60 },
   },
-  lot: { employee: 'Ubaid', businessUnit: 'Cochin' },
+  lot: { employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // recording switches users here
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // recording switches users here
     stockIdentityType: 'Jobwork Stock',
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
     // a jobwork-return lot's Counter is empty + mandatory and must be an ORDER-type counter (QA lead 06-10-2026)
-    counter: 'Counter 1',
+    counter: 'Chain Counter KKD', // Kakkanad's Order-type counter (QA lead 22-10-2026); Cochin's was "Counter 1"
     subCounter: 'Sub Counter1',
   },
 };
@@ -80,7 +83,7 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
     await metalInward.open();
     await metalInward.openAddWizard();
     await metalInward.fillJobworkBasicDetails({
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       vendor: DATA.jobWork.vendor,
       inwardType: 'Order', // QA lead 11-09-2026: direct jobwork returns under "Order"
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
@@ -115,12 +118,13 @@ test.describe('Job Work Direct - Outsource - Lot - Barcode - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-JW-DOL-02 first').toBeTruthy();
-    await login(loginPage, page);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.jobWork.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: DATA.lot.businessUnit,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

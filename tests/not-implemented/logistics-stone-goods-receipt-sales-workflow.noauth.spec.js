@@ -36,7 +36,7 @@ const state = makeState('e2e-logistics-stone-sales-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
 
 const DATA = {
   logistics: {
@@ -67,9 +67,9 @@ const DATA = {
       assortedStock: true, // lot eligibility gate
     },
   },
-  lot: { itemType: 'Stone', transactionType: 'Stone Inward', employee: 'Ubaid' },
+  lot: { itemType: 'Stone', transactionType: 'Stone Inward', employee: 'Ubaid', location: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: BU }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
     itemType: 'Stone',
     stockIdentityType: 'Stock',
     grossWeight: 6, // the full 6 g lot
@@ -163,13 +163,14 @@ test.describe('Logistics - Stone Goods Receipt - Sales - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-LSS-03 first').toBeTruthy();
-    await login(loginPage);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
     const lotNo = await lotGeneration.generateLot({
       itemType: DATA.lot.itemType,
       transactionType: DATA.lot.transactionType,
       vendor: DATA.logistics.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: BU,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

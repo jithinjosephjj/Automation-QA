@@ -8,8 +8,8 @@ const { test, expect } = require('../../fixtures/test-fixtures');
  * session still valid for the run is simply replayed.
  */
 const LOGINS = [
-  { bu: 'Cochin' },
-  { user: 'suja', pwd: '123', bu: 'Cochin' },
+  { bu: 'Kakkanad' },
+  { user: 'suja', pwd: '123', bu: 'Kakkanad' },
   { bu: 'Kakkanad' }, // the B2B job-finalize chain transfers in at Kakkanad
 ];
 

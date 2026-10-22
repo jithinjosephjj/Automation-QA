@@ -32,7 +32,7 @@ class LotGenerationPage extends StockInwardBasePage {
    * Generate one lot from an inward record. Returns the lot number from the
    * save response (falls back to the Print dialog's voucher number).
    */
-  async generateLot({ itemType = 'Metal', sourceType = 'Inward', transactionType = 'Metal Inward', vendor = 'RAJA', inwardNo, employee, businessUnit = 'Cochin' }) {
+  async generateLot({ itemType = 'Metal', sourceType = 'Inward', transactionType = 'Metal Inward', vendor = 'RAJA', inwardNo, employee, businessUnit = 'Cochin', location = 'Kakkanad' }) {
     await this.open();
     await this.waitForSpinner();
     await this.addBtn.click({ timeout: T(60_000) });
@@ -60,10 +60,26 @@ class LotGenerationPage extends StockInwardBasePage {
     // give every other still-empty mandatory select (the env-configured
     // description dropdowns: Designer / Muhurath Set / ...) its first option
     await this.pick('employeeID', employee, { search: true });
-    if (await this.select('businessUnitID').count()) {
+    // Location (controlname refLocationID, 22-10-2026): at a BRANCH login it
+    // is locked to the login business unit (Cochin); at the HEAD OFFICE login
+    // (Kakkanad) it is editable and offers every location (Aluva, Cochin,
+    // Kakkanad, Palakkad, Trivendrum). The chains log the lot step in at
+    // Kakkanad and pick `location` (QA lead 22-10-2026: Employee Ubaid,
+    // Location Kakkanad); a locked select is reported, not forced.
+    const locationSel = this.select('refLocationID');
+    if (await locationSel.count()) {
+      const locked = await locationSel.evaluate((el) => el.classList.contains('ng-select-disabled')).catch(() => false);
+      if (locked) {
+        const current = await this.selectValue('refLocationID').catch(() => '');
+        console.log(`lot: Location is locked to "${current}" at this login${current !== location ? ` - wanted "${location}" (log the lot step in at the head office)` : ''}`);
+      } else {
+        await this.pick('refLocationID', location, { exact: true });
+        console.log(`lot: Location "${location}" picked`);
+      }
+    } else if (await this.select('businessUnitID').count()) {
       await this.pick('businessUnitID', businessUnit, { exact: true });
     } else {
-      console.log('lot: no Business Unit select on the item panel (location filter change) - skipped');
+      console.log('lot: no Location / Business Unit select on the item panel - skipped');
     }
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
 

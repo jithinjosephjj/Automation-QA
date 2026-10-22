@@ -23,14 +23,17 @@ const state = makeState('e2e-inward-yes-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
+
+// VENDOR=<name> runs the chain against another vendor (21-10-2026: "Coral" for the new Coral Jewellery vendor); substring match
+const VENDOR = process.env.VENDOR || 'RAJA';
 
 const DATA = {
   inward: {
     subTransactionType: 'Invoice',
     inwardType: 'Stock',
     purchaseType: 'Direct',
-    vendor: 'RAJA',
+    vendor: VENDOR,
     purchaser: 'Abc',
     item: {
       entryMode: 'SINGLE TAG',

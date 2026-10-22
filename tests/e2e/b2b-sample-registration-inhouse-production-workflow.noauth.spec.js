@@ -201,7 +201,7 @@ test.describe('B2B Sample Registration - Inhouse - Production - Workflow', () =>
     await production.assignJob({
       sourceType: 'Sample',
       itemType: 'Metal',
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       process: DATA.round.process,
       subProcess: DATA.round.subProcess,
       rowText: rowKey(),

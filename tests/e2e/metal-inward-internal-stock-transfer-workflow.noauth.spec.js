@@ -25,7 +25,7 @@ const state = makeState('e2e-internal-transfer-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
 
 const DATA = {
   inward: {

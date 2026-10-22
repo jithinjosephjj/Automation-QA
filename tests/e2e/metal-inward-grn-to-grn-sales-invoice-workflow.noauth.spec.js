@@ -25,7 +25,7 @@ const state = makeState('e2e-grn-sales-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
 
 const DATA = {
   inward: {
@@ -44,11 +44,11 @@ const DATA = {
       // no rate: GRN goods come in unpriced (the item form has no Rate field)
     },
   },
-  lot: { employee: 'Ubaid' },
+  lot: { employee: 'Ubaid', location: 'Kakkanad' },
   barcode: {
     // barcode is USER-SCOPED: the Lot No lookup lists only for the barcode
     // employee's login (QA lead 18-09-2026: barcode user is "suja")
-    user: { user: 'suja', pwd: '123', bu: BU },
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' },
     stockIdentityType: 'Stock', // purchase inwards land as plain Stock
     grossWeight: 10, // capped to the lot weight by the page object
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
@@ -103,12 +103,13 @@ test.describe('Metal Inward GRN - GRN Sales Invoice - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-GRN-01 first').toBeTruthy();
-    await login(loginPage);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.inward.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: BU,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

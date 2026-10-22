@@ -153,13 +153,48 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       await this.addAdditionalCharges(additionalCharges && typeof additionalCharges === 'object' ? additionalCharges : {});
     }
 
-    const resp = this.page.waitForResponse(
-      (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(r.url()),
-      { timeout: 120_000 },
-    ).catch(() => null);
-    const toast = this.watchSaveToast(130_000); // armed with the click
+    const isSave = (r) => r.request().method() === 'POST' && /create|save|generate/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(r.url());
+    const resp = this.page.waitForResponse(isSave, { timeout: 120_000 }).catch(() => null);
+    let toast = this.watchSaveToast(130_000); // armed with the click
+    // An app-side refusal is a toast a second or two after the click (e.g.
+    // "Please configure Wastage/Making before generating the barcode.",
+    // 21-10-2026 on a lot created by the inward's "Yes -> Lot" dialog) and no
+    // request at all - catch it at once instead of after the 120 s wait, by
+    // which time the toast is long gone.
+    const alertTexts = async () => (await this.page.getByRole('alert').allTextContents().catch(() => []))
+      .map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t && !/saved successfully/i.test(t));
+    const before = new Set(await alertTexts()); // toasts still fading from the charges dialog do not count
+    const refusal = async (ms) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        const fresh = (await alertTexts()).find((t) => !before.has(t));
+        if (fresh) return fresh;
+        await this.page.waitForTimeout(250);
+      }
+      return '';
+    };
     await this.submitBtn.click();
-    const r = await resp;
+    let r = await Promise.race([resp, refusal(T(8_000)).then((t) => (t ? { refused: t } : resp))]);
+    if (r && r.refused) {
+      throw new Error(`Barcode Submit refused by the app: "${r.refused}" (lot ${lotNo}, ${lotPcs ?? '?'} pcs / ${lotWeight ?? '?'} g)`);
+    }
+    if (!r) {
+      // Silent block with NO ng-invalid control (21-10-2026, TC-B2B-OIY-04): a
+      // lot created by the inward's own "Yes -> Lot" dialog carries none of
+      // the env-configured attribute selects the Lot Generation page fills
+      // (Designer / Muhurath Set / Size / Making Type ...), so the tag form
+      // opens with them empty and Submit does nothing. Give every still-empty
+      // visible select its first option and submit once more.
+      console.log(`barcode: Submit fired nothing - empty fields before the fallback: ${JSON.stringify(await this.emptyVisibleFields())}`);
+      const filled = await this.fillEmptyVisibleSelects();
+      if (filled.length) {
+        console.log(`barcode: Submit fired nothing - filled the empty selects ${JSON.stringify(filled)} and retrying`);
+        const resp2 = this.page.waitForResponse(isSave, { timeout: 120_000 }).catch(() => null);
+        toast = this.watchSaveToast(130_000);
+        await this.submitBtn.click();
+        r = await resp2;
+      }
+    }
     if (!r) {
       const diag = await this.invalidControls();
       const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => []))
@@ -180,6 +215,63 @@ class BarcodeGenerationPage extends StockInwardBasePage {
   }
 
   /** The visible ng-select of a wrapper controlname / raw formcontrolname ('' when the form has none). */
+  /**
+   * Every visible, enabled select on the form that still shows no value gets
+   * its first offered option (skipping "No items found"). Returns
+   * "controlname -> option" for the log. Used only after a silent Submit.
+   */
+  /** Diagnostics: label/controlname of every visible, enabled select and input that is still empty. */
+  async emptyVisibleFields() {
+    return this.page.evaluate(() => {
+      const vis = (el) => !!(el && el.offsetParent);
+      const labelOf = (el) => {
+        const wrap = el.closest('[controlname]');
+        const col = el.closest('.col, .col-md-2, .col-md-3, .col-md-4, .col-lg-2, .col-lg-3, .form-group, div');
+        const lbl = col && col.querySelector('label');
+        return (wrap && wrap.getAttribute('controlname')) || el.getAttribute('formcontrolname') || (lbl && lbl.textContent.trim()) || el.id || el.placeholder || '?';
+      };
+      const selects = [...document.querySelectorAll('ng-select')]
+        .filter((n) => vis(n) && !n.classList.contains('ng-select-disabled') && !n.querySelector('.ng-value'))
+        .map(labelOf);
+      const inputs = [...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([type=file]):not([role=combobox]), textarea')]
+        .filter((n) => vis(n) && !n.disabled && !n.readOnly && !String(n.value || '').trim())
+        .map(labelOf);
+      return { selects: [...new Set(selects)], inputs: [...new Set(inputs)] };
+    }).catch(() => ({ selects: [], inputs: [] }));
+  }
+
+  async fillEmptyVisibleSelects() {
+    const filled = [];
+    for (let round = 0; round < 25; round++) {
+      const hosts = this.page.locator('sioniq-ng-select ng-select, ng-select[formcontrolname]').locator('visible=true');
+      const n = await hosts.count();
+      let picked = false;
+      for (let i = 0; i < n && !picked; i++) {
+        const host = hosts.nth(i);
+        if (await host.evaluate((el) => el.classList.contains('ng-select-disabled')).catch(() => true)) continue;
+        if (await host.locator('.ng-value').count()) continue;
+        const name = await host.evaluate((el) => (el.closest('[controlname]') || el).getAttribute('controlname') || el.getAttribute('formcontrolname') || '').catch(() => '');
+        if (filled.some((f) => f.startsWith(name + ' ->'))) continue; // offered nothing last time
+        await host.locator('.ng-select-container').click({ timeout: 3_000 }).catch(() => {});
+        await this.settle(900);
+        const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i }).first();
+        if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
+          const label = ((await opt.textContent()) || '').trim();
+          await opt.click({ timeout: 3_000 }).catch(() => {});
+          filled.push(`${name} -> ${label}`);
+          picked = true;
+          await this.settle(800);
+        } else {
+          filled.push(`${name} -> (nothing offered)`);
+          await this.page.keyboard.press('Escape').catch(() => {});
+          picked = true;
+        }
+      }
+      if (!picked) break;
+    }
+    return filled.filter((f) => !/\(nothing offered\)$/.test(f));
+  }
+
   visibleSelect(controlname) {
     return this.page
       .locator(`sioniq-ng-select[controlname="${controlname}"] ng-select, ng-select[formcontrolname="${controlname}"]`)
@@ -258,7 +350,10 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       await options.nth(i).click();
       await this.settle(1_500);
       console.log(`barcode: Counter picked "${labels[i]}"`);
-      if (!(await pickSub(wantSub, labels[i]))) throw new Error(`barcode: Counter "${labels[i]}" offers no Sub Counter and the form needs one`);
+      // 22-10-2026: Kakkanad's only counter ("Gold Counter") has no sub
+      // counter configured - submit anyway; the app's own refusal (if the
+      // sub counter is mandatory there too) is reported by generateTag.
+      if (!(await pickSub(wantSub, labels[i]))) console.log(`barcode: Counter "${labels[i]}" offers no Sub Counter - submitting without one`);
       return;
     }
 

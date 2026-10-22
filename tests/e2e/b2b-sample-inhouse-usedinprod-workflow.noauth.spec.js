@@ -213,7 +213,7 @@ test.describe('B2B Sample - Inhouse - Used In Production - Workflow', () => {
     await production.assignJob({
       sourceType: 'Sample',
       itemType: 'Metal',
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       process: DATA.round.process,
       subProcess: DATA.round.subProcess,
       rowText: rowKey(),

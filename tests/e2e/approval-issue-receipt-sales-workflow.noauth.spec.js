@@ -34,7 +34,7 @@ const state = makeState('e2e-approval-sales-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BU = 'Cochin';
+const BU = 'Kakkanad'; // whole chain at the head office since 22-10-2026
 
 const DATA = {
   inward: {
@@ -53,11 +53,11 @@ const DATA = {
       rate: 6000, // the per-item rate (gone since 23-09; the pure rate 15000 is entered after Add Item)
     },
   },
-  lot: { vendor: 'RAJA', employee: 'Ubaid' },
+  lot: { vendor: 'RAJA', employee: 'Ubaid', location: 'Kakkanad' },
   barcode: {
     // barcode is USER-SCOPED: the Lot No lookup lists only for the barcode
     // employee's login (QA lead 18-09-2026: barcode user is "suja")
-    user: { user: 'suja', pwd: '123', bu: BU },
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' },
     stockIdentityType: 'Stock', // purchase inwards land as plain Stock
     vendor: 'RAJA',
     grossWeight: 10, // per tag; pieces are capped to the lot's pieces by the page object
@@ -128,12 +128,13 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-AIR-01 first').toBeTruthy();
-    await login(loginPage);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.lot.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: BU,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

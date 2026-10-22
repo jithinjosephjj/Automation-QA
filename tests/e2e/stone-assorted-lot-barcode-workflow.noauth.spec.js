@@ -35,9 +35,9 @@ const DATA = {
     },
   },
   assorted: { transactionType: 'Stone Inward', vendor: 'RAJA', employee: 'Sioniquser' },
-  lot: { itemType: 'Stone', transactionType: 'Stone Assorting Receipt', employee: 'Ubaid', businessUnit: 'Cochin' },
+  lot: { itemType: 'Stone', transactionType: 'Stone Assorting Receipt', employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
     itemType: 'Stone',
     stockIdentityType: 'Stock',
     grossWeight: 6,
@@ -128,7 +128,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
     test.setTimeout(600_000);
     const { assortedReceiptNo } = state.readState();
     expect(assortedReceiptNo, 'run TC-SAL-03 first').toBeTruthy();
-    await login(loginPage, page);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       itemType: DATA.lot.itemType,
@@ -136,6 +136,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
       vendor: DATA.inward.vendor,
       inwardNo: stoneAssortedWorkflow.docCore(assortedReceiptNo),
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: DATA.lot.businessUnit,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

@@ -101,8 +101,18 @@ class StockInwardBasePage extends BasePage {
 
   /** Currently selected label of a wizard dropdown ('' when empty). */
   async selectValue(controlname) {
-    const v = this.select(controlname).locator('.ng-value');
-    return (await v.count()) ? (await v.first().textContent() || '').trim() : '';
+    // The .ng-value node can detach between count() and textContent() while
+    // ng-select re-renders after an upstream pick (TC-OLG-03 10-10-2026,
+    // TC-JW-DOL-02 14-10 / 22-10: textContent waited its full 15 s on a
+    // detached node). Bounded read, re-resolved on a miss.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const v = this.select(controlname).locator('.ng-value');
+      if (!(await v.count())) return '';
+      const t = await v.first().textContent({ timeout: 2_000 }).catch(() => null);
+      if (t !== null) return (t || '').trim();
+      await this.page.waitForTimeout(300);
+    }
+    return '';
   }
 
   /**
@@ -728,13 +738,26 @@ class StockInwardBasePage extends BasePage {
       r = await resp;
     }
     await this.reportSaveToast(`${this.tabName} submit`, toast);
-    return r.json().catch(() => null);
+    const body = await r.json().catch(() => null);
+    this.lastSaveBody = body; // voucherNumber() falls back to it when no Print dialog opens
+    return body;
   }
 
   /** The RC / voucher number shown on the post-submit Print dialog (e.g. M137). */
   async voucherNumber() {
     const p = this.printDialog.locator('p');
-    await p.first().waitFor({ state: 'visible', timeout: T(30_000) });
+    const dialogShown = await p.first().waitFor({ state: 'visible', timeout: T(15_000) }).then(() => true).catch(() => false);
+    if (!dialogShown) {
+      // At the Kakkanad (head office) login the post-save Print dialog does
+      // not open (GetPrintTemplateByConfiguration answers 501 - no template
+      // configured for that location, 22-10-2026); the document number is
+      // still in the save response.
+      const d = (this.lastSaveBody && this.lastSaveBody.data) || {};
+      const fromSave = d.receiptNo || d.docNo || d.voucherNo || d.voucherNumber || '';
+      console.log(`${this.tabName}: no Print dialog after the save - voucher number ${fromSave ? `"${fromSave}" taken from the save response` : 'NOT found in the save response either'}`);
+      if (fromSave) return fromSave;
+      await p.first().waitFor({ state: 'visible', timeout: T(15_000) }); // last chance, then the original error
+    }
     for (const t of await p.allTextContents()) {
       const m = t.trim().match(/^[A-Z]+\d+$/);
       if (m) return m[0];

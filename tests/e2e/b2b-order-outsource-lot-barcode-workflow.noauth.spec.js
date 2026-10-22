@@ -22,10 +22,15 @@ const state = makeState('e2e-b2b-order-lot-state.json');
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
+// VENDOR=<name> runs the chain against another vendor (21-10-2026: "Coral" for the new Coral Jewellery vendor); substring match
+const VENDOR = process.env.VENDOR || 'RAJA';
+// CUSTOMER=<name> overrides the B2B order's customer the same way (default Luxurio)
+const CUSTOMER = process.env.CUSTOMER || 'Luxurio';
+
 const DATA = {
   order: {
     purposeType: 'Order',
-    customer: 'Luxurio',
+    customer: CUSTOMER,
     itemType: 'Metal',
     makingType: 'Job Work',
     supervisor: 'Abc',
@@ -40,10 +45,10 @@ const DATA = {
     purity: '91.60',
     grossWeight: 350,
   },
-  issue: { mode: 'Outsource', vendor: 'RAJA', itemType: 'Metal' },
-  lot: { employee: 'Ubaid', businessUnit: 'Cochin' },
+  issue: { mode: 'Outsource', vendor: VENDOR, itemType: 'Metal' },
+  lot: { employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Cochin' }, // recording switches users here
+    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // recording switches users here
     stockIdentityType: 'Jobwork Stock',
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
@@ -130,7 +135,7 @@ test.describe('B2B Order - Outsource - Lot - Barcode - Workflow', () => {
     await metalInward.open();
     await metalInward.openAddWizard();
     await metalInward.fillJobworkBasicDetails({
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       vendor: DATA.issue.vendor,
       invoiceNo: uniqueInvoiceNo(), // duplicates are blocked - always random
       invoiceDate: businessDate(0).replace(/-/g, '/'),
@@ -166,12 +171,13 @@ test.describe('B2B Order - Outsource - Lot - Barcode - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-B2B-OLG-03 first').toBeTruthy();
-    await login(loginPage, page);
+    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.issue.vendor,
       inwardNo: inwardVoucherNo,
       employee: DATA.lot.employee,
+      location: DATA.lot.location,
       businessUnit: DATA.lot.businessUnit,
     });
     expect(lotNo, 'generated lot number').toBeTruthy();

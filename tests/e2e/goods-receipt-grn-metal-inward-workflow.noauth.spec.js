@@ -67,7 +67,7 @@ test.describe('Goods Receipt (Direct) - Metal Inward GRN - Workflow', () => {
     await metalInward.openAddWizard();
     await metalInward.fillBasicDetails({
       subTransactionType: 'GRN',
-      businessUnit: 'Cochin',
+      businessUnit: 'Kakkanad',
       inwardType: 'Stock',
       purchaseType: 'Goods Receipt',
       vendor: DATA.vendor,
