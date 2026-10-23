@@ -35,6 +35,12 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
       await host.locator('.ng-select-container').click({ timeout: 5_000 }).catch(() => {});
       const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i });
+      // server-searched selects ("Type to search") render nothing until typed
+      // into: the wanted name first, then a broad letter on a later attempt
+      if (await this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: /Type to search/i }).first().isVisible({ timeout: 800 }).catch(() => false)) {
+        await host.locator('input[role="combobox"]').fill(attempt === 1 && wanted ? String(wanted) : 'a').catch(() => {});
+        await this.settle(2_000);
+      }
       if (await opts.first().waitFor({ state: 'visible', timeout: attempt * 3_000 }).then(() => true).catch(() => false)) {
         const labels = (await opts.allTextContents()).map((t) => t.trim());
         let idx = wanted ? labels.findIndex((l) => l.toLowerCase() === String(wanted).toLowerCase()) : -1;
@@ -880,9 +886,12 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     // while it is empty the scan answers "Tag not found or not eligible for
     // the selected source document" (first run, 23-09-2026)
     await this.pickFirstByCaption('Customer Branch', /branch/i);
-    await this.pick('salesmanIDs', salesman, { search: true, closePanel: true });
-    await this.pick('helperID', helper, { search: true });
-    await this.pick('supervisorID', supervisor, { search: true });
+    // Salesman / Helper / Supervisor are LOCATION-scoped (Kakkanad 23-10-2026:
+    // the salesman list held only "Chandu", not Cochin's "Ajin G") - the wanted
+    // name when offered, else the first person the login location offers
+    await this.pickOrFirst('salesmanIDs', salesman, { search: true, closePanel: true });
+    await this.pickOrFirst('helperID', helper, { search: true });
+    await this.pickOrFirst('supervisorID', supervisor, { search: true });
     await this.pick('masterDataValueID_StockSourceFrom', 'Counter', { exact: true });
     await this.pick('masterDataValueID_ApprovalIssueType', 'Tag Wise', { exact: true });
     await this.waitForIdle();

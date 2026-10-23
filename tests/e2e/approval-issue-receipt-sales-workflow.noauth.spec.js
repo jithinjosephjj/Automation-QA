@@ -62,6 +62,10 @@ const DATA = {
     vendor: 'RAJA',
     grossWeight: 10, // per tag; pieces are capped to the lot's pieces by the page object
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    // no Counter on the tag: TC-AIR-04 allocates the counter, and Counter Allocation
+    // only offers lots whose tags have none yet (Kakkanad 23-10-2026: NN323 tagged
+    // with "Chain Counter KKD" never appeared in the eligible lots)
+    counter: null,
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
   approval: {
@@ -159,6 +163,7 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
         grossWeight: DATA.barcode.grossWeight,
         pieces: 1,
         descriptions: DATA.barcode.descriptions,
+        counter: DATA.barcode.counter,
       });
       expect(saved, `barcode save response (tag ${i + 1})`).toBeTruthy();
       expect(JSON.stringify(saved)).toMatch(/success/i);

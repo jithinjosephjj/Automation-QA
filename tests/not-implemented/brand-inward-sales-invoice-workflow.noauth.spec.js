@@ -62,6 +62,7 @@ const DATA = {
     stockIdentityType: 'Stock',
     grossWeight: 10, // within the inward's 20 g
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Brand', groupCategory: 'Gold' },
   invoice: { subType: 'Invoice', customer: 'RAJA', salesman: 'Ajin G' },
@@ -153,6 +154,7 @@ test.describe('Brand Inward - Sales Invoice - Workflow', () => {
         amount: DATA.inward.item.mrp, // so is the Pricing Amount
         grossWeight: DATA.barcode.grossWeight,
         descriptions: DATA.barcode.descriptions,
+        counter: DATA.barcode.counter,
       });
     } catch (e) {
       // a brand tag takes the WHOLE lot (10 pcs): when a previous attempt

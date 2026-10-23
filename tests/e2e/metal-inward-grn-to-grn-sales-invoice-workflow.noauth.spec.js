@@ -52,6 +52,7 @@ const DATA = {
     stockIdentityType: 'Stock', // purchase inwards land as plain Stock
     grossWeight: 10, // capped to the lot weight by the page object
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
   invoice: { subType: 'GRN', customer: 'RAJA', salesman: 'Ajin G' },
@@ -130,6 +131,7 @@ test.describe('Metal Inward GRN - GRN Sales Invoice - Workflow', () => {
       grossWeight: DATA.barcode.grossWeight,
       pieces: 1,
       descriptions: DATA.barcode.descriptions,
+      counter: DATA.barcode.counter,
     });
     expect(saved, 'barcode save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);

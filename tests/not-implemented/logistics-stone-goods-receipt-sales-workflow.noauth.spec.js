@@ -74,6 +74,7 @@ const DATA = {
     stockIdentityType: 'Stock',
     grossWeight: 6, // the full 6 g lot
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Stone' },
   invoice: { subType: 'Invoice', customer: 'RAJA', salesman: 'Ajin G' },
@@ -190,6 +191,7 @@ test.describe('Logistics - Stone Goods Receipt - Sales - Workflow', () => {
       lotNo,
       grossWeight: DATA.barcode.grossWeight,
       descriptions: DATA.barcode.descriptions,
+      counter: DATA.barcode.counter,
     });
     expect(JSON.stringify(saved)).toMatch(/success/i);
     let tagNo = (saved.data && saved.data.receiptNo) || '';

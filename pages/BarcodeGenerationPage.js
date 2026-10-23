@@ -311,6 +311,11 @@ class BarcodeGenerationPage extends StockInwardBasePage {
    * offers a sub counter (kept for forms that do not validate the type).
    */
   async fillCounterAndSubCounter({ counter: wantCounter, subCounter: wantSub } = {}) {
+    // counter: null = leave the Counter EMPTY on purpose. Counter Allocation
+    // (Sales & Distribution > Transfer In & Out) only offers lots whose tags
+    // are not in a counter yet (GetEligibleLotsByPagination, 23-10-2026), so
+    // the chains that allocate afterwards must not pre-assign one here.
+    if (wantCounter === null) { console.log('barcode: Counter left empty on purpose (the chain allocates it later)'); return; }
     const counter = this.visibleSelect('counterID');
     if (!(await counter.count())) { console.log('barcode: no Counter select on this form'); return; }
     const valueOf = async (sel) => ((await sel.locator('.ng-value').first().textContent({ timeout: 1_000 }).catch(() => '')) || '').trim();
@@ -357,21 +362,16 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       return;
     }
 
-    // no name given: the first counter that offers a sub counter
-    for (let i = 0; i < Math.min(labels.length, 4); i++) {
-      if (i > 0) {
-        const again = await this.optionsOf(counter);
-        if (!again.options) break;
-        await again.options.nth(i).click();
-      } else {
-        await options.nth(i).click();
-      }
-      await this.settle(1_500);
-      console.log(`barcode: Counter was empty - picked "${labels[i]}"`);
-      if (await pickSub(null, labels[i])) return;
-      console.log(`barcode: counter "${labels[i]}" offers no sub counter - trying the next counter`);
-    }
-    throw new Error(`barcode: no Counter with a selectable Sub Counter among ${JSON.stringify(labels.slice(0, 4))}`);
+    // no name given: a known Order-type counter when offered ("Chain Counter
+    // KKD" at Kakkanad, "Counter 1" at Cochin), else the first one. The Sub
+    // Counter is NOT mandatory (QA lead 23-10-2026) - it is picked only when
+    // the chosen counter offers one.
+    const preferred = labels.findIndex((l) => /Chain Counter KKD|^Counter 1$/i.test(l.trim()));
+    const i = preferred >= 0 ? preferred : 0;
+    await options.nth(i).click();
+    await this.settle(1_500);
+    console.log(`barcode: Counter was empty - picked "${labels[i]}"`);
+    if (!(await pickSub(null, labels[i]))) console.log(`barcode: counter "${labels[i]}" offers no Sub Counter (not mandatory) - continuing`);
   }
 
   /** A number from the lot summary panel, e.g. "Lot Weight : 350.000" -> 350; null when absent. */

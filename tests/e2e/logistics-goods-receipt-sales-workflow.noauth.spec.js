@@ -52,6 +52,7 @@ const DATA = {
     stockIdentityType: 'Stock', // options: Jobwork Stock | Stock (purchase inwards = Stock)
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
+    counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
   invoice: { customer: 'RAJA', salesman: 'Ajin G' },
@@ -179,6 +180,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
       pieces: 1, // one tag per save (the lot holds 5 pieces)
       additionalCharges: true, // QA lead 26-09-2026: Additional Charges -> add charges -> Submit
       descriptions: DATA.barcode.descriptions,
+      counter: DATA.barcode.counter,
     });
     expect(saved, 'barcode save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);
