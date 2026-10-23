@@ -136,6 +136,10 @@ function registerTagTransferSuite({ title, tc, stateFile, sourceBU, destinationB
         lotNo,
         grossWeight: DATA.barcode.grossWeight,
         descriptions: DATA.barcode.descriptions,
+        // no Counter on the tag: a tag sitting in a counter is "Tag not in
+        // stock" for a Stock / TagWise Transfer Out (Kakkanad 23-10-2026, tag
+        // ...0127 auto-assigned to "Chain Counter KKD" never staged)
+        counter: null,
       });
       expect(saved, 'barcode save response').toBeTruthy();
       expect(JSON.stringify(saved)).toMatch(/success/i);

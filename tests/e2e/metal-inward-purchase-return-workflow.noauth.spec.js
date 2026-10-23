@@ -118,6 +118,7 @@ test.describe('Metal Inward - Lot - Barcode - Purchase Return - Workflow', () =>
       lotNo,
       grossWeight: DATA.barcode.grossWeight,
       descriptions: DATA.barcode.descriptions,
+      counter: null, // the tag must stay in STOCK for the purchase return - a tag in a counter is "Tag not in stock" (Kakkanad 23-10-2026)
     });
     expect(saved, 'barcode save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);
