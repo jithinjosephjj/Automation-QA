@@ -8,9 +8,9 @@ const { test, expect } = require('../../fixtures/test-fixtures');
  * session still valid for the run is simply replayed.
  */
 const LOGINS = [
-  { bu: 'Kakkanad' },
+  { bu: 'Kakkanad' }, // the default login since 22-10-2026 (head office; the B2B job-finalize chain transfers in here too)
   { user: 'suja', pwd: '123', bu: 'Kakkanad' },
-  { bu: 'Kakkanad' }, // the B2B job-finalize chain transfers in at Kakkanad
+  { bu: 'Cochin' }, // the retail estimation chain and the HO -> branch relays start at the branch
 ];
 
 for (const creds of LOGINS) {
