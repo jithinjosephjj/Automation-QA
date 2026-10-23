@@ -23,9 +23,8 @@ const state = makeState('e2e-retail-estimation-state.json');
  *   TC-RET-05  Kakkanad, admin: Procurement > Issue - outsource job work from the order (vendor RAJA)
  *   TC-RET-06  Kakkanad, admin: Metal Inward jobwork return, "Process with Barcode or Lot?" = No
  *   TC-RET-07  Kakkanad, admin: Lot Generation (employee Ubaid, Location Kakkanad)
- *   TC-RET-08  Cochin, suja:    Barcode Generation for the lot (Counter 1 / Sub Counter1) - the lot of
- *              a branch order keeps the BRANCH as its Location even when it is generated at the head
- *              office ("Location is locked to Cochin"), so the tag is cut at the branch
+ *   TC-RET-08  Kakkanad, suja:  Barcode Generation for the lot (Chain Counter KKD) - the lot panel says
+ *              "Location locked to Cochin" for a branch order, but the lot is offered at Kakkanad
  *
  * POS pages only open their Add form on a session that went through the
  * login FORM (counter validation) - the Cochin steps clear the session cache
@@ -51,12 +50,13 @@ const DATA = {
   issue: { mode: 'Outsource', vendor: VENDOR, itemType: 'Metal' },
   lot: { employee: 'Ubaid', location: HEAD_OFFICE },
   barcode: {
-    // the lot of a branch order keeps the branch as its Location even when generated at the head office (22-10-2026: "Location is locked to Cochin"), so the tag is cut at the branch
-    user: { user: 'suja', pwd: '123', bu: BRANCH },
+    // the lot panel says 'Location locked to Cochin' for a branch order, yet the lot is offered to suja at
+    // KAKKANAD (Barcode > Jobwork Stock > RAJA listed NN321 on 23-10-2026); suja has no Cochin login any more
+    user: { user: 'suja', pwd: '123', bu: HEAD_OFFICE }, // QA lead 23-10-2026: 'for barcode login suja - kakkanad'
     stockIdentityType: 'Jobwork Stock',
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
-    counter: 'Counter 1', // Cochin's Order-type counter
+    counter: 'Chain Counter KKD', // Kakkanad's Order-type counter
     subCounter: 'Sub Counter1',
   },
 };
@@ -187,7 +187,7 @@ test.describe('Retail Estimation - Advance - Transfer Out - Job Work - Lot - Bar
     console.log(`Lot generated: ${lotNo}`);
   });
 
-  test('TC-RET-08 Cochin: generate barcode for the lot (as suja)', async ({ loginPage, barcodeGeneration }) => {
+  test('TC-RET-08 Kakkanad: generate barcode for the lot (as suja)', async ({ loginPage, barcodeGeneration }) => {
     test.setTimeout(600_000);
     const { lotNo } = state.readState();
     expect(lotNo, 'run TC-RET-07 first').toBeTruthy();

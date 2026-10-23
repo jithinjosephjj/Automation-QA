@@ -60,7 +60,9 @@ class StockInwardBasePage extends BasePage {
 
   async open() {
     await this.goto('/prc/stock-inward-setup');
-    await this.addBtn.waitFor({ state: 'visible', timeout: T(30_000) });
+    // the list can sit behind the spinner for >30 s on a slow qa (23-10-2026:
+    // TC-RET-06 failed its post-save list check that way after a good save)
+    await this.addBtn.waitFor({ state: 'visible', timeout: T(60_000) });
   }
 
   /** Wait out the transparent ngx-spinner overlay that swallows clicks. */

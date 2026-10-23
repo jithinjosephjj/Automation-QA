@@ -29,6 +29,16 @@ class OrderEstimationPage extends StockInwardBasePage {
       .locator('visible=true').first();
   }
 
+  /** Pick `want` unless the select already shows it (the app pre-fills some selects and then offers no options). */
+  async pickUnlessSet(controlname, want, opts = { exact: true }) {
+    const current = (await this.selectValue(controlname).catch(() => '')) || '';
+    if (current && current.toLowerCase().includes(String(want).toLowerCase())) {
+      console.log(`${this.tabName}: ${controlname} already "${current}" - pick skipped`);
+      return;
+    }
+    await this.pick(controlname, want, opts);
+  }
+
   async open() {
     await this.goto('/pos/app-order-estimation-setup');
     await this.waitForIdle();
@@ -57,9 +67,11 @@ class OrderEstimationPage extends StockInwardBasePage {
 
     await this.pick('customerID', customer, { search: true });
     await this.settle(2_000);
-    await this.pick('businessType', businessType, { exact: true });
+    // Business Type is PRE-FILLED from the customer (23-10-2026: "Retail" set,
+    // dropdown then offers nothing) - pick only when it holds something else
+    await this.pickUnlessSet('businessType', businessType);
     await this.settle(1_500);
-    await this.pick('orderMakingType', transactionType, { exact: true });
+    await this.pickUnlessSet('orderMakingType', transactionType);
     await this.settle(1_500);
     if (await this.select('itemType').count()) {
       await this.pick('itemType', itemType, { exact: true }).catch(() => {});

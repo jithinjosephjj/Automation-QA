@@ -78,7 +78,10 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
       const current = await this.selectValue('advanceSubType').catch(() => '');
       if (current !== subType) await this.pick('advanceSubType', subType, { exact: true }).catch(() => {});
     }
-    await this.pick('businessType', businessType, { exact: true });
+    // Business Type can be pre-filled from the customer (seen on the estimation form 23-10-2026)
+    const currentBt = (await this.selectValue('businessType').catch(() => '')) || '';
+    if (currentBt.toLowerCase().includes(businessType.toLowerCase())) console.log(`advance registration: businessType already "${currentBt}" - pick skipped`);
+    else await this.pick('businessType', businessType, { exact: true });
     await this.settle(1_500);
     await this.pick('orderEntryMode', entryType, { exact: true });
     await this.settle(2_000);
