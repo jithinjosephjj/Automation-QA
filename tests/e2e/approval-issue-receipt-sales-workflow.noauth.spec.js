@@ -71,12 +71,15 @@ const DATA = {
   approval: {
     customer: 'RAJA',
     purpose: 'Display',
-    salesman: 'Ajin G',
-    helper: 'Ajin G',
-    supervisor: 'Ajin G',
+    salesman: 'Chandu', // Kakkanad's staff (27-10-2026); Cochin's were Ajin G
+    helper: 'Chandu',
+    supervisor: 'Azifee',
     metalRate: 6000, // the "Metal weight" Rate (₹/gm) - Submit refuses without it
+    dispatchType: 'In Person', // Dispatch Details > Dispatch Type is mandatory (QA lead 27-10-2026)
+    dispatchPerson: 'JJ', // "In Person" asks for Person Name + Contact Number
+    dispatchContact: '9898989899',
   },
-  invoice: { customer: 'RAJA', salesman: 'Ajin G' },
+  invoice: { customer: 'RAJA', salesman: 'Chandu', helper: 'Chandu' },
 };
 
 async function login(loginPage, creds = {}) {

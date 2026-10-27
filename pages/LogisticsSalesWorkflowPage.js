@@ -875,7 +875,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Wise" reveal Scan Type and the "Tag Number" scan field (Enter stages
    * the tag - the form has no Add button). Returns the RC number.
    */
-  async approvalIssue({ customer, purpose = 'Display', salesman, helper, supervisor, tagNo, rfidNo, tags, metalRate = 6000 }) {
+  async approvalIssue({ customer, purpose = 'Display', salesman, helper, supervisor, tagNo, rfidNo, tags, metalRate = 6000, dispatchType = 'In Person', dispatchPerson = 'JJ', dispatchContact = '9898989899' }) {
     await this.goto('/sls/view-b2b-approval-issue');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -911,6 +911,21 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       await this.scanTag(t.tagNo, 'approval issue', { rfidNo: t.rfidNo });
     }
     await this.fillMetalRateIfEmpty(metalRate);
+    // Dispatch Details > Dispatch Type is mandatory (QA lead 27-10-2026: "In Person")
+    if (dispatchType) {
+      if (await this.select('masterDataValueID_DispatchType').isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await this.pick('masterDataValueID_DispatchType', dispatchType);
+      } else {
+        await this.pickByLabel('Dispatch Type', dispatchType);
+      }
+      console.log(`approval issue: Dispatch Type -> ${dispatchType}`);
+      await this.settle(1_200); // "In Person" reveals Person Name + Contact Number (mandatory, QA lead 27-10-2026)
+      for (const [caption, value] of [['Person Name', dispatchPerson], ['Contact Number', dispatchContact]]) {
+        if (!value) continue;
+        const ok = await this.fillByCaption(caption, value).then(() => true).catch(() => false);
+        if (!ok) await this.fillByLabel(caption, value).catch((e) => console.log(`approval issue: "${caption}" not filled (${String(e).split('\n')[0].slice(0, 80)})`));
+      }
+    }
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
