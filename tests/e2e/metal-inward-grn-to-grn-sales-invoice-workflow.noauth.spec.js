@@ -55,7 +55,7 @@ const DATA = {
     counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
-  invoice: { subType: 'GRN', customer: 'RAJA', salesman: 'Ajin G' },
+  invoice: { subType: 'GRN', customer: 'RAJA', salesman: 'Chandu', helper: 'Chandu' }, // Kakkanad's sales executive / helper (QA lead 27-10-2026)
 };
 
 async function login(loginPage, creds = {}) {

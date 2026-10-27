@@ -578,7 +578,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * one loads its issued tags, the tag's row is ticked and "Add Selected"
    * stages it. Straight counter sales (Tag Wise) scan the tag instead.
    */
-  async b2bSalesInvoice({ customer, salesman, tagNo, rfidNo, approvalRcNo, subType = 'Invoice' }) {
+  async b2bSalesInvoice({ customer, salesman, helper, tagNo, rfidNo, approvalRcNo, subType = 'Invoice' }) {
     await this.goto('/sls/app-invoice-setup');
     await this.waitForIdle();
     // the B2B module lazy-loads - wait for the tab (named "Metal Invoice" since
@@ -614,7 +614,11 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const esc = String(customer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     await this.pickFirstByCaption('Customer Branch', new RegExp(`${esc}|branch`, 'i'))
       .catch((e) => console.log(`customer branch: no option picked (${String(e).split('\n')[0]})`));
-    if (salesman) await this.pick('salesmanIDs', salesman, { closePanel: true }).catch(() => {});
+    // Sales Executive (multi) and Helper are location-scoped (Kakkanad: "Chandu"
+    // for both, QA lead 27-10-2026) - the wanted name, else the first offered
+    if (salesman) await this.pickOrFirst('salesmanIDs', salesman);
+    if (helper) await this.pickOrFirst('helperID', helper);
+    if (await this.page.locator('.ng-dropdown-panel').first().isVisible().catch(() => false)) await this.page.keyboard.press('Escape');
     await this.pickPreferred('masterDataValueID_StockSourceFrom', /counter/i).catch(() => {});
     if (approvalRcNo) {
       await this.pick('masterDataValueID_InvoiceIssueType', 'Approval RC No', { exact: true });
