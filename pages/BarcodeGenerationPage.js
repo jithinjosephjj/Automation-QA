@@ -210,8 +210,22 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     if (r.status() >= 400 || (body && body.errorCode)) {
       throw new Error(`Barcode save rejected (HTTP ${r.status()}): ${body ? body.error || '' : ''}`);
     }
-    await this.closeVisibleDialog();
+    // 30-10-2026: at Kakkanad the save opens a "Barcode Print" modal (label
+    // template "Barcode siva") ~0.3 s after the response - wait for it
+    if (await this.closePostSaveDialog()) console.log('barcode: post-save print dialog closed');
     return body;
+  }
+
+  /**
+   * The tag number a save response carries (receiptNo, else the first
+   * tagReferences entry) when it looks like a tag - '' otherwise, so the
+   * caller falls back to the Generated Tags view.
+   */
+  tagNoFromSave(saved) {
+    const d = (saved && saved.data) || {};
+    const ref = Array.isArray(d.tagReferences) && d.tagReferences[0] ? d.tagReferences[0].tagNo : '';
+    const tagNo = String(d.receiptNo || ref || '');
+    return /\d{4}-\d{2}-\d{2}\d+|\d+\/\d+/.test(tagNo) ? tagNo : '';
   }
 
   /** The visible ng-select of a wrapper controlname / raw formcontrolname ('' when the form has none). */
@@ -403,6 +417,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       .or(this.page.getByRole('tab', { name: 'Generated Tags' }))
       .or(this.page.getByText(/^\s*Generated Tags\s*$/))
       .locator('visible=true').first();
+    await this.closeVisibleDialog(); // a lingering post-save print dialog would swallow the click
     await view.click();
     await this.waitForIdle();
     for (let i = 0; i < 5; i++) {

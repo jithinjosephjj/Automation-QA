@@ -151,6 +151,29 @@ class BasePage {
     return true;
   }
 
+  /**
+   * Like closeVisibleDialog, but gives a dialog that is still being opened
+   * up to `wait` ms to appear first. A save that ends in a print dialog
+   * renders it a few hundred ms AFTER the save response (the app first
+   * fetches the print template and the printer - Barcode Print at Kakkanad,
+   * 30-10-2026), so an instant check finds nothing and the next click lands
+   * on the modal. Returns whether something was closed.
+   */
+  async closePostSaveDialog(wait = 6_000) {
+    const close = this.page.locator('.btn-close').locator('visible=true').last();
+    const deadline = Date.now() + wait;
+    while (Date.now() < deadline) {
+      if (await close.isVisible().catch(() => false)) {
+        await close.click({ timeout: 3_000 }).catch(() => {});
+        await this.page.locator('ngb-modal-window, .modal.show').locator('visible=true').first()
+          .waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => {});
+        return true;
+      }
+      await this.page.waitForTimeout(250);
+    }
+    return false;
+  }
+
   selectNg(selector, text, opts) {
     return selectNgOption(this.page, selector, text, opts);
   }

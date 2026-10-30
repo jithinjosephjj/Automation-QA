@@ -35,7 +35,7 @@ const DATA = {
     metalCategory: 'Ring',
     purity: '91.60',
     invoiceAmount: 250000,
-    receivedBy: 'Ajin G',
+    receivedBy: 'Chandu',
     paymentStatus: 'Paid',
   },
   goodsReceipt: { quantity: 5, grossWithTare: 120, tareWeight: 2, stoneWeight: 20 },
@@ -55,7 +55,7 @@ const DATA = {
     counter: null, // the chain allocates the counter afterwards - Counter Allocation only offers lots whose tags have none (23-10-2026)
   },
   counter: { itemType: 'Metal', groupCategory: 'Gold' },
-  invoice: { customer: 'RAJA', salesman: 'Ajin G' },
+  invoice: { customer: 'RAJA', salesman: 'Chandu' },
 };
 
 async function login(loginPage, page) {
@@ -185,7 +185,9 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     expect(saved, 'barcode save response').toBeTruthy();
     expect(JSON.stringify(saved)).toMatch(/success/i);
 
-    const tagNo = await barcodeGeneration.verifyGeneratedTag('Tendulkar');
+    // the tag number comes with the save (receiptNo / tagReferences); the Generated
+    // Tags view is the fallback - a post-save print dialog can sit over it (30-10-2026)
+    const tagNo = barcodeGeneration.tagNoFromSave(saved) || await barcodeGeneration.verifyGeneratedTag('Tendulkar');
     expect(tagNo, 'generated tag number').toBeTruthy();
     state.writeState({ tagNo });
     console.log(`Barcode tag generated: ${tagNo}`);
