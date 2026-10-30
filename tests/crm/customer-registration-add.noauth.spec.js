@@ -1,24 +1,9 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { businessDate } = require('../../utils/unique');
-const { makeState } = require('../../utils/e2e-state');
 const { DEMO_FILES } = require('../../utils/demo-files');
-
-// Sequential all-alpha customer names: SioniqCustomerone, ...two, ...three
-// (a persisted counter; words avoid the digit rejection some Name fields have)
-const counter = makeState('customer-counter.json');
-function numberToWords(n) {
-  const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
-  if (n < 20) return ones[n];
-  if (n < 100) return tens[Math.floor(n / 10)] + ones[n % 10];
-  return `${ones[Math.floor(n / 100)]}hundred${numberToWords(n % 100)}`;
-}
-function nextCustomerName() {
-  const n = (counter.readState().next || 1);
-  counter.writeState({ next: n + 1 });
-  return `SioniqCustomer${numberToWords(n)}`;
-}
+// Sequential all-alpha customer names (SioniqCustomerone, ...two, ...) from
+// the persisted customer-counter.json - shared with the retail invoice chain
+const { nextCustomerName, uniqueMobileNumber } = require('../../utils/customer-name');
 
 /**
  * TC-CRM-CUST-01 — Customer Registration: add an Individual customer through
@@ -43,7 +28,7 @@ test.describe('Customer Registration - add record', () => {
     // sequential all-alpha name (SioniqCustomerone, ...two, ...) + a dynamic
     // 10-digit mobile number (duplicate contacts are blocked)
     const name = nextCustomerName();
-    const contactNumber = `9${String(Date.now()).slice(-9)}`;
+    const contactNumber = uniqueMobileNumber();
 
     await customerRegistration.fillCustomer({
       kind: 'Individual',
