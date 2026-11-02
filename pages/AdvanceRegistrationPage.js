@@ -11,6 +11,8 @@ const { T } = require('../utils/timeouts');
  * (Retail - offered only after the customer), Entry Type [orderEntryMode]
  * (Direct | Estimation) -> Estimation Details: Estimation Number + Fetch ->
  * Final Amount, Remarks -> Next -> Step 2 Build Order Items -> Submit.
+ * Advance Type General (02-11-2026) is a different wizard - see
+ * registerGeneralAdvance.
  *
  * The POS "+" only opens the form on a session that went through the login
  * FORM - a replayed session cache lacks the POS counter binding (user
@@ -150,6 +152,64 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
     }
     const paid = await this.collectPayment({ mode: paymentMode || 'Cash', amount: amount !== undefined ? amount : undefined, what: 'advance registration' });
     if (!paid) throw new Error(`Advance Registration: no payment was collected (fields: ${JSON.stringify(await this.visibleFields()).slice(0, 600)})`);
+    return this.submitAdvance({ panNo, what: 'advance registration' });
+  }
+
+  /**
+   * Register a GENERAL advance (no estimation / order behind it) - Advance Type
+   * General, Business Type Retail. Mapped 02-11-2026 at Kakkanad: the wizard
+   * becomes "Step 1 Customer Details / Step 2 Advance Details" - Customer,
+   * Advance Type General, Business Type -> Advance Details block: Sales
+   * Executive (Sales Executive Code back-fills), Supervisor (optional - and
+   * "Selected Supervisor is not in the approved list." rejects an unapproved
+   * one, e.g. Abc), Advance Amount, Remarks. Once the amount is in, the footer
+   * is Proceed to Payment / Previous / Submit (no Next); the Payment section
+   * shows Invoice Total / Total Received / Balance Due. Submit posts
+   * OrderAdvanceRegistration/SaveGeneralAdvanceRegistration (receiptNo "ADV-004KK").
+   * Returns the save body.
+   */
+  async registerGeneralAdvance({ customer, businessType = 'Retail', salesExecutive = 'Chandu', supervisor, amount, remarks, paymentMode = 'Cash', paymentAmount, panNo = 'ABCDE1234F' }) {
+    if (!amount) throw new Error('registerGeneralAdvance: amount is required');
+    await this.open();
+    await this.openAddForm();
+    await this.settle(2_000);
+
+    await this.pick('customerID', customer, { search: true });
+    await this.settle(2_000);
+    await this.pick('advanceType', 'General', { exact: true });
+    await this.settle(1_500);
+    const currentBt = (await this.selectValue('businessType').catch(() => '')) || '';
+    if (currentBt.toLowerCase().includes(businessType.toLowerCase())) console.log(`general advance: businessType already "${currentBt}" - pick skipped`);
+    else await this.pick('businessType', businessType, { exact: true });
+    await this.settle(1_500);
+
+    // Advance Details
+    await this.select('salesExecutiveID').waitFor({ state: 'visible', timeout: T(15_000) });
+    await this.pick('salesExecutiveID', salesExecutive, { search: true });
+    await this.settle(1_500);
+    const salesCode = await this.page.locator('input#salesCode, input[formcontrolname="salesCode"], [controlname="salesCode"] input').locator('visible=true').first().inputValue().catch(() => '');
+    console.log(`general advance: sales executive "${salesExecutive}" -> Sales Executive Code "${salesCode}"`);
+    if (supervisor) { await this.pick('supervisorID', supervisor, { search: true }); await this.settle(1_000); }
+    const adv = this.page.locator('input#advanceAmount, input[formcontrolname="advanceAmount"], [controlname="advanceAmount"] input, input[placeholder="Advance Amount"]').locator('visible=true').first();
+    await adv.fill(String(amount));
+    await adv.blur();
+    if (remarks) await this.page.locator('input[formcontrolname="description"], [controlname="description"] input, input[placeholder="Remarks"]').locator('visible=true').first().fill(remarks).catch(() => {});
+    await this.waitForIdle();
+    await this.settle(2_000);
+    const summary = await this.page.evaluate(() => { const t = document.body.innerText.replace(/\s+/g, ' '); return { total: (t.match(/Invoice Total\s*([\d,]+\.?\d*)/i) || [])[1] || '', due: (t.match(/Balance Due\s*([\d,]+\.?\d*)/i) || [])[1] || '' }; }).catch(() => ({}));
+    console.log(`general advance: amount ${amount} -> Invoice Total "${summary.total}", Balance Due "${summary.due}"; fields ${JSON.stringify(await this.visibleFields()).slice(0, 700)}`);
+    if (!Number(String(summary.total).replace(/[^0-9.]/g, ''))) throw new Error(`General advance: the Advance Amount ${amount} did not land in the Payment section (summary ${JSON.stringify(summary)})`);
+
+    const paid = await this.collectPayment({ mode: paymentMode, amount: paymentAmount !== undefined ? paymentAmount : amount, what: 'general advance' });
+    if (!paid) throw new Error(`General advance: no payment was collected (fields: ${JSON.stringify(await this.visibleFields()).slice(0, 600)})`);
+    return this.submitAdvance({ panNo, what: 'general advance' });
+  }
+
+  /**
+   * Submit the open advance form (after the payment is collected), answer the
+   * PAN dialog when it opens, and return the save body.
+   */
+  async submitAdvance({ panNo = 'ABCDE1234F', what = 'advance registration' } = {}) {
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
 
     const resp = this.page.waitForResponse(
@@ -170,7 +230,7 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
     const panDlg = this.page.locator('.modal, ngb-modal-window, [role="dialog"]').filter({ hasText: /PAN Number/i }).locator('visible=true').last();
     const pan = panDlg.locator('[controlname="panNo"] input, input[formcontrolname="panNo"], input#panNo, input').locator('visible=true').first();
     if (await pan.isVisible({ timeout: 8_000 }).catch(() => false)) {
-      console.log(`advance registration: PAN dialog opened (holds "${await pan.inputValue().catch(() => '')}") - entering ${panNo}`);
+      console.log(`${what}: PAN dialog opened (holds "${await pan.inputValue().catch(() => '')}") - entering ${panNo}`);
       await pan.fill(String(panNo));
       await pan.blur();
       await panDlg.getByRole('button', { name: /Update\s*$/ }).locator('visible=true').last().click({ timeout: T(10_000) });
@@ -184,12 +244,13 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
     if (!r) {
       const diag = await this.invalidControls();
       const late = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
-      throw new Error(`Advance Registration Submit fired no save request - invalid: ${JSON.stringify(diag)}; alerts: ${JSON.stringify(late)}; fields: ${JSON.stringify(await this.visibleFields()).slice(0, 800)}`);
+      throw new Error(`${what}: Submit fired no save request - invalid: ${JSON.stringify(diag)}; alerts: ${JSON.stringify(late)}; fields: ${JSON.stringify(await this.visibleFields()).slice(0, 800)}`);
     }
     const body = await r.json().catch(() => null);
-    console.log('advance registration save:', r.status(), r.url().split('/').slice(-2).join('/'), JSON.stringify(body).slice(0, 300));
-    await this.reportSaveToast('advance registration', toast).catch(() => {});
-    if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`Advance Registration rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
+    console.log(`${what} save:`, r.status(), r.url().split('/').slice(-2).join('/'), JSON.stringify(body).slice(0, 300));
+    await this.reportSaveToast(what, toast).catch(() => {});
+    // e.g. 501 {"errorCode":1003,"error":"Selected Supervisor is not in the approved list."} (02-11-2026)
+    if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`${what} rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
     this.lastSaveBody = body;
     return body;
   }
