@@ -65,7 +65,7 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
    * `amount` (optional) is typed into the first enabled amount-like input of
    * step 2 when the form asks for a payment.
    */
-  async registerAgainstEstimation({ customer, estimationNo, advanceType = 'Order', subType = 'Registration', businessType = 'Retail', entryType = 'Estimation', remarks, amount, paymentMode }) {
+  async registerAgainstEstimation({ customer, estimationNo, advanceType = 'Order', subType = 'Registration', businessType = 'Retail', entryType = 'Estimation', remarks, amount, paymentMode, panNo = 'ABCDE1234F' }) {
     await this.open();
     await this.openAddForm();
     await this.settle(2_000);
@@ -86,20 +86,47 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
     await this.pick('orderEntryMode', entryType, { exact: true });
     await this.settle(2_000);
 
-    const estInput = this.page.locator('input[formcontrolname="estimationNumber"], [controlname="estimationNumber"] input, input[placeholder="Estimation number"]').locator('visible=true').first();
-    await estInput.fill(String(estimationNo));
-    await estInput.blur();
-    const fetched = this.page.waitForResponse((r) => /Estimation/i.test(r.url()) && !/KeepAlive/i.test(r.url()), { timeout: 60_000 }).catch(() => null);
-    await this.page.getByRole('button', { name: /Fetch/ }).locator('visible=true').last().click({ timeout: T(15_000) });
-    const fr = await fetched;
-    if (fr) console.log(`advance registration: fetch ${fr.status()} ${fr.url().split('/').slice(-2).join('/')}`);
+    // Estimation Details: an "Estimation Number" box + Fetch (Order), or - the
+    // Reserve variant (02-11-2026, "Reserve Estimation Details") - whatever the
+    // section renders: the same box, or a select listing the open reserve
+    // estimations. Either way the estimation's amount must land in the form.
+    const estInput = this.page.locator('input[formcontrolname="estimationNumber"], [controlname="estimationNumber"] input, input[placeholder*="stimation" i]').locator('visible=true').first();
+    let finalAmount = '';
+    if (await estInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await estInput.fill(String(estimationNo));
+      await estInput.blur();
+      const fetched = this.page.waitForResponse((r) => /Estimation/i.test(r.url()) && !/KeepAlive/i.test(r.url()), { timeout: 60_000 }).catch(() => null);
+      const fetch = this.page.getByRole('button', { name: /Fetch/ }).locator('visible=true').last();
+      if (await fetch.isVisible({ timeout: 2_000 }).catch(() => false)) await fetch.click({ timeout: T(15_000) });
+      else await estInput.press('Enter');
+      const fr = await fetched;
+      if (fr) console.log(`advance registration: fetch ${fr.status()} ${fr.url().split('/').slice(-2).join('/')}`);
+    } else {
+      // a select in the estimation-details section: the first still-empty
+      // select below the configuration ones, picked by the estimation number
+      const known = new Set(['customerID', 'advanceType', 'advanceSubType', 'businessType', 'orderEntryMode']);
+      const names = await this.page.evaluate(() => [...document.querySelectorAll('sioniq-ng-select[controlname], ng-select[formcontrolname]')].filter((n) => n.offsetParent).map((n) => n.getAttribute('controlname') || n.getAttribute('formcontrolname')));
+      const ctl = names.find((n) => !known.has(n) && !/dialCode|country|phone/i.test(n));
+      console.log(`advance registration: no Estimation Number box - selects on the form ${JSON.stringify(names)} -> estimation select "${ctl || '(none)'}"`);
+      if (!ctl) throw new Error(`Advance Registration: neither an Estimation Number box nor an estimation select is offered for ${advanceType} - fields: ${JSON.stringify(await this.visibleFields()).slice(0, 900)}`);
+      await this.pick(ctl, String(estimationNo), { search: true });
+    }
     await this.waitForIdle();
     await this.settle(2_500);
-    const finalAmount = await this.page.locator('xpath=//label[normalize-space(text())="Final Amount"]/following::input[1]').first().inputValue().catch(() => '');
-    console.log(`advance registration: estimation ${estimationNo} fetched - Final Amount "${finalAmount}"`);
+    finalAmount = await this.page.locator('xpath=//label[normalize-space(text())="Final Amount"]/following::input[1]').locator('visible=true').first().inputValue().catch(() => '');
     const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    if (alerts.length) console.log(`advance registration: alerts after Fetch ${JSON.stringify(alerts)}`);
-    if (!Number(String(finalAmount).replace(/[^0-9.]/g, ''))) throw new Error(`Advance Registration: Fetch of estimation ${estimationNo} left Final Amount "${finalAmount}" (alerts: ${JSON.stringify(alerts)})`);
+    if (alerts.length) console.log(`advance registration: alerts after the estimation fetch ${JSON.stringify(alerts)}`);
+    if (!Number(String(finalAmount).replace(/[^0-9.]/g, ''))) {
+      // no Final Amount box (Reserve): the summary's item count / payable value is the proof the estimation loaded
+      const summary = await this.page.evaluate(() => { const t = document.body.innerText.replace(/\s+/g, ' '); const items = (t.match(/No\. of Items\s*:\s*(\d+)/) || [])[1]; const payable = (t.match(/Net Payable(?: Value)?\s*:?\s*[₹]?\s*([\d,]+\.?\d*)/i) || [])[1]; return { items: Number(items || 0), payable: payable || '' }; }).catch(() => ({ items: 0, payable: '' }));
+      console.log(`advance registration: estimation ${estimationNo} loaded - no Final Amount box; summary ${JSON.stringify(summary)}`);
+      if (!summary.items && !Number(String(summary.payable).replace(/[^0-9.]/g, ''))) {
+        throw new Error(`Advance Registration: estimation ${estimationNo} did not load (Final Amount "${finalAmount}", summary ${JSON.stringify(summary)}, alerts: ${JSON.stringify(alerts)}); fields: ${JSON.stringify(await this.visibleFields()).slice(0, 900)}`);
+      }
+      finalAmount = String(summary.payable || '');
+    } else {
+      console.log(`advance registration: estimation ${estimationNo} fetched - Final Amount "${finalAmount}"`);
+    }
     if (remarks) await this.page.locator('input[formcontrolname="description"], [controlname="description"] input, input[placeholder="Remarks"]').locator('visible=true').first().fill(remarks).catch(() => {});
 
     // after a successful Fetch the wizard offers "Proceed to Payment" (user 22-10-2026)
@@ -111,42 +138,48 @@ class AdvanceRegistrationPage extends StockInwardBasePage {
     console.log(`advance registration payment step: ${JSON.stringify(await this.visibleFields()).slice(0, 2500)}`);
     await this.page.screenshot({ path: 'test-results/screens/advance-registration-payment.png', fullPage: true }).catch(() => {});
 
-    // Payment Collection dialog (QA lead 22-10-2026): payment mode Cash, the
-    // Balance Due amount, add the payment, then the registration's Submit.
-    const dlg = this.page.locator('.modal, [role="dialog"], ngb-modal-window').filter({ hasText: /Payment Collection|PAYMENT MODES/i }).locator('visible=true').last();
-    await dlg.waitFor({ state: 'visible', timeout: T(15_000) });
-    const mode = paymentMode || 'Cash';
-    await dlg.locator('button').filter({ hasText: new RegExp(`^\\s*${mode}\\s*(Alt\\s*\\+\\s*\\d+)?\\s*\\d*\\s*$`, 'i') }).first().click({ timeout: T(10_000) });
-    await this.settle(1_500);
-    const due = ((await dlg.locator('xpath=.//*[contains(normalize-space(.),"BALANCE DUE")]/following::*[contains(text(),"₹")][1]').first().textContent().catch(() => '')) || '').replace(/[^0-9.]/g, '');
-    const pay = amount !== undefined ? amount : (due || finalAmount.replace(/[^0-9.]/g, ''));
-    console.log(`advance registration: payment mode ${mode}, balance due "${due}" -> paying ${pay}`);
-    // the mode's panel ("CASH PAYMENT") holds AMOUNT (first input after its heading), DESCRIPTION and "+ Add Cash"
-    let amt = dlg.locator(`xpath=.//*[self::h5 or self::h6][contains(translate(normalize-space(.),"abcdefghijklmnopqrstuvwxyz","ABCDEFGHIJKLMNOPQRSTUVWXYZ"),"${mode.toUpperCase()} PAYMENT")]/following::input[not(@type="checkbox")][1]`).first();
-    if (!(await amt.count())) amt = dlg.locator('input:not([type=checkbox]):not([readonly]):not([disabled])').locator('visible=true').first();
-    await amt.fill(String(pay));
-    await amt.blur();
-    await this.settle(1_000);
-    const addPay = dlg.locator('button').filter({ hasText: new RegExp(`Add ${mode}`, 'i') }).locator('visible=true').last();
-    await addPay.click({ timeout: T(10_000) });
-    await this.waitForIdle();
-    await this.settle(2_000);
-    const entries = (await dlg.locator('table tbody tr').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => !/No entries/i.test(t));
-    console.log(`advance registration: payment entries ${JSON.stringify(entries.slice(0, 3))}; collected: ${((await dlg.innerText().catch(() => '')) || '').match(/₹[\d,.]+ collected/)?.[0] || '?'}`);
-    if (!entries.length) throw new Error(`Advance Registration: the ${mode} payment of ${pay} was not added (fields: ${JSON.stringify(await this.visibleFields()).slice(0, 600)})`);
-    // close the collection dialog, then the registration's own Submit
-    const close = dlg.getByRole('button', { name: /^Close$|Done|Ok/i }).locator('visible=true').last();
-    if (await close.isVisible({ timeout: 2_000 }).catch(() => false)) { await close.click({ timeout: 5_000 }).catch(() => {}); await this.settle(1_500); }
+    // Payment Collection dialog (QA lead 22-10-2026): the shared helper in
+    // StockInwardBasePage - the mode is matched by substring because Kakkanad
+    // offers "Cash Test Mode" / "Cash Test Mode 2" and no plain "Cash"
+    // (02-11-2026); the balance due is paid unless `amount` says otherwise.
+    const dlgOpen = this.page.locator('.modal, [role="dialog"], ngb-modal-window').filter({ hasText: /Payment Collection|PAYMENT MODES/i }).locator('visible=true').last();
+    if (await dlgOpen.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      // "Proceed to Payment" was already pressed above - close and let the helper reopen it
+      await dlgOpen.getByRole('button', { name: /^Close$/i }).locator('visible=true').last().click({ timeout: 5_000 }).catch(() => {});
+      await this.settle(1_000);
+    }
+    const paid = await this.collectPayment({ mode: paymentMode || 'Cash', amount: amount !== undefined ? amount : undefined, what: 'advance registration' });
+    if (!paid) throw new Error(`Advance Registration: no payment was collected (fields: ${JSON.stringify(await this.visibleFields()).slice(0, 600)})`);
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
 
     const resp = this.page.waitForResponse(
-      (r) => ['POST', 'PUT'].includes(r.request().method()) && /Advance|Registration|Order/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Dropdown|Translation|Get[A-Z]\w*$/i.test(r.url()),
+      // UpdateCustomerPAN (the PAN dialog's Update) also sits under the Advance
+      // Registration controller - it is NOT the save (02-11-2026)
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /Advance|Registration|Order/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Dropdown|Translation|PAN|Get[A-Z]\w*$/i.test(r.url()),
       { timeout: 120_000 },
     ).catch(() => null);
     const toast = this.watchSaveToast(130_000);
     await this.page.getByRole('button', { name: /Submit\s*$/ }).locator('visible=true').last().click({ timeout: T(15_000) });
     const confirm = this.page.locator('.swal2-popup, .modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Are you sure|Confirm|proceed/i }).getByRole('button', { name: /^Yes$|Ok|Confirm/i }).last();
     if (await confirm.isVisible({ timeout: 4_000 }).catch(() => false)) await confirm.click().catch(() => {});
+    // a cash advance over the PAN threshold opens a PAN dialog (input panNo,
+    // Cancel / Update) instead of saving (02-11-2026, ₹7.6 lakh): enter the
+    // customer's PAN and Update, then the save fires
+    // the dialog: heading "PAN", caption "PAN Number", the textbox inside a
+    // [controlname="panNo"] wrapper, buttons " Cancel" / " Update" (icon glyphs)
+    const panDlg = this.page.locator('.modal, ngb-modal-window, [role="dialog"]').filter({ hasText: /PAN Number/i }).locator('visible=true').last();
+    const pan = panDlg.locator('[controlname="panNo"] input, input[formcontrolname="panNo"], input#panNo, input').locator('visible=true').first();
+    if (await pan.isVisible({ timeout: 8_000 }).catch(() => false)) {
+      console.log(`advance registration: PAN dialog opened (holds "${await pan.inputValue().catch(() => '')}") - entering ${panNo}`);
+      await pan.fill(String(panNo));
+      await pan.blur();
+      await panDlg.getByRole('button', { name: /Update\s*$/ }).locator('visible=true').last().click({ timeout: T(10_000) });
+      await this.settle(1_500);
+      const again = this.page.getByRole('button', { name: /Submit\s*$/ }).locator('visible=true').last();
+      if (!(await Promise.race([resp.then((x) => !!x), this.page.waitForTimeout(5_000).then(() => false)])) && (await again.isVisible().catch(() => false))) {
+        await again.click({ timeout: T(15_000) }).catch(() => {});
+      }
+    }
     const r = await resp;
     if (!r) {
       const diag = await this.invalidControls();

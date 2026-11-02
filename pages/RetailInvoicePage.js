@@ -256,56 +256,6 @@ class RetailInvoicePage extends StockInwardBasePage {
   }
 
   /**
-   * "Proceed To Payment" -> Payment Collection dialog (the Advance
-   * Registration one, QA lead 22-10-2026): payment mode, the balance due,
-   * "+ Add <mode>", close. Returns the amount paid ('' when the form offered
-   * no payment step).
-   */
-  async collectPayment({ mode = 'Cash', amount } = {}) {
-    const proceed = this.page.getByRole('button', { name: /Proceed To Payment/i }).locator('visible=true').last();
-    if (!(await proceed.isVisible({ timeout: 3_000 }).catch(() => false))) { console.log(`${this.tabName}: no "Proceed To Payment" button - payment skipped`); return ''; }
-    await proceed.click({ timeout: T(15_000) });
-    await this.waitForIdle();
-    await this.settle(3_000);
-    const dlg = this.page.locator('.modal, [role="dialog"], ngb-modal-window, .offcanvas').filter({ hasText: /Payment Collection|PAYMENT MODES|BALANCE DUE/i }).locator('visible=true').last();
-    if (!(await dlg.waitFor({ state: 'visible', timeout: T(15_000) }).then(() => true).catch(() => false))) {
-      const toasts = await this.toasts();
-      throw new Error(`Retail Invoice: "Proceed To Payment" opened no Payment Collection dialog. Toasts: ${JSON.stringify(toasts)}; fields: ${JSON.stringify(await this.visibleFields()).slice(0, 800)}`);
-    }
-    // PAYMENT MODES at Kakkanad (30-10-2026): Advance, CARD, Cheque, Online Test
-    // Mode (2), UPI Test Mode (2), "Cash Test Mode", "Cash Test Mode 2", Metal -
-    // there is no plain "Cash", so the mode is matched by substring (the first
-    // cash mode). The chosen mode's panel ("<MODE> PAYMENT") holds AMOUNT (₹)
-    // and a "+ Add <mode>" button; the entry lands in the MODE / AMOUNT grid.
-    const modeBtns = dlg.locator('button').filter({ hasText: new RegExp(mode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }).locator('visible=true');
-    const cleanMode = (t) => t.replace(/\s+/g, ' ').replace(/alt\s*\+?\s*\d+/i, '').replace(/[^\w ]/g, '').replace(/\s*\d+$/, '').trim();
-    const offered = (await dlg.locator('button').locator('visible=true').allInnerTexts().catch(() => [])).filter((t) => /alt\s*\+?\s*\d|\d\s*$/i.test(t)).map(cleanMode).filter((t) => t && !/^Close$/i.test(t));
-    if (!(await modeBtns.count())) throw new Error(`Retail Invoice: payment mode "${mode}" is not offered - modes: ${JSON.stringify(offered)}`);
-    const modeLabel = cleanMode((await modeBtns.first().innerText()) || '');
-    await modeBtns.first().click({ timeout: T(10_000) });
-    await this.settle(1_500);
-    const due = ((await dlg.locator('xpath=.//*[contains(normalize-space(.),"BALANCE DUE")]/following::*[contains(text(),"₹")][1]').first().textContent().catch(() => '')) || '').replace(/[^0-9.]/g, '');
-    const pay = amount !== undefined ? amount : due;
-    console.log(`${this.tabName}: payment mode "${modeLabel}" (of ${JSON.stringify(offered)}), balance due "${due}" -> paying ${pay}`);
-    let amt = dlg.locator('xpath=.//label[contains(translate(normalize-space(.),"amount","AMOUNT"),"AMOUNT")]/following::input[not(@type="checkbox")][1]').locator('visible=true').first();
-    if (!(await amt.count()) || (await amt.isDisabled().catch(() => true))) amt = dlg.locator('input:not([type=checkbox]):not([readonly]):not([disabled])').locator('visible=true').first();
-    await amt.fill(String(pay));
-    await amt.blur();
-    await this.settle(1_000);
-    const addBtn = dlg.locator('button').filter({ hasText: /^\s*\+?\s*Add\b/i }).locator('visible=true').last();
-    console.log(`${this.tabName}: payment panel inputs ${JSON.stringify(await dlg.locator('input:not([type=checkbox])').locator('visible=true').evaluateAll((els) => els.map((e) => `${e.placeholder || e.id || '-'}=${e.value}${e.disabled || e.readOnly ? '(ro)' : ''}`)).catch(() => []))}; add button "${((await addBtn.innerText().catch(() => '')) || '').trim()}"`);
-    await addBtn.click({ timeout: T(10_000) });
-    await this.waitForIdle();
-    await this.settle(2_000);
-    const entries = (await dlg.locator('table tbody tr').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => !/No entries/i.test(t));
-    console.log(`${this.tabName}: payment entries ${JSON.stringify(entries.slice(0, 3))}`);
-    if (!entries.length) throw new Error(`Retail Invoice: the ${mode} payment of ${pay} was not added (dialog: ${((await dlg.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 400)})`);
-    const close = dlg.getByRole('button', { name: /^Close$|Done|Ok/i }).locator('visible=true').last();
-    if (await close.isVisible({ timeout: 2_000 }).catch(() => false)) { await close.click({ timeout: 5_000 }).catch(() => {}); await this.settle(1_500); }
-    return pay;
-  }
-
-  /**
    * One direct retail sale: customer (by mobile number when given, else by
    * name), the staff, one scanned tag, payment, Submit. Returns the save body.
    */

@@ -153,6 +153,154 @@ class OrderEstimationPage extends StockInwardBasePage {
     return body;
   }
 
+  /**
+   * RESERVE ESTIMATION - the "Reserve Estimation" tab of the same page (probed
+   * 02-11-2026 at Kakkanad): Customer / Member (mobile back-fills, read-only),
+   * Business Type [B2C | Retail], Estimation Type [masterDataValueID_StockSourceType:
+   * TagWise | Locker], Sales Executive (names; Sales Code back-fills), Supervisor,
+   * Helper, Scan Type [Tag Number] -> after the type picks a "Scan Tag / RFID"
+   * box (input#scanValue) appears; the scan fills Tag Details / Add Weight
+   * Details / Add Pricing Details (Wastage % 13, Metal Rate 12880 editable,
+   * optional Rate Cut + delivery date / note) and "Add Item" moves the tag into
+   * "Scanned Tags Information". Next leads to the Payment step; the estimation
+   * is saved there (the advance itself is collected on the Advance Registration
+   * page). Returns the save body.
+   */
+  async createReserveEstimation({
+    customer, businessType = 'Retail', estimationType = 'TagWise', salesExecutive = 'Chandu', supervisor, helper,
+    tagNo, rfidNo, metalRate, remarks, additionalCharges = false,
+    payment = { mode: 'Cash', amount: 1000 }, // the advance collected with the estimation; { amount: undefined } pays the full balance
+  }) {
+    await this.open();
+    const tab = this.page.getByRole('tab', { name: /Reserve Estimation/i }).locator('visible=true').first();
+    await tab.click({ timeout: T(15_000) });
+    await this.waitForIdle();
+    await this.waitForSpinner();
+    await this.settle(1_500);
+    for (let i = 0; i < 4; i++) {
+      await this.waitForSpinner().catch(() => {});
+      await this.page.locator('button:has(i.ri-add-fill)').locator('visible=true').first().click({ timeout: T(60_000) });
+      if (await this.select('customerID').waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false)) break;
+      if (i === 3) throw new Error('Reserve Estimation: the Add form did not open after 4 clicks on "+" (POS counter validation? log in through the form)');
+    }
+    await this.settle(2_000);
+
+    await this.pick('customerID', customer, { search: true });
+    await this.settle(2_000);
+    await this.pickUnlessSet('masterDataValueID_BusinessType', businessType);
+    await this.settle(1_200);
+    await this.pickUnlessSet('masterDataValueID_StockSourceType', estimationType);
+    await this.settle(1_500);
+    await this.pick('salesExecutiveID', salesExecutive, { search: true });
+    await this.settle(1_500);
+    if (supervisor) await this.pick('supervisorID', supervisor, { search: true }).catch(() => {});
+    if (helper) await this.pick('helperID', helper, { search: true }).catch((e) => console.log(`reserve estimation: helper skipped - ${String(e).slice(0, 100)}`));
+    await this.closeStalePanels();
+    if (remarks) await this.page.locator('input#remarks, textarea#remarks, [formcontrolname="remarks"]').locator('visible=true').first().fill(remarks).catch(() => {});
+
+    // scan the tag (RFID when known - tag numbers repeat on qa)
+    if (rfidNo) await this.pick('masterDataValueID_ScanType', 'Rfid', { exact: false }).catch(() => {});
+    const scan = this.page.locator('input#scanValue, input[placeholder*="tag number" i], input[placeholder*="Scan" i]').locator('visible=true').first();
+    await scan.waitFor({ state: 'visible', timeout: T(15_000) });
+    const value = rfidNo || tagNo;
+    await scan.fill(String(value));
+    const scanned = this.page.waitForResponse((r) => /Tag|Scan|Estimation/i.test(r.url()) && !/KeepAlive|GetAll|Pagination|GetMasterData|Translation/i.test(r.url()) && ['POST', 'GET'].includes(r.request().method()), { timeout: 30_000 }).catch(() => null);
+    await scan.press('Enter');
+    const tagField = this.page.locator('xpath=//label[normalize-space(text())="Tag No"]/following::input[1]').locator('visible=true').first();
+    if (!(await tagField.isVisible({ timeout: 4_000 }).catch(() => false))) {
+      const btn = this.page.getByRole('button', { name: /^\s*Scan\s*$/ }).locator('visible=true').last();
+      if (await btn.isVisible({ timeout: 1_000 }).catch(() => false)) await btn.click({ timeout: 5_000 }).catch(() => {});
+    }
+    const r = await scanned;
+    if (r) console.log(`reserve estimation: scan ${r.status()} ${r.url().split('/').slice(-2).join('/')} ${JSON.stringify(await r.json().catch(() => null)).slice(0, 200)}`);
+    await this.waitForIdle();
+    await this.settle(2_000);
+    const toasts = async () => (await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    if (!(await tagField.isVisible({ timeout: 15_000 }).catch(() => false)) || (await tagField.inputValue().catch(() => '')) !== String(tagNo)) {
+      throw new Error(`Reserve Estimation: the scan of tag "${tagNo}" filled no Tag Details (Tag No field "${await tagField.inputValue().catch(() => '-')}"). Toasts: ${JSON.stringify(await toasts())}`);
+    }
+    const detail = async (lbl) => this.page.locator(`xpath=//label[normalize-space(text())="${lbl}"]/following::input[1]`).locator('visible=true').first().inputValue().catch(() => '');
+    console.log(`reserve estimation: tag ${tagNo} -> ${await detail('Article')} | ${await detail('Purity')} | gross ${await detail('Gross Weight')} | metal rate ${await detail('Metal Rate')} | amount ${await detail('Amount')}`);
+    if (metalRate !== undefined) {
+      const rate = this.page.locator('xpath=//label[normalize-space(text())="Metal Rate"]/following::input[1]').locator('visible=true').first();
+      if (await rate.isEnabled().catch(() => false)) { await rate.fill(String(metalRate)); await rate.blur(); await this.settle(1_500); }
+    }
+    if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+
+    // Add Item -> Scanned Tags Information
+    const itemsCount = async () => this.page.evaluate(() => { const m = document.body.innerText.replace(/\s+/g, ' ').match(/No\. of Items\s*:\s*(\d+)/); return m ? Number(m[1]) : 0; }).catch(() => 0);
+    const before = await itemsCount();
+    await this.page.getByRole('button', { name: /Add Item/ }).locator('visible=true').last().click({ timeout: T(15_000) });
+    await this.waitForIdle();
+    await this.settle(2_500);
+    const row = this.page.locator('table tbody tr').locator('visible=true').filter({ hasText: String(tagNo) }).first();
+    const staged = async () => (await itemsCount()) > before || (await row.isVisible().catch(() => false));
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline && !(await staged())) await this.page.waitForTimeout(500);
+    if (!(await staged())) throw new Error(`Reserve Estimation: "Add Item" did not move tag ${tagNo} into Scanned Tags (No. of Items ${await itemsCount()}). Toasts: ${JSON.stringify(await toasts())}; invalid: ${JSON.stringify(await this.invalidControls())}`);
+    console.log(`reserve estimation: tag ${tagNo} added to Scanned Tags (No. of Items ${await itemsCount()})`);
+
+    const chargesBtn = this.page.getByRole('button', { name: /Additional Charges/ }).locator('visible=true').last();
+    if (additionalCharges && (await chargesBtn.isVisible({ timeout: 1_500 }).catch(() => false))) {
+      await this.addAdditionalCharges({ ...(typeof additionalCharges === 'object' ? additionalCharges : {}), index: (await chargesBtn.count()) - 1 }).catch((e) => console.log(`reserve estimation: additional charges skipped - ${String(e).slice(0, 120)}`));
+    }
+
+    // The reserve estimation collects money itself: "Proceed to Payment" opens
+    // the Payment Collection dialog (Cash Test Mode at Kakkanad); the paid
+    // amount is the customer's advance (a partial amount by default - the
+    // Advance Registration step adds to it), then Submit saves the estimation.
+    if (payment) await this.collectPayment({ ...payment, what: 'reserve estimation' });
+    const fields = await this.page.evaluate(() => {
+      const vis = (el) => !!(el && el.offsetParent);
+      const name = (el) => (el.closest('[controlname]') || el).getAttribute('controlname') || el.getAttribute('formcontrolname') || el.placeholder || el.id || '-';
+      return {
+        selects: [...document.querySelectorAll('ng-select')].filter(vis).map((n) => `${name(n)}=${n.querySelector('.ng-value') ? n.querySelector('.ng-value').textContent.replace(/×/g, '').trim() : ''}${n.classList.contains('ng-invalid') ? '*' : ''}`),
+        inputs: [...document.querySelectorAll('input:not([type=checkbox]):not([type=radio]):not([role=combobox]), textarea')].filter(vis).filter((i) => !i.closest('ng-select, header')).map((i) => `${name(i)}="${i.value}"${i.disabled || i.readOnly ? '(ro)' : ''}${i.classList.contains('ng-invalid') ? '*' : ''}`),
+        buttons: [...document.querySelectorAll('button')].filter(vis).map((b) => b.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean),
+        headings: [...document.querySelectorAll('h4, h5, h6')].filter(vis).map((h) => h.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 15),
+      };
+    }).catch(() => ({}));
+    console.log(`reserve estimation: after the payment - ${JSON.stringify(fields).slice(0, 1800)}`);
+    await this.page.screenshot({ path: 'test-results/screens/reserve-estimation-after-payment.png', fullPage: true }).catch(() => {});
+    if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+    // the forward button turns into "Save" once a payment entry exists (the
+    // Next of the empty form); accept Save or Submit
+    let submitBtn = this.page.getByRole('button', { name: /(Save|Submit)\s*$/ }).locator('visible=true').last();
+    if (!(await submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      const next = this.page.getByRole('button', { name: /Next\s*$/ }).locator('visible=true').last();
+      if (await next.isVisible({ timeout: 1_000 }).catch(() => false)) {
+        await next.click({ timeout: T(15_000) });
+        await this.waitForIdle();
+        await this.settle(2_500);
+        submitBtn = this.page.getByRole('button', { name: /(Save|Submit)\s*$/ }).locator('visible=true').last();
+      }
+    }
+
+    const resp = this.page.waitForResponse(
+      (r) => ['POST', 'PUT'].includes(r.request().method()) && /Estimation|Reserve/i.test(r.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Dropdown|Translation|Scan|Get[A-Z]\w*$/i.test(r.url()),
+      { timeout: 120_000 },
+    ).catch(() => null);
+    const toast = this.watchSaveToast(130_000);
+    if (!(await submitBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      const now = (await this.page.locator('button').locator('visible=true').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      throw new Error(`Reserve Estimation: no Save / Submit button after the payment - buttons ${JSON.stringify(now)}`);
+    }
+    await submitBtn.click({ timeout: T(15_000) });
+    const confirm = this.page.locator('.swal2-popup, .modal.show, ngb-modal-window, [role="dialog"]').filter({ hasText: /Are you sure|Confirm|proceed/i }).getByRole('button', { name: /^Yes$|Ok|Confirm/i }).last();
+    if (await confirm.isVisible({ timeout: 4_000 }).catch(() => false)) await confirm.click().catch(() => {});
+    const res = await resp;
+    if (!res) {
+      throw new Error(`Reserve Estimation Submit fired no save request - invalid: ${JSON.stringify(await this.invalidControls())}; alerts: ${JSON.stringify(await toasts())}`);
+    }
+    const body = await res.json().catch(() => null);
+    console.log('reserve estimation save:', res.status(), res.url().split('/').slice(-2).join('/'), JSON.stringify(body).slice(0, 300));
+    await this.reportSaveToast('reserve estimation', toast).catch(() => {});
+    if (res.status() >= 400 || (body && body.errorCode)) throw new Error(`Reserve Estimation rejected (HTTP ${res.status()}): ${body ? body.error || body.message || '' : ''}`);
+    this.lastSaveBody = body;
+    await this.closePostSaveDialog(4_000).catch(() => {});
+    return body;
+  }
+
   /** The estimation number from a save body (receiptNo / docNo / estimationNo). */
   static numberOf(body) {
     const d = (body && body.data) || {};
