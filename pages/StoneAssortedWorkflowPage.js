@@ -173,6 +173,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.settle(2_000);
     console.log('assorted receipt: issue committed via Add Items');
     await this.closeThenNext({ next: false });
+    await this.fillReceiptTypeIfOffered({ what: 'assorted receipt' }); // Receipt Details, when the tab carries it (Hallmark does since 02-11-2026)
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();

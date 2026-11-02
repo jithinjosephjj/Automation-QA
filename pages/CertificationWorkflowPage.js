@@ -228,6 +228,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
       if (!(await stagedBox.isChecked({ timeout: 2_000 }).catch(() => false))) await stagedBox.check({ force: true, timeout: 3_000 }).catch(() => {});
       await this.settle(1_000);
     }
+    await this.fillReceiptTypeIfOffered({ what: 'certification receipt' }); // Receipt Details, when the tab carries it (Hallmark does since 02-11-2026)
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();

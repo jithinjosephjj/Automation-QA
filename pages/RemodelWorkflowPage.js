@@ -74,35 +74,70 @@ class RemodelWorkflowPage extends StockInwardBasePage {
   /**
    * "Dispatch Details" on the Issue tabs (Hallmark since 02-11-2026, the
    * Approval Issue since 27-10): Dispatch Type is mandatory and Submit fires
-   * nothing while it is empty; "In Person" reveals Person Name + Contact
-   * Number (mandatory too). A form without the section is a no-op.
+   * nothing while it is empty. The option lists differ per screen (Hallmark
+   * Issue: "Our Employee" | "Vendor Representative"; Approval Issue: "In
+   * Person"), so the wanted type is picked when offered, else the FIRST
+   * offered one. Whatever the choice reveals is filled: Person Name /
+   * Contact Number inputs, and any still-empty mandatory select (an
+   * employee / representative pick) gets its first option. The list can be
+   * slow to load (empty on the first open, 02-11-2026) - reopened up to 4
+   * times. A form without the section is a no-op.
    */
-  async fillDispatchIfOffered({ dispatchType = 'In Person', dispatchPerson = 'JJ', dispatchContact = '9898989899', what = 'issue' } = {}) {
-    const host = this.select('masterDataValueID_DispatchType');
-    const byCtl = await host.isVisible({ timeout: 2_000 }).catch(() => false);
-    const label = this.page.locator('label:text-is("Dispatch Type")').locator('visible=true').first();
-    if (!byCtl && !(await label.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
-    try {
-      if (byCtl) await this.pick('masterDataValueID_DispatchType', dispatchType);
-      else await this.pickByLabel('Dispatch Type', dispatchType);
-    } catch (e) {
-      // 02-11-2026: the Hallmark Issue's Dispatch Type is mandatory but its list is
-      // EMPTY on qa ("No items found") - a master-data gap for the QA lead / dev, not
-      // something to work around with made-up data
-      if (/No items found/.test(String(e))) throw new Error(`${what}: Dispatch Type is mandatory but the dropdown offers no options on qa ("No items found") - configure its master data before this issue can be submitted`);
-      throw e;
+  async fillDispatchIfOffered({ dispatchType = 'Our Employee', dispatchPerson = 'JJ', dispatchContact = '9898989899', what = 'issue' } = {}) {
+    return this.fillTypeSelectIfOffered({ label: 'Dispatch Type', controlname: 'masterDataValueID_DispatchType', dispatchType, dispatchPerson, dispatchContact, what });
+  }
+
+  /**
+   * The RECEIPT forms' twin (Hallmark Receipt since 02-11-2026): "Receipt
+   * Details > Receipt Type" (Our Employee | Vendor Representative), mandatory,
+   * Submit silent while empty.
+   */
+  async fillReceiptTypeIfOffered({ receiptType = 'Our Employee', what = 'receipt' } = {}) {
+    return this.fillTypeSelectIfOffered({ label: 'Receipt Type', controlname: 'masterDataValueID_ReceiptType', dispatchType: receiptType, what });
+  }
+
+  async fillTypeSelectIfOffered({ label, controlname, dispatchType = 'Our Employee', dispatchPerson = 'JJ', dispatchContact = '9898989899', what = 'issue' }) {
+    let host = this.select(controlname);
+    if (!(await host.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      host = this.page.locator(`xpath=//label[normalize-space(text())="${label}"]/following::ng-select[1]`).locator('visible=true').first();
+      if (!(await host.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
     }
-    console.log(`${what}: Dispatch Type -> ${dispatchType}`);
-    await this.settle(1_200);
+    let picked = '';
+    for (let attempt = 1; attempt <= 4 && !picked; attempt++) {
+      await this.closeStalePanels();
+      await host.locator('.ng-select-container').click({ timeout: 5_000 }).catch(() => {});
+      const opts = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasNotText: /No items found|Type to search/i });
+      if (await opts.first().waitFor({ state: 'visible', timeout: attempt * 4_000 }).then(() => true).catch(() => false)) {
+        const labels = (await opts.allTextContents()).map((t) => t.replace(/\s+/g, ' ').trim());
+        let idx = labels.findIndex((l) => l.toLowerCase() === String(dispatchType).toLowerCase());
+        if (idx < 0) idx = labels.findIndex((l) => l.toLowerCase().includes(String(dispatchType).toLowerCase()));
+        if (idx < 0) idx = 0;
+        await opts.nth(idx).click({ timeout: 5_000 });
+        picked = labels[idx];
+        console.log(`${what}: ${label} -> ${picked}${picked !== dispatchType ? ` (wanted "${dispatchType}")` : ''} (of ${JSON.stringify(labels)})`);
+      } else {
+        await this.page.keyboard.press('Escape').catch(() => {});
+        console.log(`${what}: ${label} list empty on open ${attempt} - reopening`);
+      }
+    }
+    if (!picked) {
+      // a mandatory select with nothing to pick is a qa master-data gap, not
+      // something to work around with made-up data
+      throw new Error(`${what}: ${label} is mandatory but the dropdown offers no options on qa ("No items found") - configure its master data before this form can be submitted`);
+    }
+    await this.waitForIdle();
+    await this.settle(1_500); // the choice reveals its own fields
     for (const [caption, value] of [['Person Name', dispatchPerson], ['Contact Number', dispatchContact]]) {
       if (!value) continue;
       // these forms caption with plain text nodes or labels - take the first enabled input after either
       const input = this.page
         .locator(`xpath=//*[normalize-space(text())="${caption}"]/following::input[not(@type="checkbox") and not(@disabled) and not(ancestor::ng-select)][1]`)
         .locator('visible=true').first();
-      if (await input.isVisible({ timeout: 2_000 }).catch(() => false)) { await input.fill(String(value)); await input.blur(); }
-      else console.log(`${what}: "${caption}" input not offered`);
+      if (await input.isVisible({ timeout: 1_500 }).catch(() => false)) { await input.fill(String(value)); await input.blur(); console.log(`${what}: ${caption} -> ${value}`); }
     }
+    if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects(); // e.g. the employee / representative select
+    const invalid = await this.invalidControls();
+    if (invalid.selects.length || invalid.inputs.length) console.log(`${what}: still invalid after ${label} ${JSON.stringify(invalid)}`);
     return true;
   }
 
@@ -269,6 +304,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
       if (!(await stagedBox.isChecked({ timeout: 2_000 }).catch(() => false))) await stagedBox.check({ force: true, timeout: 3_000 }).catch(() => {});
       await this.settle(1_000);
     }
+    await this.fillReceiptTypeIfOffered({ what: 'remodel receipt' }); // Receipt Details, when the tab carries it (Hallmark does since 02-11-2026)
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
