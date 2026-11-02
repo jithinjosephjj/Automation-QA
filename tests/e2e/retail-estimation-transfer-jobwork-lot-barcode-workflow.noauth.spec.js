@@ -27,14 +27,25 @@ const state = makeState('e2e-retail-estimation-state.json');
  *              "Location locked to Cochin" for a branch order, but the lot is offered at Kakkanad
  *
  * POS pages only open their Add form on a session that went through the
- * login FORM (counter validation) - the Cochin steps clear the session cache
- * first. Numbers chain through e2e-retail-estimation-state.json.
+ * login FORM (counter validation) - the POS steps clear the session cache
+ * and the live session first. Numbers chain through e2e-retail-estimation-state.json.
+ *
+ * Since 02-11-2026 the POS steps default to the HEAD OFFICE as well (user:
+ * "login with kakkanad"; at Cochin the Registrations "+" no longer opens for
+ * admin) and TC-RET-03/04 are skipped; BRANCH=Cochin runs the branch variant
+ * described above.
  *
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
 
-const BRANCH = 'Cochin';
+// 02-11-2026 (user: "login with kakkanad"): the POS steps run at the HEAD OFFICE too -
+// at Cochin the Registrations "+" opened nothing (POS counter validation, TC-RET-02).
+// BRANCH=Cochin restores the branch variant with the order transfer in between; with
+// branch = head office the two transfer steps are skipped and the job work is raised
+// from the order directly.
 const HEAD_OFFICE = 'Kakkanad';
+const BRANCH = process.env.BRANCH || HEAD_OFFICE;
+const TRANSFER = BRANCH !== HEAD_OFFICE;
 const VENDOR = process.env.VENDOR || 'RAJA';
 
 const DATA = {
@@ -61,17 +72,22 @@ const DATA = {
   },
 };
 
-/** Branch steps: a FORM login (the replayed session lacks the POS counter binding). */
-async function freshBranchLogin(loginPage) {
+/**
+ * POS steps: a FORM login (the replayed session lacks the POS counter binding).
+ * The live browser session is forgotten too (02-11-2026: TC-RET-02 reused
+ * TC-RET-01's session - "session reuse" - and the Registrations "+" opened nothing).
+ */
+async function freshBranchLogin(loginPage, page) {
   sessionCache.clear(process.env.SIONIQ_USER || 'admin', BRANCH);
+  page.context()[Symbol.for('sioniq.session')] = null;
   await loginPage.ensureLoggedIn({ bu: BRANCH });
 }
 
 test.describe('Retail Estimation - Advance - Transfer Out - Job Work - Lot - Barcode - Workflow', () => {
-  test('TC-RET-01 Cochin: order estimation (Job Work, Tendulkar 91.60)', async ({ loginPage, orderEstimation }) => {
+  test(`TC-RET-01 ${BRANCH}: order estimation (Job Work, Tendulkar 91.60)`, async ({ loginPage, orderEstimation, page }) => {
     test.setTimeout(600_000);
     state.reset();
-    await freshBranchLogin(loginPage);
+    await freshBranchLogin(loginPage, page);
 
     const body = await orderEstimation.createEstimation({ ...DATA.estimation });
     expect(JSON.stringify(body)).toMatch(/success|saved|1001/i);
@@ -81,11 +97,11 @@ test.describe('Retail Estimation - Advance - Transfer Out - Job Work - Lot - Bar
     console.log(`Order estimation created: ${estimationNo}`);
   });
 
-  test('TC-RET-02 Cochin: advance registration against the estimation', async ({ loginPage, advanceRegistration }) => {
+  test(`TC-RET-02 ${BRANCH}: advance registration against the estimation`, async ({ loginPage, advanceRegistration, page }) => {
     test.setTimeout(600_000);
     const { estimationNo } = state.readState();
     expect(estimationNo, 'run TC-RET-01 first').toBeTruthy();
-    await freshBranchLogin(loginPage);
+    await freshBranchLogin(loginPage, page);
 
     const body = await advanceRegistration.registerAgainstEstimation({ customer: DATA.estimation.customer, estimationNo, ...DATA.advance });
     expect(JSON.stringify(body)).toMatch(/success|saved|1001/i);
@@ -94,8 +110,9 @@ test.describe('Retail Estimation - Advance - Transfer Out - Job Work - Lot - Bar
     console.log(`Advance registered: ${advanceNo || '(number not in the save body)'}`);
   });
 
-  test('TC-RET-03 Cochin: transfer the order out to Kakkanad', async ({ loginPage, transfers }) => {
+  test(`TC-RET-03 ${BRANCH}: transfer the order out to ${HEAD_OFFICE}`, async ({ loginPage, transfers }) => {
     test.setTimeout(600_000);
+    test.skip(!TRANSFER, `the order is already at ${HEAD_OFFICE} - no transfer out`);
     const { estimationNo, advanceNo } = state.readState();
     expect(estimationNo, 'run TC-RET-01 first').toBeTruthy();
     await loginPage.ensureLoggedIn({ bu: BRANCH });
@@ -107,8 +124,9 @@ test.describe('Retail Estimation - Advance - Transfer Out - Job Work - Lot - Bar
     console.log(`Order ${advanceNo || estimationNo} transferred out ${BRANCH} -> ${HEAD_OFFICE} (doc: ${transferOutNo})`);
   });
 
-  test('TC-RET-04 Kakkanad: transfer in the order from Cochin', async ({ loginPage, transfers }) => {
+  test(`TC-RET-04 ${HEAD_OFFICE}: transfer in the order from ${BRANCH}`, async ({ loginPage, transfers }) => {
     test.setTimeout(600_000);
+    test.skip(!TRANSFER, `the order is already at ${HEAD_OFFICE} - no transfer in`);
     const { transferOutNo, orderNo } = state.readState();
     expect(transferOutNo, 'run TC-RET-03 first').toBeTruthy();
     await loginPage.ensureLoggedIn({ bu: HEAD_OFFICE });
