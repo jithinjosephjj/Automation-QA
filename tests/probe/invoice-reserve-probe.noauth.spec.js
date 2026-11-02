@@ -103,7 +103,8 @@ test('PROBE invoice for a reserved tag', async ({ loginPage, retailInvoice, page
       await adv.click(); await pg.settle(1_500);
       const typeSel = dlg.locator('sioniq-ng-select[controlname="advanceTypeId"] ng-select, ng-select[formcontrolname="advanceTypeId"]').locator('visible=true').first();
       await typeSel.click(); await pg.settle(800);
-      await page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: /^\s*Reserve\s*$/ }).first().click();
+      const advType = process.env.ADV_TYPE || 'Reserve';
+      await page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: new RegExp(`^\\s*${advType}\\s*$`) }).first().click();
       await pg.settle(1_500);
       await dump('ADVANCE PANEL (Reserve)');
       const ref = dlg.locator('input[formcontrolname="referenceNumber"], [controlname="referenceNumber"] input').locator('visible=true').first();

@@ -1,4 +1,4 @@
-const { StockInwardBasePage } = require('./StockInwardBasePage');
+const { StockInwardBasePage, escapeRe } = require('./StockInwardBasePage');
 const { T } = require('../utils/timeouts');
 
 /**
@@ -262,6 +262,7 @@ class RetailInvoicePage extends StockInwardBasePage {
   async createDirectInvoice({
     customer, mobile, salesman, helper, supervisor, tagNo, rfidNo, metalRate = 6000,
     invoiceSource = 'Direct', additionalCharges = false, payment = { mode: 'Cash' },
+    salesType, order,
   }) {
     await this.open();
     await this.openAddForm();
@@ -280,6 +281,50 @@ class RetailInvoicePage extends StockInwardBasePage {
 
     await this.pickUnlessSet('masterDataValueID_InvoiceSource', invoiceSource);
     await this.settle(1_500);
+    if (salesType) {
+      // Sales Type [Normal Sale | Order | Sales Return] (02-11-2026): "Order" reveals
+      // Order Type [advanceTypeID: Advance | Order | Reserve] (mandatory first - the
+      // Receipt No lookup GetSalesInvoiceRateFixAdvancesPaginated answers "Order Type is
+      // Required." otherwise), Receipt No [advanceID: the customer's registered orders,
+      // e.g. iiii4], the read-only Transaction Date, then Order Item [advanceItemID: the
+      // estimation's items, e.g. Gold,Ring-Tendulkar]; the tag scanned afterwards is
+      // sold against that order item.
+      await this.pickUnlessSet('masterDataValueID_InvoiceSalesType', salesType);
+      await this.waitForIdle();
+      await this.settle(2_000);
+      if (order) {
+        await this.pick('advanceTypeID', order.orderType || 'Order', { exact: true });
+        await this.waitForIdle();
+        await this.settle(2_000);
+        // the Receipt No list is server-paginated and its search box filters on
+        // something other than the receipt number ("iiii5" typed -> "No items found",
+        // 02-11-2026) - pick from the opened list without typing
+        const listed = this.page.waitForResponse((r) => /RateFixAdvancesPaginated/i.test(r.url()), { timeout: 30_000 }).catch(() => null);
+        const host = this.select('advanceID');
+        await this.closeStalePanels();
+        await host.locator('.ng-select-container').click({ timeout: T(10_000) });
+        await listed;
+        await this.settle(2_000);
+        const wanted = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: new RegExp(`^\\s*${escapeRe(String(order.receiptNo))}\\s*$`) }).first();
+        if (!(await wanted.isVisible({ timeout: 10_000 }).catch(() => false))) {
+          const opts = (await this.page.locator('.ng-dropdown-panel .ng-option').allInnerTexts().catch(() => [])).map((t) => t.trim());
+          await this.page.keyboard.press('Escape');
+          throw new Error(`${this.tabName}: order ${order.receiptNo} is not in the Receipt No list for Order Type ${order.orderType || 'Order'} - offered ${JSON.stringify(opts.slice(0, 20))}`);
+        }
+        await wanted.click({ timeout: T(10_000) });
+        await this.waitForIdle();
+        await this.settle(2_500);
+        const date = await this.page.locator('input[formcontrolname="rateFixAdvanceDate"], [controlname="rateFixAdvanceDate"] input, input#rateFixAdvanceDate').locator('visible=true').first().inputValue().catch(() => '');
+        console.log(`${this.tabName}: order ${order.receiptNo} (${order.orderType || 'Order'}) picked - transaction date "${date}"`);
+        const itemSel = this.select('advanceItemID');
+        if (await itemSel.isVisible({ timeout: 5_000 }).catch(() => false)) {
+          if (order.item) await this.pick('advanceItemID', order.item, { search: true }).catch(async (e) => { console.log(`${this.tabName}: order item "${order.item}" not matched (${String(e.message).slice(0, 80)}) - first item`); await this.pickOrFirst('advanceItemID', order.item); });
+          else await this.pickOrFirst('advanceItemID', '');
+          await this.settle(1_500);
+          console.log(`${this.tabName}: order item "${await this.selectValue('advanceItemID').catch(() => '')}"`);
+        } else console.log(`${this.tabName}: no Order Item select after picking order ${order.receiptNo}`);
+      }
+    }
     await this.pickSalesExecutive(salesman);
     if (supervisor) await this.pickOrFirst('supervisorID', supervisor);
     if (helper) await this.pickOrFirst('helperID', helper);

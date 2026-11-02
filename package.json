@@ -21,6 +21,7 @@
     "test:retail-reserve": "playwright test tests/e2e/retail-reserve-estimation-advance-workflow.noauth.spec.js --project=no-auth",
     "test:retail-direct":"playwright test tests/e2e/retail-direct-invoice-workflow.noauth.spec.js --project=no-auth",
     "test:retail-advance": "playwright test tests/e2e/retail-general-advance-workflow.noauth.spec.js --project=no-auth",
+    "test:retail-order": "playwright test tests/e2e/retail-order-estimation-advance-invoice-workflow.noauth.spec.js --project=no-auth",
     "test:tag-transfer":"playwright test tests/e2e/tag-relay-1-ho-ho-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/tag-relay-2-ho-branch-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/tag-relay-3-branch-branch-workflow.noauth.spec.js --project=no-auth --headed && playwright test tests/e2e/tag-relay-4-branch-ho-workflow.noauth.spec.js --project=no-auth --headed"
   },
   "devDependencies": {

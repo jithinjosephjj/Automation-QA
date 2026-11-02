@@ -64,7 +64,7 @@ class OrderEstimationPage extends StockInwardBasePage {
   /** Fill the configuration, one metal item (Add Item) and Submit. Returns the save body. */
   async createEstimation({
     customer, businessType = 'Retail', transactionType = 'Job Work', itemType = 'Metal', salesExecutive = 'Abc',
-    supervisor, helper, deliveryNote,
+    supervisor, helper, deliveryNote, deliveryDate,
     item: { referenceType = 'Combination', groupCategory = 'Gold', category = 'Ring', article = 'Tendulkar', purity = '91.60', pieces = 1, grossWeight = 60 } = {},
     additionalCharges,
   }) {
@@ -113,12 +113,41 @@ class OrderEstimationPage extends StockInwardBasePage {
     await gw.fill(String(grossWeight));
     await gw.blur();
     await this.settle(2_000); // pricing (wastage %, making, rate) auto-fills
+    // a Regular (non job-work) order asks for a Delivery Date (DD/MM/YYYY) in the
+    // item entry (02-11-2026: Add Item staged nothing while it was empty)
+    const delivery = this.page.getByRole('textbox', { name: /Delivery Date/i }).locator('visible=true').first();
+    if (deliveryDate === undefined) {
+      // a week after the app's PROCESS date (the header chip; qa pins it, so the system clock is wrong here)
+      const pd = (await this.processDate().catch(() => '')) || '';
+      const m = pd.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) {
+        const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]) + 7);
+        const pad = (n) => String(n).padStart(2, '0');
+        deliveryDate = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+      }
+    }
+    if (deliveryDate && (await delivery.isVisible({ timeout: 1_500 }).catch(() => false)) && !(await delivery.inputValue().catch(() => ''))) {
+      await delivery.fill(String(deliveryDate));
+      await delivery.press('Escape').catch(() => {});
+      await delivery.blur().catch(() => {});
+      await this.settle(800);
+      console.log(`estimation: delivery date "${await delivery.inputValue().catch(() => '')}"`);
+    }
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
 
     const addItem = this.page.getByRole('button', { name: /^\s*Add Item\s*$/ }).locator('visible=true').last();
     await addItem.click({ timeout: T(15_000) });
     await this.settle(2_500);
     const rows = this.page.locator('table tbody tr').locator('visible=true').filter({ hasText: article });
+    if (!(await rows.first().isVisible({ timeout: 8_000 }).catch(() => false))) {
+      // the item did not stage: report what the form flags, fill the empty mandatory selects and try once more
+      const invalid = await this.invalidControls().catch(() => []);
+      const alerts = (await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      console.log(`estimation: Add Item staged nothing - invalid ${JSON.stringify(invalid).slice(0, 400)}; alerts ${JSON.stringify(alerts)}`);
+      if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+      await addItem.click({ timeout: T(15_000) });
+      await this.settle(2_500);
+    }
     await rows.first().waitFor({ state: 'visible', timeout: T(15_000) });
     console.log(`estimation: item staged - ${((await rows.first().innerText()) || '').replace(/\s+/g, ' ').trim().slice(0, 120)}`);
 

@@ -1031,4 +1031,4 @@ function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-module.exports = { StockInwardBasePage };
+module.exports = { StockInwardBasePage, escapeRe };
