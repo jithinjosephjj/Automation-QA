@@ -24,7 +24,7 @@ const { StockInwardBasePage } = require('./StockInwardBasePage');
 class StoneInwardPage extends StockInwardBasePage {
   constructor(page) {
     super(page, 'Stone');
-    this.remarks = page.locator('#remarks');
+    this.remarks = this.field('remarks'); // the control, not a wrapper reusing the id (02-11-2026)
   }
 
   /** First enabled input in a labeled container - the % half of a %/amount pair. */
@@ -182,7 +182,7 @@ class StoneInwardPage extends StockInwardBasePage {
     if (assortedStock) {
       // the styled checkbox swallows forced clicks on the input - fall back
       // through the label and a DOM click until the state actually flips
-      const box = this.page.locator('#assortedStock');
+      const box = this.page.locator('input#assortedStock, #assortedStock input[type="checkbox"]').first();
       if (!(await box.isChecked({ timeout: 2_000 }).catch(() => false))) {
         await box.check({ timeout: 5_000 }).catch(() => {});
         if (!(await box.isChecked())) {

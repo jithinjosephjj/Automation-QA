@@ -71,6 +71,41 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     }
   }
 
+  /**
+   * "Dispatch Details" on the Issue tabs (Hallmark since 02-11-2026, the
+   * Approval Issue since 27-10): Dispatch Type is mandatory and Submit fires
+   * nothing while it is empty; "In Person" reveals Person Name + Contact
+   * Number (mandatory too). A form without the section is a no-op.
+   */
+  async fillDispatchIfOffered({ dispatchType = 'In Person', dispatchPerson = 'JJ', dispatchContact = '9898989899', what = 'issue' } = {}) {
+    const host = this.select('masterDataValueID_DispatchType');
+    const byCtl = await host.isVisible({ timeout: 2_000 }).catch(() => false);
+    const label = this.page.locator('label:text-is("Dispatch Type")').locator('visible=true').first();
+    if (!byCtl && !(await label.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
+    try {
+      if (byCtl) await this.pick('masterDataValueID_DispatchType', dispatchType);
+      else await this.pickByLabel('Dispatch Type', dispatchType);
+    } catch (e) {
+      // 02-11-2026: the Hallmark Issue's Dispatch Type is mandatory but its list is
+      // EMPTY on qa ("No items found") - a master-data gap for the QA lead / dev, not
+      // something to work around with made-up data
+      if (/No items found/.test(String(e))) throw new Error(`${what}: Dispatch Type is mandatory but the dropdown offers no options on qa ("No items found") - configure its master data before this issue can be submitted`);
+      throw e;
+    }
+    console.log(`${what}: Dispatch Type -> ${dispatchType}`);
+    await this.settle(1_200);
+    for (const [caption, value] of [['Person Name', dispatchPerson], ['Contact Number', dispatchContact]]) {
+      if (!value) continue;
+      // these forms caption with plain text nodes or labels - take the first enabled input after either
+      const input = this.page
+        .locator(`xpath=//*[normalize-space(text())="${caption}"]/following::input[not(@type="checkbox") and not(@disabled) and not(ancestor::ng-select)][1]`)
+        .locator('visible=true').first();
+      if (await input.isVisible({ timeout: 2_000 }).catch(() => false)) { await input.fill(String(value)); await input.blur(); }
+      else console.log(`${what}: "${caption}" input not offered`);
+    }
+    return true;
+  }
+
   async clickAndCaptureSave(button, { pattern = /create|save|submit/i } = {}) {
     const resp = this.page.waitForResponse(
       (r) => ['POST', 'PUT'].includes(r.request().method()) && pattern.test(r.url()) &&
@@ -141,6 +176,7 @@ class RemodelWorkflowPage extends StockInwardBasePage {
     await add.click();
     await this.settle(2_000);
     console.log('remodel issue: selected stock committed via Add');
+    await this.fillDispatchIfOffered({ what: 'remodel issue' });
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';

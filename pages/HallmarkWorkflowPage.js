@@ -46,6 +46,7 @@ class HallmarkWorkflowPage extends RemodelWorkflowPage {
     await add.click();
     await this.settle(2_000);
     console.log('hallmark issue: selected stock committed via Add');
+    await this.fillDispatchIfOffered({ what: 'hallmark issue' }); // Dispatch Details mandatory since 02-11-2026
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';

@@ -16,11 +16,12 @@ class MetalInwardPage extends StockInwardBasePage {
   constructor(page) {
     super(page, 'Metal');
 
-    this.rateFix = page.locator('#rateFix');
-    this.hallmark = page.locator('#hallmark');
-    this.noOfPcs = page.locator('#noOfPcs');
-    this.makingCharges = page.locator('#makingCharges');
-    this.remarks = page.locator('#remarks');
+    // field(): the controls, not the app-sioniq-input wrappers that reuse their ids (02-11-2026)
+    this.rateFix = this.field('rateFix');
+    this.hallmark = this.field('hallmark');
+    this.noOfPcs = this.field('noOfPcs');
+    this.makingCharges = this.field('makingCharges');
+    this.remarks = this.field('remarks');
   }
 
   /**

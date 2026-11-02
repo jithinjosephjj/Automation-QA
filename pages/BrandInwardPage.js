@@ -21,9 +21,10 @@ class BrandInwardPage extends StockInwardBasePage {
   constructor(page) {
     super(page, 'Brand');
 
-    this.noOfPcs = page.locator('#noOfPcs');
-    this.excludeTax = page.locator('#excludeTax');
-    this.remarks = page.locator('#remarks');
+    // field(): the controls, not the app-sioniq-input wrappers that reuse their ids (02-11-2026)
+    this.noOfPcs = this.field('noOfPcs');
+    this.excludeTax = this.field('excludeTax');
+    this.remarks = this.field('remarks');
   }
 
   /** Step 1. Sub Transaction Type is asserted, not set - Invoice is the default. */

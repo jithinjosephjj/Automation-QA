@@ -19,8 +19,8 @@ const { StockInwardBasePage } = require('./StockInwardBasePage');
 class AlloyInwardPage extends StockInwardBasePage {
   constructor(page) {
     super(page, 'Alloy');
-    this.invoiceNo = page.locator('#invoceNo'); // sic - app typo
-    this.remarks = page.locator('#remarks');
+    this.invoiceNo = this.field('invoceNo'); // sic - app typo; field() = the control, not a wrapper reusing the id (02-11-2026)
+    this.remarks = this.field('remarks');
   }
 
   async open() {

@@ -44,10 +44,10 @@ class StockInwardBasePage extends BasePage {
     this.addItemBtn = page.getByRole('button', { name: 'Add Item' });
 
     // --- shared step-1 fields ---
-    this.invoiceNo = page.locator('#invoiceNo');
-    this.invoiceDate = page.locator('#invoiceDate');
-    this.creditDays = page.locator('#creditDays');
-    this.dueDate = page.locator('#dueDate');
+    this.invoiceNo = this.field('invoiceNo');
+    this.invoiceDate = this.field('invoiceDate');
+    this.creditDays = this.field('creditDays');
+    this.dueDate = this.field('dueDate');
 
     this.summaryPanel = page.locator('[class*=summary]').first();
     this.gridRows = page.locator('table tbody tr');
@@ -56,6 +56,17 @@ class StockInwardBasePage extends BasePage {
     this.printDialog = page.locator('[role="dialog"], .modal').filter({ hasText: 'Voucher Number' });
     this.previewBtn = page.getByRole('button', { name: 'Preview' });
     this.printBtn = page.getByRole('button', { name: /\(F9\) Print/ });
+  }
+
+  /**
+   * An input / textarea by id. Since 02-11-2026 the item form renders its
+   * number boxes as <app-sioniq-input id="noOfPcs"> WRAPPING an <input
+   * id="noOfPcs"> - the same id twice, so a bare '#noOfPcs' is a strict-mode
+   * violation (TC-HLM-01). Scope to the control itself, inside or outside a
+   * wrapper that reuses the id.
+   */
+  field(id) {
+    return this.page.locator(`input#${id}, textarea#${id}, #${id} input, #${id} textarea`).first();
   }
 
   async open() {
@@ -343,7 +354,7 @@ class StockInwardBasePage extends BasePage {
 
   /** Checkboxes hide behind label.invisible-click; the input never gets the click. */
   async setCheckbox(id, checked = true) {
-    const box = this.page.locator(`#${id}`);
+    const box = this.page.locator(`input#${id}, #${id} input[type="checkbox"]`).first();
     if ((await box.isChecked()) !== checked) {
       await this.page.locator(`label.invisible-click[for="${id}"]`).click();
     }

@@ -144,6 +144,7 @@ class StoneAssortedWorkflowPage extends CertificationWorkflowPage {
     await this.settle(2_000);
     console.log('assorted issue: inward committed via Add');
     await this.closeThenNext({ next: true });
+    await this.fillDispatchIfOffered({ what: 'assorted issue' }); // Dispatch Details, when the tab carries it (Hallmark does since 02-11-2026)
 
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();

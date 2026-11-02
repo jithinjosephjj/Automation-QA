@@ -140,6 +140,7 @@ class CertificationWorkflowPage extends HallmarkWorkflowPage {
     await add.click();
     await this.settle(2_000);
     console.log('certification issue: selected stock committed via Add');
+    await this.fillDispatchIfOffered({ what: 'certification issue' }); // Dispatch Details, when the tab carries it (Hallmark does since 02-11-2026)
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
