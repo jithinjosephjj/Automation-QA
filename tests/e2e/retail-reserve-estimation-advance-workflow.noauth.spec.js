@@ -4,13 +4,16 @@ const { uniqueInvoiceNo } = require('../../utils/unique');
 const sessionCache = require('../../utils/session-cache');
 const { OrderEstimationPage } = require('../../pages/OrderEstimationPage');
 const { AdvanceRegistrationPage } = require('../../pages/AdvanceRegistrationPage');
+const { RetailInvoicePage } = require('../../pages/RetailInvoicePage');
 
 const state = makeState('e2e-retail-reserve-state.json');
 
 /**
  * E2E WORKFLOW — METAL INWARD (Direct) -> LOT -> BARCODE -> RESERVE ESTIMATION
- * -> ADVANCE REGISTRATION (Reserve), everything at the Kakkanad head office.
- * Requested 02-11-2026 ("reserve estimation -> advance registration").
+ * -> ADVANCE REGISTRATION (Reserve) -> RETAIL INVOICE that sells the reserved tag
+ * and adjusts the reserve advance, everything at the Kakkanad head office.
+ * Requested 02-11-2026 ("reserve estimation -> advance registration", then
+ * "-> invoice, Retail Operations > Operations > Invoice").
  *
  *   TC-RSV-01  Kakkanad, admin: Procurement > Stock Inward > Metal (Invoice / Stock /
  *              Direct, vendor RAJA; Tendulkar 91.60, 1 pc 100 g), "Barcode or Lot?" = No
@@ -28,6 +31,15 @@ const state = makeState('e2e-retail-reserve-state.json');
  *              Estimation Number + Fetch (FetchReserveEstimationForAdvance), Proceed to
  *              Payment (₹50,000 cash), Submit; the PAN dialog the estimation value trips
  *              ("PAN Number" + Update) is answered with the test PAN first
+ *   TC-RSV-06  Kakkanad, admin: Retail Operations > Operations > Invoice
+ *              (/pos/view-sales-invoice), Invoice Source Direct (the "Estimation"
+ *              source lists no reserve estimations - GetSalesInvoiceEstimationsPaginated
+ *              is empty for the customer, 02-11-2026): the customer, Sales Executive
+ *              Chandu, scan the RESERVED tag -> Add Item -> Proceed To Payment: the
+ *              "Advance" mode with ADVANCE TYPE Reserve + REFERENCE NUMBER = the RE
+ *              receipt (GetAdvanceForAdjustment auto-fills ₹51,000 = the ₹50,000 advance
+ *              + the ₹1,000 collected on the estimation), Cash Test Mode pays the rest
+ *              -> Submit (CreateSalesInvoice)
  *
  * A reserve estimation can be registered once - a rerun of TC-RSV-05 alone answers
  * "Estimation Number Not Found." (02-11-2026); rerun the chain from TC-RSV-01.
@@ -69,6 +81,16 @@ const DATA = {
   // a partial cash advance: the full ₹7.6 lakh balance trips the PAN rule (a PAN dialog
   // blocks the save, 02-11-2026); the page object still answers that dialog when it opens
   advance: { advanceType: 'Reserve', subType: 'Registration', businessType: 'Retail', entryType: 'Estimation', remarks: 'E2E reserve advance', paymentMode: 'Cash', amount: 50000 },
+  invoice: {
+    salesman: 'Chandu',
+    helper: 'Chandu',
+    metalRate: 6000,
+    // Payment Collection entries in order: the reserve advance is adjusted first
+    // ("Advance" mode, ADVANCE TYPE Reserve, REFERENCE NUMBER = the RE receipt; the
+    // amount auto-fills), the remaining balance is paid in cash (first cash mode)
+    advanceAdjustment: { mode: 'Advance', advanceType: 'Reserve' },
+    balancePayment: { mode: 'Cash' },
+  },
 };
 
 /** POS steps: a FORM login (the replayed / live session lacks the POS counter binding). */
@@ -78,7 +100,7 @@ async function freshPosLogin(loginPage, page) {
   await loginPage.ensureLoggedIn({ bu: HEAD_OFFICE });
 }
 
-test.describe('Retail Reserve Estimation - Advance Registration - Workflow', () => {
+test.describe('Retail Reserve Estimation - Advance Registration - Invoice - Workflow', () => {
   test('TC-RSV-01 Kakkanad: metal inward (Direct, Stock, barcode-or-lot No)', async ({ loginPage, metalInward, page }) => {
     test.setTimeout(600_000);
     state.reset(); // a new inward starts a new chain
@@ -110,7 +132,7 @@ test.describe('Retail Reserve Estimation - Advance Registration - Workflow', () 
     expect(JSON.stringify(saved)).toMatch(/success/i);
     const inwardVoucherNo = await metalInward.voucherNumber();
     expect(inwardVoucherNo, 'generated inward voucher number').toBeTruthy();
-    state.writeState({ inwardVoucherNo, lotNo: null, tagNo: null, estimationNo: null, advanceNo: null });
+    state.writeState({ inwardVoucherNo, lotNo: null, tagNo: null, estimationNo: null, advanceNo: null, invoiceDocNo: null });
     console.log(`Metal inward saved: ${inwardVoucherNo}`);
 
     await metalInward.verifyPrintPreview({ screenshot: 'test-results/screens/tc-rsv-01-print-preview.png' });
@@ -184,7 +206,30 @@ test.describe('Retail Reserve Estimation - Advance Registration - Workflow', () 
     const body = await advanceRegistration.registerAgainstEstimation({ customer: DATA.reserve.customer, estimationNo, ...DATA.advance });
     expect(JSON.stringify(body)).toMatch(/success|saved|1001/i);
     const advanceNo = AdvanceRegistrationPage.numberOf(body);
+    expect(advanceNo, `advance receipt number in the save body: ${JSON.stringify(body).slice(0, 300)}`).toBeTruthy();
     state.writeState({ advanceNo });
-    console.log(`Reserve advance registered: ${advanceNo || '(number not in the save body)'} (estimation ${estimationNo})`);
+    console.log(`Reserve advance registered: ${advanceNo} (estimation ${estimationNo})`);
+  });
+
+  test('TC-RSV-06 Kakkanad: retail sales invoice (Direct) for the reserved tag, adjusting the reserve advance', async ({ loginPage, retailInvoice, page }) => {
+    test.setTimeout(600_000);
+    const { tagNo, estimationNo, advanceNo } = state.readState();
+    expect(tagNo && advanceNo, 'run TC-RSV-05 first').toBeTruthy();
+    await freshPosLogin(loginPage, page);
+
+    const body = await retailInvoice.createDirectInvoice({
+      customer: DATA.reserve.customer,
+      salesman: DATA.invoice.salesman,
+      helper: DATA.invoice.helper,
+      tagNo,
+      metalRate: DATA.invoice.metalRate,
+      payment: { entries: [{ ...DATA.invoice.advanceAdjustment, reference: advanceNo }, DATA.invoice.balancePayment] },
+    });
+    expect(JSON.stringify(body)).toMatch(/success|saved|1001/i);
+    const invoiceDocNo = RetailInvoicePage.numberOf(body);
+    expect(invoiceDocNo, `invoice document number in the save body: ${JSON.stringify(body).slice(0, 300)}`).toBeTruthy();
+    state.writeState({ invoiceDocNo });
+    console.log(`Retail invoice saved: ${invoiceDocNo} (reserved tag ${tagNo}, estimation ${estimationNo}, advance ${advanceNo} adjusted)`);
+    expect(retailInvoice.printPreviewError, 'print template preview').toBeFalsy();
   });
 });
