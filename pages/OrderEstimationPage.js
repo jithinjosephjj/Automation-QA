@@ -43,8 +43,21 @@ class OrderEstimationPage extends StockInwardBasePage {
     await this.goto('/pos/app-order-estimation-setup');
     await this.waitForIdle();
     await this.waitForSpinner();
-    await this.page.getByRole('tab', { name: /^Order$/ }).first().click({ timeout: T(60_000) }).catch(() => {});
-    await this.waitForIdle();
+    // the Order tab is named "OrderEstimation" (was "Order"; siblings: Reserve
+    // Estimation, Unregistered Purchase Estimation, Estimation, Sales Return
+    // Estimation) and is the default-active one. A blind click on a missing
+    // tab waited out its whole 60 s timeout on every open (02-11-2026) - click
+    // only a tab that is there and not already selected.
+    const tab = this.page.getByRole('tab', { name: /^Order\s*(Estimation)?$/i }).locator('visible=true').first();
+    if (await tab.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const selected = (await tab.getAttribute('aria-selected').catch(() => '')) === 'true' || /\bactive\b/.test((await tab.getAttribute('class').catch(() => '')) || '');
+      if (!selected) {
+        await tab.click({ timeout: T(15_000) }).catch(() => {});
+        await this.waitForIdle();
+      }
+    } else {
+      console.log(`${this.tabName}: no "Order" / "OrderEstimation" tab on the page - using the default view`);
+    }
     await this.settle(1_500);
   }
 
