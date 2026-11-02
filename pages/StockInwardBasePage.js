@@ -534,8 +534,19 @@ class StockInwardBasePage extends BasePage {
    * Registration one, QA lead 22-10-2026): payment mode, the balance due,
    * "+ Add <mode>", close. Returns the amount paid ('' when the form offered
    * no payment step). Shared by the POS forms (Retail Invoice, Reserve Estimation).
+   *
+   * `entries` (optional) adds several payments in order, each
+   * `{ mode, amount, advanceType, reference }`; an entry without `amount` pays
+   * the balance due at that point. Mode "Advance" (02-11-2026, retail invoice)
+   * adjusts an earlier advance: ADVANCE TYPE [General | Order | Reserve],
+   * BUSINESS UNIT TYPE (pre-filled "Same Business Unit"), REFERENCE NUMBER = the
+   * advance receipt (e.g. ADV-007KK; Enter fetches
+   * PaymentCollection/GetAdvanceForAdjustment and the read-only AMOUNT auto-fills),
+   * "+ Add Advance" -> grid row "Advance — — ₹5,000.00 General — ADV-007KK —".
+   * With several entries the total added is returned.
    */
-  async collectPayment({ mode = 'Cash', amount, what = this.tabName } = {}) {
+  async collectPayment({ mode = 'Cash', amount, entries, what = this.tabName } = {}) {
+    const list = entries && entries.length ? entries : [{ mode, amount }];
     const proceed = this.page.getByRole('button', { name: /Proceed To Payment/i }).locator('visible=true').last();
     if (!(await proceed.isVisible({ timeout: 3_000 }).catch(() => false))) { console.log(`${what}: no "Proceed To Payment" button - payment skipped`); return ''; }
     await proceed.click({ timeout: T(15_000) });
@@ -546,6 +557,21 @@ class StockInwardBasePage extends BasePage {
       const toasts = (await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
       throw new Error(`${what}: "Proceed To Payment" opened no Payment Collection dialog. Toasts: ${JSON.stringify(toasts)}`);
     }
+    let total = 0;
+    let last = '';
+    let added = 0;
+    for (const entry of list) {
+      last = await this.addPaymentEntry(dlg, { ...entry, what, expectRows: added + 1 });
+      total += Number(last) || 0;
+      added++;
+    }
+    const close = dlg.getByRole('button', { name: /^Close$|Done|Ok/i }).locator('visible=true').last();
+    if (await close.isVisible({ timeout: 2_000 }).catch(() => false)) { await close.click({ timeout: 5_000 }).catch(() => {}); await this.settle(1_500); }
+    return list.length > 1 ? total : last;
+  }
+
+  /** One payment entry in the open Payment Collection dialog (see collectPayment). Returns the amount added. */
+  async addPaymentEntry(dlg, { mode = 'Cash', amount, advanceType = 'General', reference, what = this.tabName, expectRows = 1 } = {}) {
     // PAYMENT MODES at Kakkanad (30-10-2026): Advance, CARD, Cheque, Online Test
     // Mode (2), UPI Test Mode (2), "Cash Test Mode", "Cash Test Mode 2", Metal -
     // there is no plain "Cash", so the mode is matched by substring (the first
@@ -559,23 +585,53 @@ class StockInwardBasePage extends BasePage {
     await modeBtns.first().click({ timeout: T(10_000) });
     await this.settle(1_500);
     const due = ((await dlg.locator('xpath=.//*[contains(normalize-space(.),"BALANCE DUE")]/following::*[contains(text(),"₹")][1]').first().textContent().catch(() => '')) || '').replace(/[^0-9.]/g, '');
-    const pay = amount !== undefined ? amount : due;
-    console.log(`${what}: payment mode "${modeLabel}" (of ${JSON.stringify(offered)}), balance due "${due}" -> paying ${pay}`);
-    let amt = dlg.locator('xpath=.//label[contains(translate(normalize-space(.),"amount","AMOUNT"),"AMOUNT")]/following::input[not(@type="checkbox")][1]').locator('visible=true').first();
-    if (!(await amt.count()) || (await amt.isDisabled().catch(() => true))) amt = dlg.locator('input:not([type=checkbox]):not([readonly]):not([disabled])').locator('visible=true').first();
-    await amt.fill(String(pay));
-    await amt.blur();
-    await this.settle(1_000);
+    let pay = amount !== undefined ? amount : due;
     const addBtn = dlg.locator('button').filter({ hasText: /^\s*\+?\s*Add\b/i }).locator('visible=true').last();
-    console.log(`${what}: payment panel inputs ${JSON.stringify(await dlg.locator('input:not([type=checkbox])').locator('visible=true').evaluateAll((els) => els.map((e) => `${e.placeholder || e.id || '-'}=${e.value}${e.disabled || e.readOnly ? '(ro)' : ''}`)).catch(() => []))}; add button "${((await addBtn.innerText().catch(() => '')) || '').trim()}"`);
+
+    if (/advance/i.test(mode)) {
+      if (!reference) throw new Error(`${what}: an Advance payment entry needs the advance receipt number (reference)`);
+      const typeSel = dlg.locator('sioniq-ng-select[controlname="advanceTypeId"] ng-select, ng-select[formcontrolname="advanceTypeId"]').locator('visible=true').first();
+      if (await typeSel.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await typeSel.click({ timeout: T(10_000) });
+        await this.settle(800);
+        const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: new RegExp(`^\\s*${escapeRe(advanceType)}\\s*$`, 'i') }).first();
+        if (!(await opt.isVisible({ timeout: 3_000 }).catch(() => false))) {
+          const opts = await this.page.locator('.ng-dropdown-panel .ng-option').allInnerTexts().catch(() => []);
+          await this.page.keyboard.press('Escape');
+          throw new Error(`${what}: ADVANCE TYPE "${advanceType}" is not offered - options ${JSON.stringify(opts)}`);
+        }
+        await opt.click();
+        await this.settle(1_200);
+      }
+      const ref = dlg.locator('input[formcontrolname="referenceNumber"], [controlname="referenceNumber"] input, input#referenceNumber').locator('visible=true').first();
+      const fetched = this.page.waitForResponse((r) => /GetAdvanceForAdjustment|Advance/i.test(r.url()) && !/KeepAlive/i.test(r.url()), { timeout: 30_000 }).catch(() => null);
+      await ref.fill(String(reference));
+      await ref.press('Enter');
+      await ref.blur();
+      const fr = await fetched;
+      await this.waitForIdle();
+      await this.settle(2_000);
+      const auto = dlg.locator('input[formcontrolname="amount"], [controlname="amount"] input, input#amount').locator('visible=true').first();
+      const autoAmt = ((await auto.inputValue().catch(() => '')) || '').replace(/[^0-9.]/g, '');
+      const toasts = (await this.page.locator('.toast, .toast-message, [role="alert"]').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      console.log(`${what}: advance adjustment ${reference} (${advanceType}) -> fetch ${fr ? `${fr.status()} ${fr.url().split('/').slice(-1)[0].split('?')[0]}` : 'none'}, auto amount "${autoAmt}"${toasts.length ? `, toasts ${JSON.stringify(toasts)}` : ''}`);
+      if (!Number(autoAmt)) throw new Error(`${what}: advance ${reference} did not load into the Advance payment panel (amount "${autoAmt}", toasts ${JSON.stringify(toasts)})`);
+      pay = autoAmt;
+    } else {
+      console.log(`${what}: payment mode "${modeLabel}" (of ${JSON.stringify(offered)}), balance due "${due}" -> paying ${pay}`);
+      let amt = dlg.locator('xpath=.//label[contains(translate(normalize-space(.),"amount","AMOUNT"),"AMOUNT")]/following::input[not(@type="checkbox")][1]').locator('visible=true').first();
+      if (!(await amt.count()) || (await amt.isDisabled().catch(() => true))) amt = dlg.locator('input:not([type=checkbox]):not([readonly]):not([disabled])').locator('visible=true').first();
+      await amt.fill(String(pay));
+      await amt.blur();
+      await this.settle(1_000);
+      console.log(`${what}: payment panel inputs ${JSON.stringify(await dlg.locator('input:not([type=checkbox])').locator('visible=true').evaluateAll((els) => els.map((e) => `${e.placeholder || e.id || '-'}=${e.value}${e.disabled || e.readOnly ? '(ro)' : ''}`)).catch(() => []))}; add button "${((await addBtn.innerText().catch(() => '')) || '').trim()}"`);
+    }
     await addBtn.click({ timeout: T(10_000) });
     await this.waitForIdle();
     await this.settle(2_000);
     const entries = (await dlg.locator('table tbody tr').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => !/No entries/i.test(t));
-    console.log(`${what}: payment entries ${JSON.stringify(entries.slice(0, 3))}`);
-    if (!entries.length) throw new Error(`${what}: the ${mode} payment of ${pay} was not added (dialog: ${((await dlg.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 400)})`);
-    const close = dlg.getByRole('button', { name: /^Close$|Done|Ok/i }).locator('visible=true').last();
-    if (await close.isVisible({ timeout: 2_000 }).catch(() => false)) { await close.click({ timeout: 5_000 }).catch(() => {}); await this.settle(1_500); }
+    console.log(`${what}: payment entries ${JSON.stringify(entries.slice(0, 4))}`);
+    if (entries.length < expectRows) throw new Error(`${what}: the ${mode} payment of ${pay} was not added (dialog: ${((await dlg.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 400)})`);
     return pay;
   }
 
