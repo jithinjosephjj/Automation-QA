@@ -84,9 +84,15 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       let want = pieces !== undefined ? Number(pieces) : current;
       if (lotPcs !== null && lotPcs > 0 && want > lotPcs) want = lotPcs;
       if (want > 0 && want !== current) {
-        await piecesInput.fill(String(want));
-        await piecesInput.blur();
-        console.log(`barcode: pieces ${current} -> ${want} (lot holds ${lotPcs ?? '?'})`);
+        // 03-11-2026: on a Jobwork Stock lot (JobWork Item No filled) qa now DISABLES
+        // Pieces (pre-filled 10 on a 1-pc lot) - leave the app's value alone then
+        if (await piecesInput.isDisabled().catch(() => false)) {
+          console.log(`barcode: Pieces box is disabled (holds ${current}, lot holds ${lotPcs ?? '?'}) - left as the app set it`);
+        } else {
+          await piecesInput.fill(String(want));
+          await piecesInput.blur();
+          console.log(`barcode: pieces ${current} -> ${want} (lot holds ${lotPcs ?? '?'})`);
+        }
       }
       await this.settle(1_000);
       const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => []))
