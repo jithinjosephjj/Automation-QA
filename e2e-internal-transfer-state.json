@@ -1,5 +1,24 @@
 {
-  "startedAt": "2026-10-01T07:23:27.077Z",
-  "inwardNo": "M484",
-  "updatedAt": "2026-10-01T07:24:31.098Z"
+  "startedAt": "2026-10-17T10:22:34.716Z",
+  "inwardNo": "M646",
+  "updatedAt": "2026-10-17T10:26:58.222Z",
+  "transfer1No": "t192",
+  "accept1No": "a151",
+  "transfer2No": "t193",
+  "transfer2Row": {
+    "Sl No": "6",
+    "Group Category": "Gold",
+    "Metal Type": "Metal Stone Setting 4",
+    "Category": "Ring",
+    "Sub Category": "Amethist, Chokker, Fashion Chain, Imit, Modern Chains, Necklacean, Ring, Tendulkar, Traditional Long Chain, Turkish Light Weight",
+    "Article": "Gold,Ring-Tendulkar",
+    "Purity": "91.60 (22 Karat Gold)",
+    "No Of Pcs": "0",
+    "Gross Weight": "2040.000",
+    "Component Weight": "0.000",
+    "Diamond Weight": "0.000",
+    "Stone Weight": "0.000",
+    "Net Weight": "2040.000"
+  },
+  "accept2No": "a152"
 }

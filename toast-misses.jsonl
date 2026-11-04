@@ -207,3 +207,81 @@
 {"when":"2026-10-01T10:13:37.382Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
 {"when":"2026-10-01T10:21:27.111Z","action":"lot generation","url":"https://qa.sioniq.com/inv/view-lot-generation"}
 {"when":"2026-10-01T10:23:41.784Z","action":"barcode tag generation","url":"https://qa.sioniq.com/inv/view-barcode-generation"}
+{"when":"2026-10-03T09:07:18.008Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-03T09:09:52.875Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-03T11:00:31.949Z","action":"Brand submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-03T11:04:58.228Z","action":"Stone submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-03T11:11:17.940Z","action":"Stone submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-06T06:16:40.384Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:25:44.841Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:28:58.864Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:41:18.452Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:42:08.112Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:57:36.104Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T06:58:07.034Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T07:13:35.364Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T07:14:06.865Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T07:31:45.303Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:07:25.569Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:09:51.620Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:19:39.702Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:22:48.244Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:28:23.164Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:30:44.322Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:34:05.250Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:39:41.479Z","action":"movement accept Design And CAD/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:42:03.393Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:46:51.956Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T08:51:12.063Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T11:36:21.780Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T11:36:53.938Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T11:45:51.340Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-06T11:49:54.469Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T11:50:25.568Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T12:07:07.609Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-06T12:07:34.546Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T04:28:23.897Z","action":"Users submit","url":"https://qa.sioniq.com/adm/user-setup"}
+{"when":"2026-10-10T04:31:00.574Z","action":"Counter submit","url":"https://qa.sioniq.com/inv/counter-setup"}
+{"when":"2026-10-10T06:25:27.729Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T06:42:49.893Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T06:54:34.469Z","action":"sample CreateSample","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-10T07:00:19.604Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-10T07:05:56.935Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T07:24:19.989Z","action":"Bullion Inward submit","url":"https://qa.sioniq.com/prc/app-bullion-list"}
+{"when":"2026-10-10T08:54:58.630Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T09:00:27.900Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-10T09:30:19.783Z","action":"Stone submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-12T08:03:26.262Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-14T09:57:15.920Z","action":"Counter submit","url":"https://qa.sioniq.com/inv/counter-setup"}
+{"when":"2026-10-14T11:30:00.800Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-14T12:02:27.499Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-14T12:07:27.340Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-14T12:21:53.068Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-14T12:44:24.422Z","action":"movement accept Casting Process/Job Work","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-14T12:45:45.117Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-14T13:04:27.538Z","action":"Bullion Inward submit","url":"https://qa.sioniq.com/prc/app-bullion-list"}
+{"when":"2026-10-14T13:44:52.100Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-15T05:17:12.976Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-15T05:29:51.513Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-15T05:46:40.511Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-15T06:04:46.537Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-15T08:28:09.380Z","action":"Stone submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-17T09:06:28.143Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-17T09:21:39.870Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-17T09:39:10.395Z","action":"movement accept Casting Process/Sample","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-17T10:23:39.735Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-17T10:28:58.410Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-17T10:38:12.397Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-17T11:38:39.737Z","action":"movement accept Design And CAD/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-17T11:43:37.021Z","action":"movement accept Casting Process/Repair","url":"https://qa.sioniq.com/prd/app-process-movement-setup"}
+{"when":"2026-10-19T06:13:18.185Z","action":"Bullion Inward submit","url":"https://qa.sioniq.com/prc/app-bullion-list"}
+{"when":"2026-10-19T12:26:14.386Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-19T12:29:32.203Z","action":"job work issue","url":"https://qa.sioniq.com/prc/view-samplejobwork-issue"}
+{"when":"2026-10-23T05:24:19.695Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-23T06:10:37.778Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-23T08:48:03.787Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-23T09:05:26.458Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-27T06:44:29.371Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-10-30T09:21:48.414Z","action":"barcode tag generation","url":"https://qa.sioniq.com/inv/view-barcode-generation"}
+{"when":"2026-11-02T05:50:20.616Z","action":"Metal submit","url":"https://qa.sioniq.com/prc/stock-inward-setup"}
+{"when":"2026-11-03T13:11:31.679Z","action":"Counter submit","url":"https://qa.sioniq.com/inv/counter-setup"}

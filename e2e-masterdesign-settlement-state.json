@@ -1,15 +1,15 @@
 {
-  "startedAt": "2026-10-01T08:03:23.296Z",
-  "designNo": "B00025S",
-  "castingWorker": "Sioniquser37",
-  "updatedAt": "2026-10-01T08:09:31.761Z",
-  "jobWorkNo": "JJJ53",
-  "productionNo": "J532",
-  "materialIssueNo": "SS36",
+  "startedAt": "2026-10-17T11:18:57.012Z",
+  "designNo": "B00042S",
+  "castingWorker": "Sioniquser44",
+  "updatedAt": "2026-10-17T11:26:30.568Z",
+  "jobWorkNo": "JJJ88",
+  "productionNo": "J668",
+  "materialIssueNo": "SS50",
   "materialIssuedMetalType": "Metal Stone Setting 4",
   "materialIssuedArticle": "Gold,Ring-Tendulkar",
-  "materialReceiptNo": "RR40",
-  "settledProductionNo": "J532.1",
+  "materialReceiptNo": "RR61",
+  "settledProductionNo": "J668.1",
   "settled": true,
-  "balanceReceiptNo": "RR41"
+  "balanceReceiptNo": "RR62"
 }
