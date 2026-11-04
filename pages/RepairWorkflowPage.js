@@ -84,7 +84,7 @@ class RepairWorkflowPage extends StockInwardBasePage {
    * (article chain + Expec Add/Loss Weight [the repair wastage config] +
    * pcs + gross weight) -> Add Item -> Submit. Returns the REP-... number.
    */
-  async registerRepair({ customer, smCode, referrer, itemSource = 'Customer Item', repairType, deliveryDate, description, item, image }) {
+  async registerRepair({ customer, smCode, referrer, itemSource = 'Customer Item', repairType, receivedType = 'In Person', deliveryDate, description, item, image }) {
     await this.openTab('/sls/view-repair-registration');
     await this.clickVisibleAdd();
 
@@ -93,6 +93,10 @@ class RepairWorkflowPage extends StockInwardBasePage {
     if (referrer) await this.pick('supervisorID', referrer, { exact: true }).catch(() => console.log('referrer pick skipped'));
     await this.pick('masterDataValueID_RepairItemSource', itemSource, { exact: true });
     await this.pick('masterDataValueID_RepairType', repairType, { exact: true });
+    // "Received Type" (mandatory since 04-11-2026: Next answers "Input required -
+    // Please fill all required fields in General Information" while it is empty);
+    // the wanted type when offered, else the first option, plus whatever it reveals
+    await this.fillTypeSelectIfOffered({ label: 'Received Type', controlname: 'masterDataValueID_ReceivedType', dispatchType: receivedType, what: 'repair registration' });
     const dd = this.page.locator('#deliveryDate');
     await dd.fill(deliveryDate);
     await dd.blur();

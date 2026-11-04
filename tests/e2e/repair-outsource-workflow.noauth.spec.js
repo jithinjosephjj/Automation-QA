@@ -25,9 +25,10 @@ const DATA = {
   registration: {
     customer: 'Luxurio',
     smCode: 'AJ10',
-    referrer: 'Abc',
+    referrer: 'Noah',
     itemSource: 'Customer Item',
     repairType: 'Ring soldering',
+    receivedType: 'In Person',
     description: 'repair automation',
     item: {
       groupCategory: 'Gold',
@@ -59,6 +60,7 @@ test.describe('B2B Repair - Outsource - Delivery - Workflow', () => {
       referrer: DATA.registration.referrer,
       itemSource: DATA.registration.itemSource,
       repairType: DATA.registration.repairType,
+      receivedType: DATA.registration.receivedType, // mandatory since 04-11-2026
       deliveryDate: businessDate(15).replace(/-/g, '/'),
       description: DATA.registration.description,
       item: DATA.registration.item,
