@@ -179,11 +179,25 @@ class BarcodeGenerationPage extends StockInwardBasePage {
       }
       return '';
     };
+    // Was a save REQUEST sent? Once it is on the wire the outcome is the
+    // response, whatever the form shows meanwhile: the Brand form paints an
+    // inline "Pcs exceeds Lot Pcs" alert on Submit for ANY count (09-11-2026,
+    // NNN12: 10 pcs of a 10-pc lot) while the server validates and saves.
+    let requestSent = false;
+    const req = this.page.waitForRequest((q) => q.method() === 'POST' && /create|save|generate/i.test(q.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(q.url()), { timeout: 120_000 })
+      .then(() => { requestSent = true; }).catch(() => {});
     await this.submitBtn.click();
     let r = await Promise.race([resp, refusal(T(8_000)).then((t) => (t ? { refused: t } : resp))]);
     if (r && r.refused) {
-      throw new Error(`Barcode Submit refused by the app: "${r.refused}" (lot ${lotNo}, ${lotPcs ?? '?'} pcs / ${lotWeight ?? '?'} g)`);
+      if (!requestSent) await this.page.waitForTimeout(1_500); // the request can trail the alert by a beat
+      if (requestSent) {
+        console.log(`barcode: alert "${r.refused}" after Submit, but the save request fired - waiting for its response`);
+        r = await resp;
+      } else {
+        throw new Error(`Barcode Submit refused by the app: "${r.refused}" (lot ${lotNo}, ${lotPcs ?? '?'} pcs / ${lotWeight ?? '?'} g)`);
+      }
     }
+    req.catch(() => {});
     if (!r) {
       // Silent block with NO ng-invalid control (21-10-2026, TC-B2B-OIY-04): a
       // lot created by the inward's own "Yes -> Lot" dialog carries none of
