@@ -32,6 +32,7 @@ test('PROBE barcode pieces rule', async ({ loginPage, barcodeGeneration, page })
     await pieces.blur();
     await pg.settle(1_200);
     console.log(`pieces ${n.trim()} -> alerts ${JSON.stringify(await alerts())}`);
+    await page.screenshot({ path: `test-results/screens/probe-pieces-rule-${lot}-pcs${n.trim()}.png`, fullPage: false }).catch(() => {});
   }
   const gross = pg.inputByLabel('Gross Weight');
   for (const g of (process.env.GROSS || '10,20').split(',')) {
