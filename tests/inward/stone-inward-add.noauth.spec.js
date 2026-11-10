@@ -1,5 +1,6 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { uniqueRef, businessDate } = require('../../utils/unique');
+const { STONE_ARTICLE } = require('../../utils/stone-article');
 
 /**
  * TC-E2E-001 — Stone Inward: Stock + Direct without Tare, add record
@@ -8,8 +9,8 @@ const { uniqueRef, businessDate } = require('../../utils/unique');
  * Scenario data (dictated by QA lead, 23-08-2026):
  *   Inward Type:    Stock         Purchase Type: Direct
  *   Vendor:         RAJA          Invoice Date: any date (mandatory)
- *   Reference Type: Combination   Stone Article: Jerald (typed search;
- *                                 back-fills Jerald / Roya Stone / Red Roya Stone)
+ *   Reference Type: Combination   Stone Article: utils/stone-article.js (typed search;
+ *                                 back-fills Stone Group / Category / Sub Category)
  *   Weight Entry:   Without Tare Weight    UOM: Gram
  *   Pieces:         5             Gross Weight: 50
  *   Discount %:     2             Return %: 10 (mandatory per guide)
@@ -62,7 +63,7 @@ test.describe('Stone Inward - add record', () => {
     // ---- Steps 13-30: item entry ----
     await stoneInward.fillItem({
       refType: 'Combination',
-      stoneArticle: 'Jerald',
+      stoneArticle: STONE_ARTICLE,
       entryMode: 'Without Tare',
       uom: 'Gram',
       noOfPcs: 5,
@@ -72,7 +73,7 @@ test.describe('Stone Inward - add record', () => {
     });
 
     // Step 14-16: article search back-filled the hierarchy
-    expect(await stoneInward.selectValue('stone')).toBe('Jerald');
+    expect(await stoneInward.selectValue('stone')).toBe(STONE_ARTICLE);
     expect(await stoneInward.selectValue('stoneCategory')).not.toBe('');
     expect(await stoneInward.selectValue('stoneSubCategory')).not.toBe('');
 

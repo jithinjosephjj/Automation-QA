@@ -1,6 +1,7 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueInvoiceNo } = require('../../utils/unique');
+const { STONE_ARTICLE } = require('../../utils/stone-article');
 
 const state = makeState('e2e-assorted-cert-state.json');
 
@@ -31,7 +32,7 @@ const DATA = {
     vendor: 'RAJA',
     item: {
       refType: 'Combination',
-      stoneArticle: 'Jerald',
+      stoneArticle: STONE_ARTICLE,
       entryMode: 'Without Tare',
       uom: 'Gram',
       noOfPcs: 4, // under the 2,000,000 Stone Rule approval limit (29-09-2026)

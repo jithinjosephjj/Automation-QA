@@ -122,6 +122,13 @@ class BarcodeGenerationPage extends StockInwardBasePage {
         console.log(`description "${label}" not on this form - skipped`);
       }
     }
+    // 10-11-2026: the Stone barcode form now carries its OWN mandatory
+    // description selects (Stone Description Setup labels, e.g.
+    // "Stonedescription2", "Stone description3", "Stone Description
+    // Category1") - empty, Submit answers "Input required. Please fill the
+    // mandatory fields." Give each its first option; the Counter keeps its
+    // own rules (fillCounterAndSubCounter).
+    if (itemType === 'Stone') await this.fillMandatoryEmptySelects({ skip: /counter/i });
 
     // Brand lots do not auto-fill the entry mode - set it when blank
     if (!(await this.selectValue('masterDataValueID_ItemTaggingMode').catch(() => 'skip'))) {

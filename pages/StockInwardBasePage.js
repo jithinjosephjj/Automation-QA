@@ -412,8 +412,10 @@ class StockInwardBasePage extends BasePage {
    * selects on the item step, 18-09-2026) block Add Item silently while
    * empty. Fill every still-empty select the form marks invalid with its
    * first offered option - locations without such fields are a no-op.
+   * skip: a RegExp on the wrapper's controlname - matching selects are left
+   * alone (e.g. the barcode Counter, which has its own rules).
    */
-  async fillMandatoryEmptySelects() {
+  async fillMandatoryEmptySelects({ skip } = {}) {
     // the invalid list SHRINKS as selects get filled, so always take the
     // first still-invalid one instead of indexing a snapshot
     const invalid = this.page
@@ -432,6 +434,7 @@ class StockInwardBasePage extends BasePage {
         const val = (await value.count()) ? ((await value.first().textContent({ timeout: 2_000 }).catch(() => '')) || '').trim() : '';
         if (val) continue;
         const name = (await wrap.getAttribute('controlname', { timeout: 2_000 }).catch(() => '')) || '(unnamed)';
+        if (skip && skip.test(name)) continue;
         await wrap.locator('ng-select .ng-select-container').first().click({ timeout: 3_000 }).catch(() => {});
         await this.settle(900);
         const opt = this.page.locator('.ng-dropdown-panel .ng-option')
@@ -595,9 +598,54 @@ class StockInwardBasePage extends BasePage {
       if (await input.isVisible({ timeout: 1_500 }).catch(() => false)) { await input.fill(String(value)); await input.blur(); console.log(`${what}: ${caption} -> ${value}`); }
     }
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects(); // e.g. the employee / representative select
+    await this.fillRevealedPersonSelects(host, what);
     const invalid = await this.invalidControls();
     if (invalid.selects.length || invalid.inputs.length) console.log(`${what}: still invalid after ${label} ${JSON.stringify(invalid)}`);
     return true;
+  }
+
+  /**
+   * The person selects a Dispatch / Receipt Type choice reveals BESIDE it.
+   * Certification Issue (10-11-2026): "Our Employee" shows "SM Executive
+   * Code" + "Sales Executive" (CertificationIssue/GetDispatchEmployeeDropdownPagination),
+   * neither is flagged ng-invalid, yet Submit fires nothing while they are
+   * empty - so fillMandatoryEmptySelects never sees them. Every still-empty,
+   * enabled select in the type select's own row whose caption names a person
+   * (Executive / Employee / Representative) gets its first option; linked
+   * ones (code <-> name) fill each other and are skipped once they hold a value.
+   */
+  async fillRevealedPersonSelects(host, what = 'issue') {
+    const row = host.locator('xpath=ancestor::*[count(.//ng-select) > 1][1]');
+    if (!(await row.count().catch(() => 0))) return;
+    const selects = row.locator('ng-select').locator('visible=true');
+    const total = Math.min(await selects.count().catch(() => 0), 6);
+    for (let i = 0; i < total; i++) {
+      const sel = selects.nth(i);
+      if (await sel.locator('.ng-value').count().catch(() => 1)) continue; // holds a value already
+      if (await sel.locator('input[role="combobox"]').isDisabled().catch(() => false)) continue;
+      // caption = the nearest ancestor's text once the select's own text is taken out
+      const caption = await sel.evaluate((el) => {
+        const own = (el.textContent || '').trim();
+        for (let n = el.parentElement, d = 0; n && d < 6; n = n.parentElement, d++) {
+          const t = (n.textContent || '').replace(own, '').replace(/\s+/g, ' ').trim();
+          if (t) return t;
+        }
+        return '';
+      }).catch(() => '');
+      if (!/Executive|Employee|Representative/i.test(caption)) continue;
+      await this.closeStalePanels();
+      await sel.locator('.ng-select-container').click({ timeout: 5_000 }).catch(() => {});
+      const opt = this.page.locator('.ng-dropdown-panel .ng-option')
+        .filter({ hasNotText: /No items found|Type to search/i }).first();
+      if (await opt.waitFor({ state: 'visible', timeout: 8_000 }).then(() => true).catch(() => false)) {
+        console.log(`${what}: ${caption} -> ${((await opt.textContent()) || '').replace(/\s+/g, ' ').trim()}`);
+        await opt.click({ timeout: 5_000 }).catch(() => {});
+        await this.settle(1_000);
+      } else {
+        await this.page.keyboard.press('Escape').catch(() => {});
+        console.log(`${what}: ${caption} offers no options - left empty`);
+      }
+    }
   }
 
   /**

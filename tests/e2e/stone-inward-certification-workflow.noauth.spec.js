@@ -1,13 +1,14 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueInvoiceNo } = require('../../utils/unique');
+const { STONE_ARTICLE } = require('../../utils/stone-article');
 
 const state = makeState('e2e-certification-state.json');
 
 /**
  * E2E WORKFLOW — STONE INWARD / CERTIFICATION ISSUE / CERTIFICATION RECEIPT.
  *
- * Chain: Stone Inward (stock, vendor RAJA, article Jerald, ASSORTED STOCK
+ * Chain: Stone Inward (stock, vendor RAJA, article utils/stone-article.js, ASSORTED STOCK
  * ticked - certification only lists assorted stone inwards; the invoice
  * field strips special characters, so references are alphanumeric-only)
  * → Certification Issue (/inv/app-issue-list Certification tab: Jewellery
@@ -28,7 +29,7 @@ const DATA = {
     vendor: 'RAJA',
     item: {
       refType: 'Combination',
-      stoneArticle: 'Jerald',
+      stoneArticle: STONE_ARTICLE,
       entryMode: 'Without Tare',
       uom: 'Gram',
       noOfPcs: 4, // under the 2,000,000 Stone Rule approval limit (29-09-2026)

@@ -1,6 +1,7 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueInvoiceNo } = require('../../utils/unique');
+const { STONE_ARTICLE } = require('../../utils/stone-article');
 
 const state = makeState('e2e-stone-assorted-lot-state.json');
 
@@ -25,7 +26,7 @@ const DATA = {
     vendor: 'RAJA',
     item: {
       refType: 'Combination',
-      stoneArticle: 'Jerald',
+      stoneArticle: STONE_ARTICLE,
       entryMode: 'Without Tare',
       uom: 'Gram',
       noOfPcs: 4, // under the 2,000,000 Stone Rule approval limit (29-09-2026)
@@ -165,7 +166,7 @@ test.describe('Stone Assorting - Lot - Barcode - Workflow', () => {
 
     // the tag number comes with the save (receiptNo / tagReferences); the Generated
     // Tags view is the fallback - a post-save print dialog can sit over it (30-10-2026)
-    const tagNo = barcodeGeneration.tagNoFromSave(saved) || await barcodeGeneration.verifyGeneratedTag('Jerald');
+    const tagNo = barcodeGeneration.tagNoFromSave(saved) || await barcodeGeneration.verifyGeneratedTag(STONE_ARTICLE);
     expect(tagNo, 'generated tag number').toBeTruthy();
     state.writeState({ tagNo });
     console.log(`Barcode tag generated: ${tagNo}`);

@@ -1,6 +1,7 @@
 const { test, expect } = require('../../fixtures/test-fixtures');
 const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueInvoiceNo } = require('../../utils/unique');
+const { STONE_ARTICLE } = require('../../utils/stone-article');
 
 const state = makeState('e2e-assorted-cert-tare-state.json');
 
@@ -41,7 +42,7 @@ const DATA = {
     vendor: 'RAJA',
     item: {
       refType: 'Combination',
-      stoneArticle: 'Jerald',
+      stoneArticle: STONE_ARTICLE,
       entryMode: 'With Tare',
       uom: 'Gram',
       noOfPcs: WEIGHTS.pcs,
