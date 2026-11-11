@@ -92,6 +92,13 @@ class UserPage extends StockInwardBasePage {
     await this.password.fill(u.password);
     await this.confirmPassword.fill(u.password);
 
+    // Validity Period (user, 11-11-2026): Active From = the app's business
+    // date, Active Until = 5 years from Active From.
+    const activeFrom = await this.appDate();
+    await this.setDate('ActiveFrom', activeFrom);
+    await this.setDate('ActiveUntil', UserPage.plusYears(activeFrom, 5));
+    console.log(`Users: validity ${activeFrom} -> ${UserPage.plusYears(activeFrom, 5)}`);
+
     await this.pick('selectedLocation', 'Cochin', { closePanel: true });
     await this.pick('selectedUser', 'ERP User');
     await this.pick('selectedEmployee', u.displayName, { search: true });
@@ -107,6 +114,46 @@ class UserPage extends StockInwardBasePage {
     if (!(await this.defaultToggle.isChecked())) {
       await this.defaultToggle.click({ force: true });
     }
+  }
+  /**
+   * The app's business date as the topbar shows it (DD/MM/YYYY, e.g.
+   * 29/06/2026 on qa, pinned); today's date when the topbar is unreadable.
+   */
+  async appDate() {
+    const t = (await this.page.locator('.nav-user h6').first().innerText({ timeout: 3_000 }).catch(() => '')).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(t)) return t;
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+  }
+
+  static plusYears(ddmmyyyy, years) {
+    const [d, m, y] = ddmmyyyy.split('/');
+    return `${d}/${m}/${Number(y) + years}`;
+  }
+
+  /**
+   * Validity Period dates (#ActiveFrom / #ActiveUntil) are READONLY flatpickr
+   * inputs inside sioniq-date-picker, so fill() is refused. Set the date
+   * through the picker instance (fires its change hooks, which is what the
+   * calendar click does), falling back to a plain fill with readonly removed.
+   */
+  async setDate(id, value) {
+    const input = this.page.locator(`input#${id}`).first();
+    const viaPicker = await input.evaluate((el, v) => {
+      const fp = el._flatpickr;
+      if (!fp) return false;
+      fp.setDate(v, true, 'd/m/Y');
+      return el.value === v;
+    }, value).catch(() => false);
+    if (!viaPicker) {
+      await input.evaluate((el) => el.removeAttribute('readonly'));
+      await input.fill(value);
+      await input.blur();
+    }
+    await this.page.keyboard.press('Escape'); // close any calendar popup
+    const got = (await input.inputValue()).trim();
+    if (got !== value) throw new Error(`Users: ${id} shows "${got}" after setting "${value}"`);
   }
 }
 
