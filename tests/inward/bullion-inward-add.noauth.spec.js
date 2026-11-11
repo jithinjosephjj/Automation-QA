@@ -12,12 +12,13 @@ const { uniqueRef, businessDate } = require('../../utils/unique');
  *   Rate Fixation:   Fix          Purity: 91.6
  *   Gross Weight:    100 (not dictated - agreed default)
  *   Rate:            50000
- *   Additional Charges (mandatory since the app update of 29-08-2026):
+ *   Additional Charges (NOT mandatory - user, 11-11-2026; at Kakkanad RAJA
+ *   has none configured, so the dialog is opened and closed empty):
  *     item-level  "Item wise charge bullion" / "item wise bullion"
  *     bill-level  "Raja Bullion Charges" (vendor-specific)
  *   Flow (QA lead, 03-09-2026): item charge -> Add Items -> bill charge
  *   -> Submit. The bill-level charge goes in only AFTER the item is on
- *   the grid.
+ *   the grid. Each charge is added only when the vendor offers it.
  *
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  *
@@ -99,19 +100,22 @@ test.describe('Bullion Inward - add record', () => {
     // ---- Additional Charges order (QA lead, 03-09-2026): the ITEM-level
     // charge goes in BEFORE Add Items; the BILL-level charge is added only
     // AFTER the item sits in the grid. Charge names are vendor-specific. ----
-    await bullionInward.addAdditionalCharge({
+    const itemCharge = await bullionInward.addAdditionalChargeIfOffered({
       buttonIndex: 0, // item-level (next to Add Items)
       chargeType: 'Item wise charge bullion',
       chargeName: 'item wise bullion',
+      amount: 33,
     });
 
     // ---- Add Items (verified - the click is a silent no-op on invalid forms) ----
     await bullionInward.addItemsAndVerify('Gross Weight : 100.000');
 
-    // the item-level charge (33.00) flows into the totals with the item
-    await expect
-      .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
-      .toContain('Additional Charges Value 33.00');
+    // the item-level charge (33.00, when offered) flows into the totals with the item
+    if (itemCharge > 0) {
+      await expect
+        .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
+        .toContain(`Additional Charges Value ${itemCharge.toFixed(2)}`);
+    }
     const summary = await bullionInward.summaryText();
     expect(summary).toContain('Pure Weight : 91.600');
 
@@ -120,16 +124,19 @@ test.describe('Bullion Inward - add record', () => {
     await expect(bullionInward.gridRows.first()).toContainText('50000');
 
     // ---- bill-level charge, only AFTER the item is in the grid ----
-    await bullionInward.addAdditionalCharge({
+    const billCharge = await bullionInward.addAdditionalChargeIfOffered({
       buttonIndex: 1, // bill-level (lower Remarks section)
       chargeType: 'Raja Bullion Charges',
       chargeName: 'Raja Bullion Charges',
+      amount: 2000,
     });
 
-    // the bill-level charge (2000.00) joins the totals: 33 + 2000
-    await expect
-      .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
-      .toContain('Additional Charges Value 2033.00');
+    // the bill-level charge (2000.00, when offered) joins the totals: 33 + 2000
+    if (itemCharge + billCharge > 0) {
+      await expect
+        .poll(async () => bullionInward.summaryText(), { timeout: 20_000 })
+        .toContain(`Additional Charges Value ${(itemCharge + billCharge).toFixed(2)}`);
+    }
 
     // ---- Submit ----
     // Unlike Metal/Brand/Stone/Alloy, this screen shows NO Print dialog after

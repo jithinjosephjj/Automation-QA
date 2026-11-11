@@ -157,6 +157,54 @@ class BullionInwardPage extends StockInwardBasePage {
   }
 
   /**
+   * Additional Charges are NOT mandatory (user, 11-11-2026): at Kakkanad the
+   * RAJA vendor has none configured (GetVendorAndTransactionAdditionalCharges
+   * answers []), and opening the dialog and closing it again is all Submit
+   * needs. So: open the dialog; when the Charge Type list offers the charge,
+   * add it as before, else just Close. Returns the amount added (0 when the
+   * charge was not offered) so the caller knows what the totals should show.
+   */
+  async addAdditionalChargeIfOffered({ buttonIndex = 0, chargeType, chargeName, amount = 0 }) {
+    await this.page.getByRole('button', { name: 'Additional Charges' }).nth(buttonIndex).click();
+    const dlg = this.page
+      .locator('[role="dialog"], .modal, ngb-modal-window')
+      .filter({ hasText: 'Additional Charges' })
+      .first();
+    await dlg.waitFor({ state: 'visible', timeout: 15_000 });
+    await this.waitForIdle();
+
+    const host = this.select('additionalCharges');
+    await host.locator('.ng-select-container').click({ timeout: 5_000 }).catch(() => {});
+    const options = await this.panelOptions(host);
+    const texts = (await options.allTextContents().catch(() => []))
+      .map((t) => t.trim())
+      .filter((t) => t && !/No items found|Type to search/i.test(t));
+    const offered = texts.some((t) => t.toLowerCase().includes(String(chargeType).toLowerCase()));
+    await this.closeStalePanels();
+
+    if (!offered) {
+      console.log(`${this.tabName}: Additional Charges dialog (button ${buttonIndex}) offers no "${chargeType}" (${texts.length ? texts.join(' | ') : 'empty list'}) - closing it without a charge`);
+      const closeBtn = dlg.locator('button').filter({ hasText: /Close/ }).last();
+      if (await closeBtn.isVisible({ timeout: 2_000 }).catch(() => false)) await closeBtn.click();
+      else await this.page.keyboard.press('Escape');
+      await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+      await this.waitForIdle();
+      return 0;
+    }
+
+    await this.pick('additionalCharges', chargeType);
+    await this.pick('template', chargeName);
+    await this.settle(2_000); // let Calculation Base / Rate auto-fill
+    const addBtn = dlg.locator('button').filter({ hasText: /^\s*Add\s*$/ }).last();
+    await addBtn.click();
+    await dlg.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 15_000 });
+    await dlg.locator('button').filter({ hasText: /Close/ }).last().click();
+    await dlg.waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
+    await this.waitForIdle();
+    return amount;
+  }
+
+  /**
    * Add Items with proof: the click is a silent no-op when any control is
    * still flagged invalid, so poll the summary panel for the expected gross
    * weight and retry the click once before giving up.

@@ -81,29 +81,36 @@ test.describe('Alloy Inward - add record', () => {
     const response = await alloyInward.submit();
     expect(response).toBeTruthy();
 
-    // Print dialog opens with the generated voucher / receipt number
-    await expect(alloyInward.printDialog).toBeVisible({ timeout: 60_000 });
+    // The voucher number comes from the Print dialog when the location has a
+    // print template, else from the save response (at Kakkanad the Alloy inward
+    // has none: GetPrintTemplateByConfiguration 501 "No print configuration is
+    // available for this transaction at your current location", 11-11-2026;
+    // the save itself answered "Saved successfully!" with receiptNo 1000)
     const voucherNo = await alloyInward.voucherNumber();
     expect(voucherNo).not.toBe('');
     console.log(`Record created. Voucher number: ${voucherNo}, invoice no: ${invoiceNo}`);
 
-    // ---- Preview the report ----
-    const maybePopup = page.waitForEvent('popup', { timeout: 15_000 }).catch(() => null);
-    await alloyInward.previewBtn.click();
-    const popup = await maybePopup;
-    const previewPage = popup || page;
-    await previewPage.waitForLoadState('domcontentloaded');
-    await previewPage.waitForTimeout(5_000);
-    await previewPage.screenshot({ path: 'test-results/screens/tc-ai-001-report-preview.png', fullPage: true });
+    // ---- Preview the report - only when the Print dialog opened ----
+    if (await alloyInward.printDialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      const maybePopup = page.waitForEvent('popup', { timeout: 15_000 }).catch(() => null);
+      await alloyInward.previewBtn.click();
+      const popup = await maybePopup;
+      const previewPage = popup || page;
+      await previewPage.waitForLoadState('domcontentloaded');
+      await previewPage.waitForTimeout(5_000);
+      await previewPage.screenshot({ path: 'test-results/screens/tc-ai-001-report-preview.png', fullPage: true });
 
-    const hasReportSurface = await previewPage
-      .locator('embed, iframe, object, [class*=preview], [class*=report]')
-      .first()
-      .isVisible({ timeout: 15_000 })
-      .catch(() => false);
-    expect(popup !== null || hasReportSurface).toBe(true);
+      const hasReportSurface = await previewPage
+        .locator('embed, iframe, object, [class*=preview], [class*=report]')
+        .first()
+        .isVisible({ timeout: 15_000 })
+        .catch(() => false);
+      expect(popup !== null || hasReportSurface).toBe(true);
 
-    console.log(`Report preview opened for voucher ${voucherNo}`);
+      console.log(`Report preview opened for voucher ${voucherNo}`);
+    } else {
+      console.log(`No Print dialog for the Alloy inward at this location - report preview skipped (voucher ${voucherNo})`);
+    }
 
     // ---- the saved record shows in the list view (data table on page load) ----
     await alloyInward.verifyRowInList(voucherNo);
