@@ -311,23 +311,28 @@ class ProductionWorkflowPage extends StockInwardBasePage {
 
     // capture the job work number from the save response (broad matcher -
     // the endpoint is CreateJobWork; grid refreshes are excluded)
+    // Watch the save REQUEST too: a save still pending at 25 s (qa gateway
+    // 504 after 30 s, 11-11-2026) must never be submitted a second time -
+    // the backend saves both and the record is duplicated.
+    const isSave = (url, method) => method === 'POST' && /create|save/i.test(url) && !/GetAll|Pagination|KeepAlive/i.test(url);
+    const sawRequest = this.page.waitForRequest((q) => isSave(q.url(), q.method()), { timeout: 120_000 }).then(() => true).catch(() => false);
     const resp = this.page.waitForResponse(
-      (r) => r.request().method() === 'POST' && /create|save/i.test(r.url()) && !/GetAll|Pagination|KeepAlive/i.test(r.url()),
+      (r) => isSave(r.url(), r.request().method()),
       { timeout: 120_000 },
     ).catch(() => null);
     await this.page.getByRole('button', { name: 'Submit' }).click();
     // a Submit that fires nothing within 25 s is a silently invalid form:
     // say which controls, top the card's Qty up again, and press once more
-    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
-    if (!r) {
+    const fired = await Promise.race([sawRequest, this.page.waitForTimeout(25_000).then(() => false)]);
+    if (!fired) {
       console.log(`job work submit: no save request after 25 s - invalid controls: ${JSON.stringify(await this.invalidControls())} - retrying Submit`);
       if (masterDesignCard) {
         const cardQty = masterDesignCard.locator('xpath=.//*[normalize-space(text())="Qty"]/following::input[1]').first();
         if (!(await cardQty.inputValue().catch(() => ''))) await cardQty.fill(qty).catch(() => {});
       }
       await this.page.getByRole('button', { name: 'Submit' }).click().catch(() => {});
-      r = await resp;
     }
+    const r = await resp;
     let jobWorkNo = '';
     if (r) {
       const body = await r.json().catch(() => null);
@@ -1938,21 +1943,26 @@ class ProductionWorkflowPage extends StockInwardBasePage {
    */
   async submitAndCapture(what, urlPattern) {
     const noise = /GetAll|Pagination|KeepAlive|GetMasterData|GetLocation|Translation|Get[A-Z]/;
+    const isSave = (url, method) => ['POST', 'PUT'].includes(method) && urlPattern.test(url) && !noise.test(url);
+    // Watch the save REQUEST too: a save still pending at 25 s (qa gateway
+    // 504 after 30 s, 11-11-2026) must never be submitted a second time -
+    // the backend saves both and the record is duplicated.
+    const sawRequest = this.page.waitForRequest((q) => isSave(q.url(), q.method()), { timeout: 120_000 }).then(() => true).catch(() => false);
     const resp = this.page.waitForResponse(
-      (r) => ['POST', 'PUT'].includes(r.request().method()) && urlPattern.test(r.url()) && !noise.test(r.url()),
+      (r) => isSave(r.url(), r.request().method()),
       { timeout: 120_000 },
     );
     resp.catch(() => {});
     const submit = this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last();
     await submit.click();
-    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
-    if (!r) {
+    const fired = await Promise.race([sawRequest, this.page.waitForTimeout(25_000).then(() => false)]);
+    if (!fired) {
       const invalid = await this.invalidControls();
       const alerts = (await this.page.getByRole('alert').allTextContents().catch(() => [])).map((t) => t.trim()).filter(Boolean);
       console.log(`${what}: no save request after 25 s - invalid: ${JSON.stringify(invalid)}; alerts: ${JSON.stringify(alerts)} - retrying Submit`);
       await submit.click().catch(() => {});
-      r = await resp;
     }
+    const r = await resp;
     const body = await r.json().catch(() => null);
     console.log(`${what} save: ${r.status()} ${r.url().split('/sioniq/')[1]} ${JSON.stringify(body).slice(0, 220)}`);
     if (r.status() >= 400 || (body && body.errorCode)) {

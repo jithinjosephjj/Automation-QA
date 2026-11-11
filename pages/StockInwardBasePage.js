@@ -66,7 +66,10 @@ class StockInwardBasePage extends BasePage {
    * wrapper that reuses the id.
    */
   field(id) {
-    return this.page.locator(`input#${id}, textarea#${id}, #${id} input, #${id} textarea`).first();
+    // :not([role="combobox"]) skips an ng-select search box living inside the
+    // same wrapper (Users > Mobile Number has a country-code select before
+    // the number input, 11-11-2026 - the bare "#X input" picked that first).
+    return this.page.locator(`input#${id}, textarea#${id}, #${id} input:not([role="combobox"]), #${id} textarea`).first();
   }
 
   async open() {
@@ -955,9 +958,19 @@ class StockInwardBasePage extends BasePage {
     // Grid refreshes and keep-alives are POSTs too - never count them as the
     // save. And the QA server can take >60s on master-data saves.
     const noise = /GetAll|Pagination|KeepAlive|GetMasterData|GetLocation/i;
+    const isSave = (url, method) => pattern.test(url) && !noise.test(url) && method === 'POST';
     await this.fillPureRateIfEmpty();
+    // Watch the save REQUEST, not just a 200 response. A save still pending
+    // after 25 s (11-11-2026: qa's gateway answered Users > CreateUser with
+    // 504 after 30 s) used to look like "no request", Submit was clicked
+    // again, and the backend saved BOTH -> duplicate users with the same
+    // Login Name. Never resubmit while a save is in flight; a non-2xx
+    // answer fails right here with the server's message instead of waiting
+    // 120 s for a 200 that will never come.
+    const sawRequest = this.page.waitForRequest((q) => isSave(q.url(), q.method()), { timeout: 120_000 });
+    sawRequest.catch(() => {});
     const resp = this.page.waitForResponse(
-      (r) => pattern.test(r.url()) && !noise.test(r.url()) && r.request().method() === 'POST' && r.status() === 200,
+      (r) => isSave(r.url(), r.request().method()),
       { timeout: 120_000 },
     );
     resp.catch(() => {}); // observed below; never an unhandled rejection
@@ -966,15 +979,20 @@ class StockInwardBasePage extends BasePage {
     await this.answerBarcodeOrLotDialog();
     // A Submit that fires no request within 25 s is a silently invalid form:
     // say which controls, fill what can be filled, and click once more.
-    let r = await Promise.race([resp, this.page.waitForTimeout(25_000).then(() => null)]);
-    if (!r) {
+    const fired = await Promise.race([sawRequest.then(() => true), this.page.waitForTimeout(25_000).then(() => false)]);
+    if (!fired) {
       const invalid = await this.invalidControls();
       console.log(`${this.tabName} submit: no save request after 25 s - invalid controls: ${JSON.stringify(invalid)} - retrying Submit`);
       await this.fillPureRateIfEmpty();
       if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
       await this.submitBtn.click({ timeout: 3_000 }).catch(() => {});
       await this.answerBarcodeOrLotDialog();
-      r = await resp;
+    }
+    const r = await resp; // TimeoutError after 120 s with no answer at all
+    if (!r.ok()) {
+      const text = (await r.text().catch(() => '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+      const path = r.url().replace(/^https?:\/\/[^/]+/, '');
+      throw new Error(`${this.tabName} submit: POST ${path} answered ${r.status()}${text ? ` - ${text}` : ''}`);
     }
     await this.reportSaveToast(`${this.tabName} submit`, toast);
     const body = await r.json().catch(() => null);

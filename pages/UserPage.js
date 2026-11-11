@@ -17,12 +17,16 @@ const { StockInwardBasePage } = require('./StockInwardBasePage');
 class UserPage extends StockInwardBasePage {
   constructor(page) {
     super(page, 'Users');
-    this.name = page.locator('#Name');
-    this.loginName = page.locator('#LoginName');
-    this.mobile = page.locator('#MobileNumber');
-    this.email = page.locator('#Email');
-    this.password = page.locator('#password');
-    this.confirmPassword = page.locator('#ConfirmPassword');
+    // Since 11-11-2026 the form wraps its inputs in <app-sioniq-input id="X">
+    // around an <input id="X"> (Mobile Number first: type="contact" with a
+    // country-code select) - the same id twice, a strict-mode violation for a
+    // bare '#X'. field() scopes to the input itself, with or without wrapper.
+    this.name = this.field('Name');
+    this.loginName = this.field('LoginName');
+    this.mobile = this.field('MobileNumber');
+    this.email = this.field('Email');
+    this.password = this.field('password');
+    this.confirmPassword = this.field('ConfirmPassword');
     // The single role card's Default toggle (only checkbox without an id).
     this.defaultToggle = page
       .locator('div')
