@@ -170,6 +170,33 @@ class EstimationSalesTypePage extends OrderEstimationPage {
     return { row: rows.find((r) => r.includes(memberNo)) || '', rows, tiles, toasts, setupGap, status: fr ? fr.status() : null };
   }
 
+  /**
+   * The EMA Members row carries a "Closure Type" select for plans that offer
+   * closure types (Weight-Based 5 Lakh Plan: "Value Based", 14-11-2026;
+   * deposit plans show "--"). Picks `want` (substring) or the first option when
+   * the select is there and empty. Returns the value shown ('' when none).
+   */
+  async pickMemberClosureTypeIfOffered(want) {
+    const table = this.page.locator('table').filter({ has: this.page.locator('th', { hasText: /Closure Type/i }) }).locator('visible=true').first();
+    const sel = table.locator('tbody tr').first().locator('ng-select').first();
+    if (!(await sel.isVisible({ timeout: 2_000 }).catch(() => false))) { console.log('estimation EMA: no Closure Type select on the member row'); return ''; }
+    const current = ((await sel.locator('.ng-value').first().textContent().catch(() => '')) || '').replace(/×/g, '').trim();
+    if (current && (!want || current.toLowerCase().includes(String(want).toLowerCase()))) { console.log(`estimation EMA: Closure Type already "${current}"`); return current; }
+    await this.closeStalePanels();
+    await sel.locator('.ng-select-container').click({ timeout: T(10_000) });
+    await this.settle(1_000);
+    const panel = this.page.locator('.ng-dropdown-panel .ng-option');
+    const opts = (await panel.allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t && !/No items/i.test(t));
+    const idx = want ? opts.findIndex((o) => o.toLowerCase().includes(String(want).toLowerCase())) : 0;
+    if (idx < 0 || !opts.length) { await this.page.keyboard.press('Escape'); throw new Error(`estimation EMA: Closure Type "${want || '(first)'}" not offered - options ${JSON.stringify(opts)}`); }
+    await panel.nth(idx).click({ timeout: T(10_000) });
+    await this.waitForIdle();
+    await this.settle(1_500);
+    const got = ((await sel.locator('.ng-value').first().textContent().catch(() => '')) || '').replace(/×/g, '').trim();
+    console.log(`estimation EMA: Closure Type -> "${got}" (of ${JSON.stringify(opts)})`);
+    return got;
+  }
+
   /** Options of a select, read from its opened panel (server lists included). */
   async optionsOf(controlname, { search = '' } = {}) {
     const host = this.select(controlname);

@@ -152,8 +152,21 @@ class EmaEnrollmentPage extends StockInwardBasePage {
     await this.pick('adpPlanID', plan, { exact: true });
     await this.settle(2_000);
     await this.select('adpPlanGroupID').waitFor({ state: 'visible', timeout: T(15_000) });
+    // Group Amount: the requested value when the plan offers it, else the plan's
+    // first group (the 5 Lakh Plan offers other amounts than the 2LAKH PLAN,
+    // 14-11-2026); the amount actually picked comes back as groupAmountPicked
     const digits = String(groupAmount).replace(/[^0-9]/g, '');
-    await this.pickWhere('adpPlanGroupID', (t) => t.replace(/[^0-9.]/g, '').replace(/\.0+$/, '') === digits || t.replace(/[^0-9]/g, '').startsWith(digits), { what: `group amount ${groupAmount}` });
+    const isWanted = (t) => t.replace(/[^0-9.]/g, '').replace(/\.0+$/, '') === digits || t.replace(/[^0-9]/g, '').startsWith(digits);
+    let groupLabel = '';
+    try {
+      const seen = await this.pickWhere('adpPlanGroupID', isWanted, { what: `group amount ${groupAmount}` });
+      groupLabel = seen.find(isWanted) || '';
+    } catch (e) {
+      const seen = await this.pickWhere('adpPlanGroupID', () => true, { what: 'first group amount' });
+      groupLabel = seen[0] || '';
+      console.log(`EMA enrollment: group amount ${groupAmount} not offered for ${plan} (${JSON.stringify(seen.slice(0, 8))}) - picked the first: "${groupLabel}"`);
+    }
+    const groupAmountPicked = Number((groupLabel.match(/[\d,]+(?:\.\d+)?/) || [''])[0].replace(/,/g, '')) || Number(groupAmount);
     await this.settle(2_000);
     await this.pick('salesmanEmployeeID', salesman, { search: true });
     await this.settle(2_000);
@@ -162,7 +175,7 @@ class EmaEnrollmentPage extends StockInwardBasePage {
     await this.settle(2_000);
     const financials = await this.financials();
     console.log(`EMA enrollment: salesman "${salesman}" -> Salesman ID "${salesmanCode}"; financials ${JSON.stringify(financials)}; summary ${JSON.stringify(await this.summaryCounts())}`);
-    return { salesmanCode, financials };
+    return { salesmanCode, financials, groupAmountPicked };
   }
 
   /**
