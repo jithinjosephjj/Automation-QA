@@ -354,7 +354,20 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       await this.settle(1_500);
       console.log('counter allocation: tag staged via Add');
     }
+    // Since 03-11-2026 (19:13, allocation c171 on) qa saves the allocation
+    // with requiresAcceptance:false - the tags land on the counter at once
+    // and Counter Accept / Reject lists nothing (c170 and earlier: true). The
+    // form offers no toggle for it (probed 11-11-2026), so the flag is read
+    // off the save request and left in lastAllocation for the accept step.
+    this.lastAllocation = { requiresAcceptance: undefined };
+    const onReq = (q) => {
+      if (q.method() !== 'POST' || !/CounterAllocation\/(Create|Save)/i.test(q.url())) return;
+      try { const b = JSON.parse(q.postData() || '{}'); if (typeof b.requiresAcceptance === 'boolean') this.lastAllocation.requiresAcceptance = b.requiresAcceptance; } catch { /* not JSON */ }
+    };
+    this.page.on('request', onReq);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
+    this.page.off('request', onReq);
+    console.log(`counter allocation: requiresAcceptance ${this.lastAllocation.requiresAcceptance === undefined ? 'not in the save request' : this.lastAllocation.requiresAcceptance}`);
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';
   }
@@ -438,6 +451,10 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
 
   /**
    * optional: true returns { skipped: true } when nothing is pending for the tag (a 'Return to Counter' transfer lands approved, with no acceptance step).
+   * requiresAcceptance: the flag the allocation was saved with (counterAllocation
+   * -> lastAllocation, carried through the chain state). false = the stock is
+   * already on the counter (qa since 03-11-2026): the accept is optional and
+   * an empty Pending Transfers grid returns { skipped: true, requiresAcceptance: false }.
    * lotNo: the allocation's lot - the Pending Transfers grid is PAGED (20 rows
    * a page; 31 pending on 30-09-2026, every failed run leaves its allocation
    * un-accepted), so a fresh allocation sits on page 2 where the row lookup
@@ -445,7 +462,11 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * Search box first: by lot when the caller has it (both tags of a 2-piece
    * lot on one page), else by each tag in turn.
    */
-  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, tags, lotNo, optional = false }) {
+  async counterAccept({ itemType = 'Metal', tagNo, rfidNo, tags, lotNo, optional = false, requiresAcceptance }) {
+    if (requiresAcceptance === false) {
+      console.log('counter accept: the allocation was saved with requiresAcceptance:false - the stock is already on the counter; the accept step is optional');
+      optional = true;
+    }
     await this.goto('/sls/view-counter-accept-reject');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -469,7 +490,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const key = rfidNo && (await this.rowMatcher(rfidNo).count()) ? rfidNo : tagNo;
     if (optional && !(await this.rowMatcher(key).first().isVisible({ timeout: 15_000 }).catch(() => false))) {
       console.log('counter accept: nothing pending for ' + key + ' - the transfer landed without an acceptance step');
-      return { skipped: true };
+      return { skipped: true, requiresAcceptance };
     }
     await this.checkRow(key);
     // further tags of the same allocation (a 2-piece lot) - tick their rows too

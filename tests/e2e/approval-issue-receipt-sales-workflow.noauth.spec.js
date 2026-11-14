@@ -199,22 +199,24 @@ test.describe('Approval Issue - Approval Receipt - B2B Sales - Workflow', () => 
     const tags = (known.length > 1 ? known : fetched).map((t) => ({ tagNo: t.tagNo, rfidNo: t.rfidNo || (fetched.find((f) => f.tagNo === t.tagNo) || {}).rfidNo || '' }));
     expect(tags.length, `the chain needs ${DATA.inward.item.noOfPcs} tags (got ${JSON.stringify(tags)})`).toBeGreaterThanOrEqual(DATA.inward.item.noOfPcs);
     expect(fetched.length, `the lot fetch must stage ${DATA.inward.item.noOfPcs} tags (got ${JSON.stringify(fetched)})`).toBeGreaterThanOrEqual(DATA.inward.item.noOfPcs);
-    state.writeState({ allocationNo, tags, rfidNo: (tags.find((t) => t.tagNo === tagNo) || tags[0]).rfidNo });
+    state.writeState({ allocationNo, tags, rfidNo: (tags.find((t) => t.tagNo === tagNo) || tags[0]).rfidNo, requiresAcceptance: logisticsSales.lastAllocation && logisticsSales.lastAllocation.requiresAcceptance });
     console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by lot'}, tags ${JSON.stringify(tags)})`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 
   test('TC-AIR-05 counter accept of both tags', async ({ loginPage, logisticsSales }) => {
     test.setTimeout(600_000);
-    const { tagNo, rfidNo, lotNo } = state.readState();
+    const { tagNo, rfidNo, lotNo, requiresAcceptance } = state.readState();
     const tags = tagsFromState();
     expect(tagNo, 'run TC-AIR-04 first').toBeTruthy();
     await login(loginPage);
 
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, tags, lotNo });
+    // requiresAcceptance:false (qa since 03-11-2026): the tags are already on
+    // the counter and nothing is pending - the step records that and moves on
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, tags, lotNo, requiresAcceptance });
     expect(body, 'counter accept save response').toBeTruthy();
-    state.writeState({ counterAccepted: true });
-    console.log('Counter accept saved');
+    state.writeState({ counterAccepted: true, counterAcceptSkipped: !!body.skipped });
+    console.log(body.skipped ? 'Counter accept skipped - the allocation needed no acceptance' : 'Counter accept saved');
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
 

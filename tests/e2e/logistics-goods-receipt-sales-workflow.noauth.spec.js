@@ -209,7 +209,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
       vendor: DATA.logistics.vendor,
     });
     const rfidNo = (logisticsSales.lastScan && logisticsSales.lastScan.rfidNo) || '';
-    state.writeState({ allocationNo, rfidNo });
+    state.writeState({ allocationNo, rfidNo, requiresAcceptance: logisticsSales.lastAllocation && logisticsSales.lastAllocation.requiresAcceptance });
     console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by lot'}, rfid ${rfidNo || 'not captured'})`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
@@ -220,7 +220,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     expect(tagNo, 'run TC-LGS-06 first').toBeTruthy();
     await login(loginPage, page);
 
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo });
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, requiresAcceptance: state.readState().requiresAcceptance }); // false since 03-11-2026: nothing pending, step skipped
     expect(body, 'counter accept save response').toBeTruthy();
     state.writeState({ counterAccepted: true });
     console.log('Counter accept saved');

@@ -260,7 +260,7 @@ test.describe('B2B Order - Job Finalize Tag - Counter - Transfer Kakkanad to Coc
       groupCategory: DATA.counter.groupCategory,
       tagNo,
     });
-    state.writeState({ allocationNo });
+    state.writeState({ allocationNo, requiresAcceptance: logisticsSales.lastAllocation && logisticsSales.lastAllocation.requiresAcceptance });
     console.log(`Counter allocation saved (doc: ${allocationNo || 'keyed by tag'})`);
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
@@ -270,7 +270,7 @@ test.describe('B2B Order - Job Finalize Tag - Counter - Transfer Kakkanad to Coc
     const { tagNo } = state.readState();
     expect(tagNo, 'run TC-B2B-JFT-09 first').toBeTruthy();
     await login(loginPage, page, COCHIN);
-    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo });
+    const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, requiresAcceptance: state.readState().requiresAcceptance }); // false since 03-11-2026: nothing pending, step skipped
     expect(body, 'counter accept save response').toBeTruthy();
     state.writeState({ counterAccepted: true });
     console.log('Counter accept saved');
