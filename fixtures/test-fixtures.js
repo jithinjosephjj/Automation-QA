@@ -31,6 +31,7 @@ const { InternalStockTransferPage } = require('../pages/InternalStockTransferPag
 const { RetailInvoicePage } = require('../pages/RetailInvoicePage');
 const { EmaEnrollmentPage } = require('../pages/EmaEnrollmentPage');
 const { EstimationSalesTypePage } = require('../pages/EstimationSalesTypePage');
+const { SalesReturnPage } = require('../pages/SalesReturnPage');
 
 /**
  * Import { test, expect } from here instead of '@playwright/test' and page
@@ -227,6 +228,10 @@ const test = base.test.extend({
 
   estimationSalesType: async ({ page }, use) => {
     await use(new EstimationSalesTypePage(page));
+  },
+
+  salesReturn: async ({ page }, use) => {
+    await use(new SalesReturnPage(page));
   },
 });
 
