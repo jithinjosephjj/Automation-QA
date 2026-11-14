@@ -23,8 +23,6 @@
     "test:retail-advance": "playwright test tests/e2e/retail-general-advance-workflow.noauth.spec.js --project=no-auth",
     "test:retail-tag-order-estimation": "playwright test tests/e2e/retail-tag-order-estimation-registration-estimation-workflow.noauth.spec.js --project=no-auth",
     "test:retail-tag-reserve-estimation": "playwright test tests/e2e/retail-tag-reserve-estimation-registration-estimation-workflow.noauth.spec.js --project=no-auth",
-    "test:retail-tag-sales-return": "playwright test tests/e2e/retail-tag-invoice-sales-return-registration-direct-workflow.noauth.spec.js --project=no-auth",
-    "test:retail-tag-sales-return-estimation": "playwright test tests/e2e/retail-tag-invoice-sales-return-estimation-workflow.noauth.spec.js --project=no-auth",
     "test:multi-barcode-brand": "playwright test tests/e2e/multi-barcode-brand-workflow.noauth.spec.js --project=no-auth",
     "test:multi-barcode-stone": "playwright test tests/e2e/multi-barcode-stone-workflow.noauth.spec.js --project=no-auth",
     "test:multi-barcode-metal": "playwright test tests/e2e/multi-barcode-metal-workflow.noauth.spec.js --project=no-auth",
