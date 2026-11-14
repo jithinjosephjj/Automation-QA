@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-14T07:14:22.049Z",
+  "inwardVoucherNo": "M914",
+  "lotNo": "NNN35",
+  "tagNo": "2026-07-0200040",
+  "invoiceDocNo": "94",
+  "srEstimationNo": "19",
+  "updatedAt": "2026-11-14T07:19:45.814Z",
+  "pickup": {
+    "date": "02/07/2026",
+    "items": [
+      "Gold,Ring-Tendulkar - 94.1"
+    ]
+  },
+  "srEstimationAmount": 44565.5
+}
