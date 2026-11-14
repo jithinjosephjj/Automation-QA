@@ -241,7 +241,7 @@ class EstimationSalesTypePage extends OrderEstimationPage {
    * details fill in - then "Add Item" moves it into Scanned Tags. Returns the
    * summary counts after the add.
    */
-  async scanAndAddTag(tagNo, { rfidNo } = {}) {
+  async scanAndAddTag(tagNo, { rfidNo, applyOffer = false } = {}) {
     if (rfidNo) await this.pick('masterDataValueID_ScanType', 'RFID', { exact: true }).catch(() => {});
     const scan = this.page.locator('input#scanValue').locator('visible=true').first();
     await scan.waitFor({ state: 'visible', timeout: T(15_000) });
@@ -258,14 +258,36 @@ class EstimationSalesTypePage extends OrderEstimationPage {
     await this.settle(2_500);
     if (scanBody && scanBody.errorCode) throw new Error(`Estimation: the scan of tag ${tagNo} was refused - ${scanBody.error || scanBody.message}`);
     if (this.fillMandatoryEmptySelects) await this.fillMandatoryEmptySelects();
+    if (applyOffer) {
+      // Sales Type Sales Return (14-11-2026): the tag card ends in "Rate Difference -
+      // Offer Amount" (Old Bill Rate / Today's Rate) with an "Apply Offer" checkbox;
+      // the returned item's value shows as the Offer Value. Add Item stages nothing
+      // while it is unticked.
+      const offer = this.page.getByRole('checkbox', { name: /Apply Offer/i }).locator('visible=true').first();
+      if (await offer.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        if (!(await offer.isChecked().catch(() => false))) { await offer.click({ timeout: 5_000 }).catch(async () => offer.click({ force: true })); await this.settle(1_500); }
+        console.log(`estimation: Apply Offer ${await offer.isChecked().catch(() => '?')}`);
+      } else console.log('estimation: no "Apply Offer" checkbox on the tag card');
+    }
     const addItem = this.page.getByRole('button', { name: /Add Item/ }).locator('visible=true').last();
     await addItem.click({ timeout: T(15_000) });
     await this.waitForIdle();
     await this.settle(2_500);
     const row = this.page.locator('table tbody tr').locator('visible=true').filter({ hasText: String(tagNo) }).first();
     const staged = async () => (await this.summaryCounts()).items > before.items || (await row.isVisible().catch(() => false));
-    const deadline = Date.now() + 15_000;
+    let deadline = Date.now() + 15_000;
     while (Date.now() < deadline && !(await staged())) await this.page.waitForTimeout(500);
+    if (!(await staged())) {
+      // Sales Type Sales Return (14-11-2026): the first Add Item right after the scan
+      // staged nothing while the card was still pricing (tax calls, Rate Difference
+      // block) and gave no toast - a second click a few seconds later stages the tag
+      console.log(`estimation: "Add Item" staged nothing for ${tagNo} on the first click - clicking again`);
+      await this.settle(3_000);
+      await addItem.click({ timeout: T(15_000) });
+      await this.waitForIdle();
+      deadline = Date.now() + 15_000;
+      while (Date.now() < deadline && !(await staged())) await this.page.waitForTimeout(500);
+    }
     const after = await this.summaryCounts();
     if (!(await staged())) throw new Error(`Estimation: "Add Item" did not move tag ${tagNo} into Scanned Tags (summary ${JSON.stringify(after)}). Toasts: ${JSON.stringify(await this.toasts())}; invalid: ${JSON.stringify(await this.invalidControls())}`);
     console.log(`estimation: tag ${tagNo} added - summary ${JSON.stringify(after)}`);
