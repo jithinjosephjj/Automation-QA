@@ -36,6 +36,8 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     pieces, // defaults to the form's value, capped to the lot's piece count
     descriptions = { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
     additionalCharges, // true | { chargeType, chargeName, amount } - see addAdditionalCharges
+    multiBarcode, // a number: tick "Multi Barcode" and generate that many tags of `pieces` / `grossWeight` each (14-11-2026)
+    print, // { destination, copies, template }: drive the post-save "Barcode Print" dialog (pick the printer, set Copies, Print) instead of closing it (14-11-2026)
     counter, // jobwork-return lots: the Counter is empty + mandatory and must be an ORDER-type counter (QA lead 06-10-2026: "Counter 1")
     subCounter, // its Sub Counter (QA lead: "Sub Counter 1"); first offered when omitted
   }) {
@@ -147,6 +149,7 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     if (amount !== undefined) await this.fillByLabel('Amount', amount);
     await this.settle(1_500);
+    if (multiBarcode !== undefined && multiBarcode !== null && multiBarcode !== false) await this.setMultiBarcode(multiBarcode);
 
     // Counter + Sub Counter: prefilled on stock / B2B lots, but EMPTY and
     // mandatory on a jobwork-return lot (TC-JW-DOL-04, TC-OLG-05: Submit
@@ -193,6 +196,17 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     let requestSent = false;
     const req = this.page.waitForRequest((q) => q.method() === 'POST' && /create|save|generate/i.test(q.url()) && !/GetAll|Pagination|KeepAlive|GetMasterData|Translation|GenerateTax|TaxRates/i.test(q.url()), { timeout: 120_000 })
       .then(() => { requestSent = true; }).catch(() => {});
+    // the post-save print: the app first asks for the barcode print template -
+    // 501 "No print configuration is available ..." means no Barcode Print
+    // dialog (Brand tags at Kakkanad, 14-11-2026); printBarcodeLabels reads it
+    this._printTemplateResp = this.page.waitForResponse((q) => /GetBarcodeTemplateByConfiguration/i.test(q.url()), { timeout: 60_000 }).catch(() => null);
+    this._printTemplateResp.catch(() => {});
+    // the lot's tags after the save (GetBarcodeGenerationByLotSerial): the only
+    // place a STONE save names its tags - its body carries tagReferences [] and
+    // a receiptNo (BDCbbb56, 14-11-2026); Metal / Brand bodies list them
+    this.lastLotTags = [];
+    this._lotSerialResp = this.page.waitForResponse((q) => /GetBarcodeGenerationByLotSerial\b/i.test(q.url()) && q.request().method() === 'POST', { timeout: 60_000 }).catch(() => null);
+    this._lotSerialResp.catch(() => {});
     await this.submitBtn.click();
     let r = await Promise.race([resp, refusal(T(8_000)).then((t) => (t ? { refused: t } : resp))]);
     if (r && r.refused) {
@@ -239,9 +253,109 @@ class BarcodeGenerationPage extends StockInwardBasePage {
     }
     // 30-10-2026: at Kakkanad the save opens a "Barcode Print" modal (label
     // template "Barcode siva") ~0.3 s after the response - wait for it
-    if (await this.closePostSaveDialog()) console.log('barcode: post-save print dialog closed');
+    if (print) {
+      this.lastPrint = await this.printBarcodeLabels(print);
+    } else if (await this.closePostSaveDialog()) {
+      console.log('barcode: post-save print dialog closed');
+    }
+    const lr = this._lotSerialResp ? await Promise.race([this._lotSerialResp, new Promise((res) => setTimeout(() => res(null), 15_000))]) : null;
+    if (lr) {
+      const list = await lr.json().catch(() => null);
+      this.lastLotTags = (Array.isArray(list) ? list : (list && list.data) || []).map((t) => t && t.tagNo).filter(Boolean);
+      console.log(`barcode: the lot now holds ${this.lastLotTags.length} tag(s) ${JSON.stringify(this.lastLotTags.slice(0, 12))}`);
+    }
     return body;
   }
+
+  /**
+   * The post-save "Barcode Print" dialog (Kakkanad, 14-11-2026): Label
+   * Template (e.g. "Barcode siva"), Destination (the printers, e.g.
+   * "\\\\192.168.1.142\\ZDesignerZD230"), Copies, and a Print button. Picks the
+   * destination (substring; the first offered printer when none is given),
+   * sets Copies, prints and records the print request's answer - a printer
+   * the qa server cannot reach fails the print, not the barcode save - then
+   * closes the dialog. Returns { shown, template, destination, copies,
+   * printStatus, printBody, toasts }.
+   */
+  async printBarcodeLabels({ destination, copies = 1, template } = {}) {
+    const dlg = this.page.locator('ngb-modal-window, .modal, [role="dialog"]').filter({ hasText: /Barcode Print/i }).locator('visible=true').last();
+    if (!(await dlg.waitFor({ state: 'visible', timeout: T(10_000) }).then(() => true).catch(() => false))) {
+      const tr = this._printTemplateResp ? await Promise.race([this._printTemplateResp, new Promise((res) => setTimeout(() => res(null), 5_000))]) : null;
+      const tb = tr ? await tr.json().catch(() => null) : null;
+      const setupGap = tr && tr.status() >= 400 && tb && tb.error ? tb.error : '';
+      console.log(`barcode: no "Barcode Print" dialog after the save${tr ? ` - template lookup ${tr.status()} ${JSON.stringify(tb).slice(0, 160)}` : ''}`);
+      return { shown: false, setupGap, templateStatus: tr ? tr.status() : null };
+    }
+    await this.settle(1_500);
+    const selectAfter = (label) => dlg.locator(`xpath=.//label[normalize-space(.)="${label}"]/following::ng-select[1]`).first();
+    const pickIn = async (label, want) => {
+      const host = selectAfter(label);
+      await host.locator('.ng-select-container').click({ timeout: T(10_000) });
+      await this.settle(1_200);
+      const panel = this.page.locator('.ng-dropdown-panel .ng-option');
+      const opts = (await panel.allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t && !/No items/i.test(t));
+      const idx = want ? opts.findIndex((o) => o.toLowerCase().includes(String(want).toLowerCase())) : 0;
+      if (idx < 0 || !opts.length) { await this.page.keyboard.press('Escape'); throw new Error(`Barcode Print: ${label} "${want || '(first)'}" is not offered - options ${JSON.stringify(opts)}`); }
+      await panel.nth(idx).click({ timeout: T(10_000) });
+      await this.settle(800);
+      const got = ((await host.locator('.ng-value').first().textContent().catch(() => '')) || '').replace(/×/g, '').trim();
+      console.log(`barcode print: ${label} -> "${got}" (of ${JSON.stringify(opts.slice(0, 6))})`);
+      return got;
+    };
+    const current = async (label) => ((await selectAfter(label).locator('.ng-value').first().textContent().catch(() => '')) || '').replace(/×/g, '').trim();
+    const tpl = template ? await pickIn('Label Template', template) : await current('Label Template');
+    const dest = await pickIn('Destination', destination);
+    const copiesBox = dlg.locator('xpath=.//label[normalize-space(.)="Copies"]/following::input[1]').first();
+    await copiesBox.fill(String(copies));
+    await copiesBox.blur();
+    await this.settle(500);
+    const copiesSet = await copiesBox.inputValue().catch(() => '');
+
+    const printResp = this.page.waitForResponse((r) => /Print|Label/i.test(r.url()) && !/GetPrintTemplate|KeepAlive|Translation/i.test(r.url()) && ['POST', 'GET'].includes(r.request().method()), { timeout: 20_000 }).catch(() => null);
+    const btn = dlg.locator('button').filter({ hasText: /Print/ }).filter({ hasNotText: /Close|Cancel/ }).locator('visible=true').last();
+    await btn.click({ timeout: T(10_000) });
+    const r = await printResp;
+    await this.settle(2_000);
+    const printBody = r ? await r.json().catch(async () => (await r.text().catch(() => '')).slice(0, 200)) : null;
+    const toasts = (await this.page.locator('.toast, .toast-message, [role="alert"], .swal2-container').allTextContents().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    console.log(`barcode print: template "${tpl}", destination "${dest}", copies ${copiesSet} -> ${r ? `${r.status()} ${r.url().split('/sioniq/')[1]?.split('?')[0]} ${JSON.stringify(printBody).slice(0, 200)}` : 'no print request seen'}${toasts.length ? `; toasts ${JSON.stringify(toasts)}` : ''}`);
+    if (await dlg.isVisible().catch(() => false)) {
+      await dlg.locator('.btn-close, button:has-text("Close")').locator('visible=true').last().click({ timeout: 3_000 }).catch(() => {});
+      await dlg.waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+    }
+    return { shown: true, template: tpl, destination: dest, copies: Number(copiesSet) || copiesSet, printStatus: r ? r.status() : null, printBody, toasts };
+  }
+
+  /**
+   * "Multi Barcode": a checkbox beside a count box (14-11-2026). Ticked, the
+   * save generates `count` tags of the entered pieces / gross weight each
+   * (10 x 10 pcs / 100 g consume a 100 pcs / 1000 g lot). The checkbox sits
+   * behind the usual invisible-click label; the count box is enabled once it
+   * is ticked.
+   */
+  async setMultiBarcode(count) {
+    // the control has no <label>: a checkbox and a spinbutton both named
+    // "Multi Barcode" (aria snapshot 14-11-2026); the spinbutton is disabled
+    // until the box is ticked
+    const box = this.page.getByRole('checkbox', { name: /^\s*Multi Barcode\s*$/ }).locator('visible=true').first();
+    await box.waitFor({ state: 'visible', timeout: T(10_000) });
+    for (let attempt = 1; attempt <= 3 && !(await box.isChecked().catch(() => false)); attempt++) {
+      await box.click({ timeout: 5_000, force: attempt > 1 }).catch(() => {});
+      await this.page.waitForTimeout(400);
+    }
+    if (!(await box.isChecked().catch(() => false))) throw new Error('barcode: the "Multi Barcode" checkbox did not tick');
+    // the count box sits beside the checkbox; its accessible name is "Multi Barcode"
+    // on the Metal / Brand forms but "Count (>= 2)" on the Stone form once ticked
+    const countBox = this.page.locator('xpath=//*[normalize-space(text())="Multi Barcode"]/following::input[@type="number" or @role="spinbutton"][1]').locator('visible=true').first();
+    await countBox.waitFor({ state: 'visible', timeout: T(5_000) });
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline && !(await countBox.isEnabled().catch(() => false))) await this.page.waitForTimeout(200);
+    await countBox.fill(String(count));
+    await countBox.blur();
+    await this.settle(1_200);
+    console.log(`barcode: Multi Barcode ticked, count ${await countBox.inputValue().catch(() => '?')}`);
+  }
+
 
   /**
    * The tag number a save response carries (receiptNo, else the first

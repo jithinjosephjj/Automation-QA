@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-11-14T10:46:08.700Z",
+  "inwardVoucherNo": "c130",
+  "lotNo": "NNN43",
+  "tags": [
+    "26-07-0200015",
+    "26-07-0200016",
+    "26-07-0200017",
+    "26-07-0200018",
+    "26-07-0200019",
+    "26-07-0200020",
+    "26-07-0200021",
+    "26-07-0200022",
+    "26-07-0200023",
+    "26-07-0200024"
+  ],
+  "updatedAt": "2026-11-14T10:49:32.901Z",
+  "tagNo": "26-07-0200015",
+  "print": {
+    "setupGap": "No print configuration is available for this transaction at your current location or terminal. Please configure one to continue."
+  }
+}

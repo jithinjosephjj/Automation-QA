@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-11-14T10:58:16.213Z",
+  "inwardVoucherNo": "S159",
+  "lotNo": "NNN45",
+  "tags": [
+    "BDCbbb74",
+    "BDCbbb72",
+    "BDCbbb71",
+    "BDCbbb73",
+    "BDCbbb69",
+    "BDCbbb66",
+    "BDCbbb70",
+    "BDCbbb68",
+    "BDCbbb67",
+    "BDCbbb75"
+  ],
+  "updatedAt": "2026-11-14T11:01:26.128Z",
+  "tagNo": "BDCbbb74",
+  "print": {
+    "setupGap": "No print configuration is available for this transaction at your current location or terminal. Please configure one to continue."
+  }
+}
