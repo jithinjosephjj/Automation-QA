@@ -112,7 +112,7 @@ class UserPage extends StockInwardBasePage {
     }
   }
 
-  async fillUser(u) {
+  async fillUser(u, { location = 'Cochin' } = {}) {
     this.lastLogin = u.displayName; // for submit(): the login to look for after a gateway 5xx
     await this.name.fill(u.nameInWords); // FIRST - clears its own validation
     await this.mobile.fill(u.mobile);
@@ -128,7 +128,7 @@ class UserPage extends StockInwardBasePage {
     await this.setDate('ActiveUntil', UserPage.plusYears(activeFrom, 5));
     console.log(`Users: validity ${activeFrom} -> ${UserPage.plusYears(activeFrom, 5)}`);
 
-    await this.pick('selectedLocation', 'Cochin', { closePanel: true });
+    await this.pick('selectedLocation', location, { exact: true, closePanel: true });
     await this.pick('selectedUser', 'ERP User');
     await this.pick('selectedEmployee', u.displayName, { search: true });
 

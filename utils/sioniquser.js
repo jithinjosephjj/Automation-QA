@@ -69,6 +69,33 @@ function setNext(n) {
 }
 
 /**
+ * A second, independent series for the KAKKANAD masters chain (16-11-2026):
+ * SioniqKkd<N> (first name Sioniq, last name kkd<N>, sales code KK<N>, email
+ * sioniqkkd<N>@sioniq.com) counted in sioniqkkd-counter.json, so the Cochin
+ * suite's Sioniquser<N> numbering is untouched.
+ */
+const KKD_COUNTER_FILE = path.join(__dirname, '..', 'sioniqkkd-counter.json');
+function currentKkdN() {
+  try { return JSON.parse(fs.readFileSync(KKD_COUNTER_FILE, 'utf8')).next || 1; } catch { return 1; }
+}
+function setNextKkd(n) { fs.writeFileSync(KKD_COUNTER_FILE, JSON.stringify({ next: n }, null, 2)); }
+function commitKkd(n) { setNextKkd(n + 1); }
+function nextSioniqKkdUser() {
+  const n = currentKkdN();
+  return {
+    n,
+    firstName: 'Sioniq',
+    lastName: `kkd${n}`,
+    displayName: `SioniqKkd${n}`,
+    nameInWords: `SioniqKkd${numberInWords(n)}`,
+    salesCode: `KK${n}`,
+    email: `sioniqkkd${n}@sioniq.com`,
+    mobile: '8' + String(Date.now()).slice(-9),
+    password: '123',
+  };
+}
+
+/**
  * The Sioniquser the masters suite created LAST (the iteration before
  * "next"): the production chains use it as their freshly created inhouse
  * worker, so a run of tests/masters followed by a chain always exercises
@@ -79,4 +106,5 @@ function latestSioniqUser() {
   return { n, displayName: `Sioniquser${n}` };
 }
 
-module.exports = { nextSioniqUser, latestSioniqUser, commit, setNext, currentN };
+module.exports = {
+  nextSioniqKkdUser, currentKkdN, setNextKkd, commitKkd, nextSioniqUser, latestSioniqUser, commit, setNext, currentN };

@@ -62,7 +62,32 @@ class EmployeePage extends StockInwardBasePage {
   }
 
   /** Fill the whole employee form in dependency order. */
-  async fillEmployee(u) {
+  /**
+   * Pick `want` in a wizard select, or - when the business unit does not offer
+   * it - the first option it does offer (Kakkanad's Process list has no
+   * "Casting Process", 16-11-2026). Returns the label picked ('' when the list
+   * is empty, which is logged and skipped).
+   */
+  async pickOrFirst(controlname, want) {
+    try {
+      await this.pick(controlname, want, { exact: true });
+      return want;
+    } catch (e) {
+      const host = this.select(controlname);
+      await this.closeStalePanels();
+      await host.locator('.ng-select-container').click({ timeout: 10_000 });
+      await this.settle(1_200);
+      const options = await this.panelOptions(host);
+      const labels = (await options.allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t && !/No items/i.test(t));
+      if (!labels.length) { await this.page.keyboard.press('Escape'); console.log(`employee: "${controlname}" offers nothing here - "${want}" skipped`); return ''; }
+      await options.first().click({ timeout: 10_000 });
+      await this.settle(800);
+      console.log(`employee: "${want}" not offered in "${controlname}" - picked the first: "${labels[0]}" (of ${JSON.stringify(labels.slice(0, 6))})`);
+      return labels[0];
+    }
+  }
+
+  async fillEmployee(u, { bu = 'Cochin', process = 'Casting Process', subprocess = 'Casting Inspection' } = {}) {
     // profile picture first - from the demo folder's profile image
     await this.uploadProfilePicture(u.profileImage);
 
@@ -74,12 +99,14 @@ class EmployeePage extends StockInwardBasePage {
 
     await this.pick('empIdGeneration', 'Auto');
     await this.pick('legalEntity', 'Sioniq QA', { exact: true });
-    await this.pick('bUnit', 'Cochin', { search: true, closePanel: true });
+    await this.pick('bUnit', bu, { search: true, exact: true, closePanel: true }); // Cochin for the masters suite, Kakkanad for its KKD twin
     await this.pick('department', 'Production', { exact: true });
     await this.pick('designation', 'Supervisor');
     await this.pick('designationlevel', 'L2');
-    await this.pick('process', 'Casting Process');
-    await this.pick('subprocess', 'Casting Inspection');
+    // the Process / Sub Process lists depend on the business unit - the named
+    // ones at Cochin, the first offered elsewhere
+    const picked = await this.pickOrFirst('process', process);
+    if (picked) await this.pickOrFirst('subprocess', subprocess);
 
     await this.pick('salesCodeGeneration', 'Manual');
     const salesCode = this.page
