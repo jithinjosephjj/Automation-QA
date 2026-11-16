@@ -84,7 +84,36 @@ class UserPage extends StockInwardBasePage {
    * The Name field REJECTS digits, so it takes the number-in-words variant
    * (Sioniquserone) while Login Name keeps the numeric one (Sioniquser1).
    */
+  /**
+   * Submit the Users form. qa's gateway answers User/CreateUser with 504 after
+   * 30 s while the backend still saves (11-11 and 16-11-2026: Sioniquser52 was
+   * in the list, once). A 5xx therefore passes when the app showed its success
+   * popup, or when the login is listed afterwards; only then is the record
+   * missing and the error stands. Never resubmits (duplicates).
+   */
+  async submit() {
+    const login = this.lastLogin;
+    const toast = this.watchSaveToast(45_000);
+    try {
+      return await super.submit();
+    } catch (e) {
+      const msg = String(e && e.message || e);
+      if (!/answered 5\d\d/.test(msg)) throw e;
+      const shown = await Promise.race([toast, new Promise((res) => setTimeout(() => res(false), 5_000))]);
+      if (shown) {
+        console.log(`GATEWAY-5XX: ${msg.split(' - ')[0]} - the success popup was shown, the user is saved`);
+        return { code: 1001, message: 'Saved successfully! (gateway 5xx; success popup shown)', gateway: msg.split(' - ')[0] };
+      }
+      if (login && (await this.loginExists(login).catch(() => false))) {
+        console.log(`GATEWAY-5XX: ${msg.split(' - ')[0]} - no popup, but "${login}" is in the Users list, the user is saved`);
+        return { code: 1001, message: 'Saved successfully! (gateway 5xx; user listed)', gateway: msg.split(' - ')[0] };
+      }
+      throw e;
+    }
+  }
+
   async fillUser(u) {
+    this.lastLogin = u.displayName; // for submit(): the login to look for after a gateway 5xx
     await this.name.fill(u.nameInWords); // FIRST - clears its own validation
     await this.mobile.fill(u.mobile);
     await this.email.fill(u.email);
