@@ -670,6 +670,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
       }
       console.log(`sales invoice: tag ${tagNo} staged from approval RC ${approvalRcNo}`);
       await this.fillMetalRateIfEmpty(6000);
+      await this.fillDispatchIfOffered({ dispatchType: 'In Person', what: 'sales invoice' }); // Dispatch Details > Dispatch Type is mandatory (17-11-2026, as on the approval issue)
       const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
       await this.previewAndClose();
       return (body && body.data && (body.data.receiptNo || body.data.invoiceNo || body.data.docNo)) || '';
@@ -717,6 +718,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const box = scanned.getByRole('checkbox').first();
     if ((await box.count()) && !(await box.isChecked({ timeout: 2_000 }).catch(() => true))) await box.check({ force: true, timeout: 3_000 }).catch(() => {});
     await this.fillMetalRateIfEmpty(6000); // same "Metal weight" strip as the approval forms
+    await this.fillDispatchIfOffered({ dispatchType: 'In Person', what: 'sales invoice' }); // Dispatch Details > Dispatch Type is mandatory (17-11-2026, as on the approval issue)
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }).locator('visible=true').last());
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.invoiceNo || body.data.docNo)) || '';
@@ -733,8 +735,18 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * "Default Stock Accept Counter" lists those tags with a "Tag Number
    * (locate in grid)" scan, a "Select" button and "Return to Counter";
    * after that the tag waits in Counter Accept. Returns the save body.
+   *
+   * Since 03-11-2026 qa saves every Counter Allocation with
+   * requiresAcceptance:false and parks the allocated tag on the Default Stock
+   * Accept Counter instead of a sales counter (17-11-2026 probe: allocation
+   * c199 "Approved", tag listed there, the B2B invoice scan refused "This tag
+   * belongs to the default stock counter and cannot be added"). Return to
+   * Counter (scan by TAG number - the RFID scan answers "is not on this
+   * counter") moves it out (CC35) and the invoice then takes it, with no
+   * Counter Accept pending. optional: a tag no longer parked there (an
+   * earlier run already returned it) is logged and skipped - returns null.
    */
-  async returnToCounter({ tagNo }) {
+  async returnToCounter({ tagNo, optional = false }) {
     await this.goto('/sls/view-counter-transfer');
     await this.waitForIdle();
     await this.clickVisibleAdd();
@@ -745,6 +757,7 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
     const row = this.rowMatcher(tagNo).last();
     if (!(await row.isVisible({ timeout: 15_000 }).catch(() => false))) {
       const rows = await this.page.locator('tbody tr').locator('visible=true').allInnerTexts().catch(() => []);
+      if (optional) { console.log(`counter transfer: tag ${tagNo} is not on the Default Stock Accept Counter (already returned?) - skipped`); return null; }
       throw new Error(`counter transfer: tag ${tagNo} is not on the Default Stock Accept Counter - rows: ${JSON.stringify(rows.map((t) => t.replace(/\s+/g, ' ').slice(0, 100)).slice(0, 8))}`);
     }
     // locate + select the row: the "locate in grid" scan, then the row's
@@ -808,9 +821,11 @@ class LogisticsSalesWorkflowPage extends StoneAssortedWorkflowPage {
    * number input that stays 0 after the scan; Submit then only flashes
    * "Input required - Please enter the metal rate." for 4 s and fires no
    * save (23-09-2026). Enter the rate into every such input still at 0.
+   * The B2B invoice captions it plainly "Rate" since Nov 2026 (17-11-2026:
+   * the strip showed RATE 0 outlined red and Submit fired nothing).
    */
   async fillMetalRateIfEmpty(rate) {
-    const inputs = this.page.locator('xpath=//*[contains(normalize-space(text()), "Rate (") and contains(normalize-space(text()), "/gm")]/following::input[1]').locator('visible=true');
+    const inputs = this.page.locator('xpath=//*[(contains(normalize-space(text()), "Rate (") and contains(normalize-space(text()), "/gm")) or normalize-space(text())="Rate"]/following::input[not(@type="checkbox")][1]').locator('visible=true');
     const n = await inputs.count();
     let filled = 0;
     for (let i = 0; i < n; i++) {

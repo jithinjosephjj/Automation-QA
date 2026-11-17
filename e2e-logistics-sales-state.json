@@ -1,13 +1,15 @@
 {
-  "startedAt": "2026-10-30T09:27:51.230Z",
-  "logisticsNo": "ll23",
-  "updatedAt": "2026-10-30T09:31:44.703Z",
-  "goodsReceiptNo": "1138",
-  "inwardVoucherNo": "M769",
-  "lotNo": "NN369",
-  "tagNo": "2026-06-2800007",
-  "rfidNo": "978F31C5B4464BE58DDB169D",
-  "allocationNo": "c164",
+  "startedAt": "2026-11-17T07:13:51.233Z",
+  "logisticsNo": "ll26",
+  "updatedAt": "2026-11-17T07:19:06.132Z",
+  "goodsReceiptNo": "1142",
+  "inwardVoucherNo": "M944",
+  "lotNo": "NNN73",
+  "tagNo": "2026-07-0200095",
+  "rfidNo": "12E5C48DCEF048AD907E91CD",
+  "allocationNo": "c200",
   "counterAccepted": true,
-  "invoiceDocNo": "SSS83"
+  "invoiceDocNo": "SSS92",
+  "requiresAcceptance": false,
+  "counterTransferNo": "CC36"
 }

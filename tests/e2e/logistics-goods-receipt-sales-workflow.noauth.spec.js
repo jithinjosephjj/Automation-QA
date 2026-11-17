@@ -3,6 +3,7 @@ const { makeState } = require('../../utils/e2e-state');
 const { businessDate, uniqueRef, uniqueInvoiceNo } = require('../../utils/unique');
 
 const state = makeState('e2e-logistics-sales-state.json');
+const HEAD_OFFICE = 'Kakkanad'; // the whole suite runs at the Kakkanad head office (QA lead 22-10-2026) - never the env default
 
 /**
  * E2E WORKFLOW — LOGISTICS INWARD / GOODS RECEIPT / METAL INWARD / LOT /
@@ -15,9 +16,13 @@ const state = makeState('e2e-logistics-sales-state.json');
  * gross 118 = 120-2, net 98 = 118-20) → Metal Inward (Sub Txn Invoice +
  * Purchase Type "Goods Receipt", GR pick back-fills the item, making
  * charges 1200) → Lot Generation → Barcode (as user suja) → Counter
- * Allocation (scan the tag) → Counter Accept → B2B Metal Sales Invoice
- * (scan the tag, customer Luxurio).
+ * Allocation (fetch by lot) → Counter Accept (since 03-11-2026 qa saves the
+ * allocation with requiresAcceptance:false and parks the tag on the Default
+ * Stock Accept Counter - nothing to accept, so Counter Transfer "Return to
+ * Counter" moves it out, 17-11-2026) → B2B Metal Sales Invoice (scan the
+ * RFID, customer RAJA, Dispatch Type In Person).
  *
+ * Every step logs in at Kakkanad (admin, barcode as suja); the lot Location is Kakkanad.
  * Document numbers persist in e2e-logistics-sales-state.json.
  * MUST run headed - see README (Device Radar gate + Local Network Access).
  */
@@ -46,9 +51,9 @@ const DATA = {
     purchaser: 'Abc',
     item: { entryMode: 'SINGLE TAG', referenceType: 'Combination', article: 'Tendulkar', purity: '91.60', noOfPcs: 5, grossWeightWithTare: 118, makingType: 'Direct', makingCharges: 1200 },
   },
-  lot: { employee: 'Ubaid', location: 'Kakkanad', businessUnit: 'Kakkanad' },
+  lot: { employee: 'Ubaid', location: HEAD_OFFICE, businessUnit: HEAD_OFFICE },
   barcode: {
-    user: { user: 'suja', pwd: '123', bu: 'Kakkanad' }, // barcode runs as a different user
+    user: { user: 'suja', pwd: '123', bu: HEAD_OFFICE }, // barcode runs as a different user (admin sees no vendors on the Barcode page)
     stockIdentityType: 'Stock', // options: Jobwork Stock | Stock (purchase inwards = Stock)
     grossWeight: 50,
     descriptions: { Descriptionttest: 'Test 2', Decsription2: 'Test', Testdoc: 'Doc' },
@@ -59,7 +64,7 @@ const DATA = {
 };
 
 async function login(loginPage, page) {
-  await loginPage.ensureLoggedIn();
+  await loginPage.ensureLoggedIn({ bu: HEAD_OFFICE }); // explicit: a SIONIQ_BU override in the shell must not move the chain
 }
 
 test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
@@ -114,7 +119,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     await metalInward.openAddWizard();
     await metalInward.fillBasicDetails({
       subTransactionType: DATA.inward.subTransactionType,
-      businessUnit: 'Kakkanad',
+      businessUnit: HEAD_OFFICE,
       inwardType: DATA.inward.inwardType,
       purchaseType: DATA.inward.purchaseType,
       vendor: DATA.logistics.vendor,
@@ -150,7 +155,7 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
     test.setTimeout(600_000);
     const { inwardVoucherNo } = state.readState();
     expect(inwardVoucherNo, 'run TC-LGS-03 first').toBeTruthy();
-    await loginPage.ensureLoggedIn({ bu: DATA.lot.location }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
+    await loginPage.ensureLoggedIn({ bu: HEAD_OFFICE }); // lot step at the head office: Location Kakkanad (QA lead 22-10-2026)
 
     const lotNo = await lotGeneration.generateLot({
       vendor: DATA.logistics.vendor,
@@ -222,7 +227,16 @@ test.describe('Logistics - Goods Receipt - Sales - Workflow', () => {
 
     const body = await logisticsSales.counterAccept({ itemType: DATA.counter.itemType, tagNo, rfidNo, requiresAcceptance: state.readState().requiresAcceptance }); // false since 03-11-2026: nothing pending, step skipped
     expect(body, 'counter accept save response').toBeTruthy();
-    state.writeState({ counterAccepted: true });
+    let counterTransferNo = null;
+    if (body.skipped) {
+      // no acceptance: the allocation parked the tag on the Default Stock Accept
+      // Counter, which every invoice refuses - Return to Counter (by tag number)
+      // moves it to a sales counter (17-11-2026, CC35)
+      const transfer = await logisticsSales.returnToCounter({ tagNo, optional: true });
+      counterTransferNo = (transfer && transfer.data && transfer.data.receiptNo) || null;
+      console.log(`Counter transfer (Return to Counter): ${counterTransferNo || 'not needed - tag already off the default stock counter'}`);
+    }
+    state.writeState({ counterAccepted: true, counterTransferNo });
     console.log('Counter accept saved');
     expect(logisticsSales.printPreviewError, 'print template preview').toBeFalsy();
   });
