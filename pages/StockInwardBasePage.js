@@ -689,11 +689,19 @@ class StockInwardBasePage extends BasePage {
     }
     const close = dlg.getByRole('button', { name: /^Close$|Done|Ok/i }).locator('visible=true').last();
     if (await close.isVisible({ timeout: 2_000 }).catch(() => false)) { await close.click({ timeout: 5_000 }).catch(() => {}); await this.settle(1_500); }
+    // a partial collection leaves the dialog up over Submit (16-11-2026) - close it from the page level too
+    if (await dlg.isVisible().catch(() => false)) {
+      const pageClose = this.page.locator('button').filter({ hasText: /^s*Closes*$/ }).locator('visible=true').last();
+      if (await pageClose.isVisible({ timeout: 1_000 }).catch(() => false)) await pageClose.click({ timeout: 5_000 }).catch(() => {});
+      await this.settle(1_500);
+      if (await dlg.isVisible().catch(() => false)) { await this.page.keyboard.press('Escape').catch(() => {}); await this.settle(1_000); }
+      console.log(`${what}: payment dialog ${await dlg.isVisible().catch(() => false) ? 'STILL open' : 'closed'} after the collection`);
+    }
     return list.length > 1 ? total : last;
   }
 
   /** One payment entry in the open Payment Collection dialog (see collectPayment). Returns the amount added. */
-  async addPaymentEntry(dlg, { mode = 'Cash', amount, advanceType = 'General', reference, what = this.tabName, expectRows = 1 } = {}) {
+  async addPaymentEntry(dlg, { mode = 'Cash', amount, advanceType = 'General', reference, creditDays = 7, creditDueDate, description, what = this.tabName, expectRows = 1 } = {}) {
     // PAYMENT MODES at Kakkanad (30-10-2026): Advance, CARD, Cheque, Online Test
     // Mode (2), UPI Test Mode (2), "Cash Test Mode", "Cash Test Mode 2", Metal -
     // there is no plain "Cash", so the mode is matched by substring (the first
@@ -747,6 +755,29 @@ class StockInwardBasePage extends BasePage {
       await amt.blur();
       await this.settle(1_000);
       console.log(`${what}: payment panel inputs ${JSON.stringify(await dlg.locator('input:not([type=checkbox])').locator('visible=true').evaluateAll((els) => els.map((e) => `${e.placeholder || e.id || '-'}=${e.value}${e.disabled || e.readOnly ? '(ro)' : ''}`)).catch(() => []))}; add button "${((await addBtn.innerText().catch(() => '')) || '').trim()}"`);
+      // "Credit Payment Mode" (probed 16-11-2026): AMOUNT, a mandatory CREDIT DUE
+      // DATE (flatpickr, DD/MM/YYYY; process date + creditDays) and DESCRIPTION;
+      // "+ Add Credit" silently does nothing while the due date is empty. The
+      // whole balance on credit keeps the item HELD for Item Delivery.
+      if (/credit/i.test(mode)) {
+        const dueIn = dlg.locator('input#creditDueDate, input[formcontrolname="creditDueDate"], [controlname="creditDueDate"] input').locator('visible=true').first();
+        if (await dueIn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          let dueDate = creditDueDate;
+          if (!dueDate) {
+            const base = (await this.processDate().catch(() => '')) || '';
+            const [d, m, y] = base ? base.split('/').map(Number) : [new Date().getDate(), new Date().getMonth() + 1, new Date().getFullYear()];
+            const dt = new Date(y, m - 1, d + Number(creditDays));
+            const pad = (n) => String(n).padStart(2, '0');
+            dueDate = `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}`;
+          }
+          const viaPicker = await dueIn.evaluate((el, v) => { const fp = el._flatpickr; if (!fp) return false; fp.setDate(v, true, 'd/m/Y'); return el.value === v; }, dueDate).catch(() => false);
+          if (!viaPicker) { await dueIn.evaluate((el) => el.removeAttribute('readonly')).catch(() => {}); await dueIn.fill(dueDate); await dueIn.blur().catch(() => {}); }
+          await this.page.keyboard.press('Escape').catch(() => {});
+          await this.settle(800);
+          console.log(`${what}: credit due date "${await dueIn.inputValue().catch(() => '')}" (wanted ${dueDate})`);
+        }
+        if (description) { const desc = dlg.locator('input#description, input[formcontrolname="description"], textarea[formcontrolname="description"]').locator('visible=true').first(); if (await desc.isVisible({ timeout: 1_000 }).catch(() => false)) await desc.fill(String(description)); }
+      }
     }
     await addBtn.click({ timeout: T(10_000) });
     await this.waitForIdle();

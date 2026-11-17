@@ -265,6 +265,7 @@ class RetailInvoicePage extends StockInwardBasePage {
     salesType, order,
   }) {
     await this.open();
+    const newestBefore = await this.newestInvoiceNo();
     await this.openAddForm();
 
     // customer: the mobile number drives the lookup; the name select is the fallback
@@ -362,10 +363,36 @@ class RetailInvoicePage extends StockInwardBasePage {
     const body = await r.json().catch(() => null);
     console.log('retail invoice save:', r.status(), r.url().split('/').slice(-2).join('/'), JSON.stringify(body).slice(0, 300));
     await this.reportSaveToast('retail invoice', toast).catch(() => {});
+    if (r.status() >= 500 && !body) {
+      // a gateway 5xx (504 on CreateSalesInvoice, 17-11-2026) usually means the backend
+      // saved anyway - the Users form has the same rule. Never resubmit (a duplicate
+      // sale); look the invoice up in the list instead.
+      await this.settle(5_000);
+      await this.open();
+      const newest = await this.newestInvoiceNo();
+      if (newest && newest !== newestBefore && (!customer || (newest.customer || '').toLowerCase().includes(String(customer).toLowerCase().split(' ')[0]))) {
+        console.log(`${this.tabName}: CreateSalesInvoice answered HTTP ${r.status()} but the list now tops with invoice ${newest.no} (${newest.customer}; before: ${newestBefore ? newestBefore.no : '-'}) - taking it as saved`);
+        this.lastSaveBody = { code: 1001, message: 'recovered from the list after a gateway ' + r.status(), data: { receiptNo: newest.no } };
+        return this.lastSaveBody;
+      }
+      throw new Error(`Retail Invoice rejected (HTTP ${r.status()}) and no new invoice appeared in the list (top: ${JSON.stringify(newest)}, before: ${JSON.stringify(newestBefore)})`);
+    }
     if (r.status() >= 400 || (body && body.errorCode)) throw new Error(`Retail Invoice rejected (HTTP ${r.status()}): ${body ? body.error || body.message || '' : ''}`);
     this.lastSaveBody = body;
     await this.previewAndClose();
     return body;
+  }
+
+  /** The newest row of the Invoice list ({ no, customer }) - the list sorts newest first. */
+  async newestInvoiceNo() {
+    await this.waitForSpinner().catch(() => {});
+    const row = this.page.locator('tbody tr').locator('visible=true').first();
+    if (!(await row.isVisible({ timeout: 10_000 }).catch(() => false))) return null;
+    const cells = (await row.locator('td').allInnerTexts().catch(() => [])).map((t) => t.replace(/\s+/g, ' ').trim());
+    // Sl No | Invoice Number | Date & Time | Customer Name | ...
+    const no = cells.find((c, i) => i > 0 && /^\d+$/.test(c)) || '';
+    const customer = cells[3] || '';
+    return no ? { no, customer } : null;
   }
 
   /** Post-save Print dialog (when the location has a template): verify the preview, close. */
