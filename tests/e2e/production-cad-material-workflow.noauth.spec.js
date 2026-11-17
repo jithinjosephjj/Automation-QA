@@ -176,7 +176,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
     test.setTimeout(420_000);
     await login(loginPage);
     requireJob();
-    await production.processMovementAccept({ process: DATA.round1.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round1.process, subProcess: DATA.round1.subProcess, rowText: rowKey() });
     console.log('Process movement accepted at Design And CAD');
   });
 
@@ -232,7 +232,7 @@ test.describe('Production - Concept - CAD - Material - Workflow', () => {
       rowText: rowKey(),
     });
     console.log('Transferred to Casting Process / Casting Inspection');
-    await production.processMovementAccept({ process: DATA.round2.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round2.process, subProcess: DATA.round2.subProcess, rowText: rowKey() });
     console.log('Process movement accepted at Casting Process');
   });
 

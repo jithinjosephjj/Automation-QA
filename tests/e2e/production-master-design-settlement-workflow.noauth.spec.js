@@ -192,7 +192,7 @@ test.describe('Production - Master Design - Settlement - Workflow', () => {
     test.setTimeout(420_000);
     requireJob();
     await login(loginPage);
-    await production.processMovementAccept({ process: DATA.casting.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.casting.process, subProcess: DATA.casting.subProcess, rowText: rowKey() });
     console.log('Process movement accepted at Casting Process');
   });
 

@@ -591,41 +591,116 @@ class ProductionWorkflowPage extends StockInwardBasePage {
       await this.checkRow(rowText);
       return true;
     }
+    // say what the grid DID show (first rows + any pager caption) so a miss
+    // can be told from a paged or differently-keyed grid (17-11-2026)
+    const seen = (await this.page.locator('tbody tr').locator('visible=true').allInnerTexts().catch(() => []))
+      .map((t) => t.replace(/\s+/g, ' ').trim().slice(0, 160));
+    const pager = (await this.page.getByText(/\d+\s*-\s*\d+\s*of\s*\d+|Showing \d+/i).first().textContent({ timeout: 1_000 }).catch(() => '') || '').trim();
+    console.log(`selectRowOrFirst: grid shows ${seen.length} rows${pager ? ` (${pager})` : ''}; first: ${JSON.stringify(seen.slice(0, 4))}`);
     console.log(`row "${Array.isArray(rowText) ? rowText.join('|') : rowText}" not found in the grid - NOT selecting any other row`);
     return false;
   }
 
+  /** Accept form without a known sub process: when the form left Sub Process
+   *  empty, pick the first option it offers so the Production Source list
+   *  loads (best-effort, logs what it did). */
+  async pickFirstSubProcessIfEmpty() {
+    const host = this.select('subProcess');
+    if (!(await host.count())) return;
+    await this.settle(1_500);
+    const current = (await host.locator('.ng-value').allTextContents().catch(() => [])).join('').replace(/×/g, '').trim();
+    if (current) { console.log(`processMovementAccept: sub process already "${current}"`); return; }
+    await host.locator('.ng-select-container').click({ timeout: 10_000 }).catch(() => {});
+    await this.settle(1_500);
+    const opt = (await this.panelOptions(host)).first();
+    const label = (await opt.textContent({ timeout: 5_000 }).catch(() => '')).trim();
+    if (!label || /No items found/i.test(label)) { await this.page.keyboard.press('Escape').catch(() => {}); return; }
+    await opt.click({ timeout: 10_000 }).catch(() => {});
+    console.log(`processMovementAccept: no sub process given - picked the first offered "${label}"`);
+    await this.settle(1_500);
+  }
+
   // ---------- 4/6. Process Movement ----------
+  /**
+   * The Process Movement pending grids load AFTER the filters via a slow XHR
+   * behind the ngx-spinner - on 17-11-2026 (qa slow, steps taking 2-4 min)
+   * the old 25 s / 2.5 s windows expired BEFORE the grid rendered at all
+   * (selectRowOrFirst saw 0 rows, not even "No Data found") and the step
+   * false-skipped as "already accepted/transferred". Wait until the grid
+   * shows our row, any selectable row, or its empty-state text; log how
+   * long it took so a slow qa is visible in the run log.
+   */
+  /**
+   * Does the open form carry an Item Type select at all? The Repair source
+   * forms (accept / transfer / worker issue) have NONE (probed 17-11-2026 at
+   * Cochin: Process / Sub Process / Production Source / Remarks only, and
+   * the pending grid loads without it). Picking a control that is not there
+   * cost two 15 s click timeouts per step and its Escape fallout left the
+   * accept form without its grid (0 rows, never "No Data found") - so the
+   * repair accept false-skipped three runs in a row.
+   */
+  async hasItemTypeSelect() {
+    const ctl = this.page.locator('sioniq-ng-select[controlname="itemType"], ng-select[formcontrolname="itemType"], sioniq-ng-select[controlname="masterDataValueID_JewelleryItemType"]').locator('visible=true');
+    if (await ctl.count().catch(() => 0)) return true;
+    const label = this.page.locator('label').filter({ hasText: /^\s*Item Type\s*\*?\s*$/ }).locator('visible=true');
+    return (await label.count().catch(() => 0)) > 0;
+  }
+
+  async waitForPendingGrid(rowText, label = 'pending grid', deadlineMs = 120_000) {
+    const start = Date.now();
+    await this.waitForSpinner();
+    let outcome = 'timeout';
+    while (Date.now() - start < deadlineMs) {
+      if (await this.rowExists(rowText, 1_500)) { outcome = 'our row'; break; }
+      const anyRow = await this.page.getByRole('row').filter({ has: this.page.getByRole('checkbox') }).last()
+        .isVisible().catch(() => false);
+      if (anyRow) { outcome = 'rows'; break; }
+      const empty = await this.page.locator('tbody tr').locator('visible=true').filter({ hasText: /No Data found|No records/i }).first()
+        .isVisible().catch(() => false);
+      if (empty) { outcome = 'empty'; break; }
+      await this.waitForSpinner();
+      await this.settle(1_000);
+    }
+    const secs = ((Date.now() - start) / 1000).toFixed(1);
+    console.log(`waitForPendingGrid (${label}): ${outcome} after ${secs} s`);
+    if (outcome === 'timeout') console.log(`waitForPendingGrid (${label}): WARNING - the grid never rendered within ${deadlineMs / 1000} s`);
+    return outcome;
+  }
+
   async processMovementAccept(d) {
     await this.openRoute('/prd/app-process-movement-setup');
-    await this.page.getByRole('tab', { name: 'Accept' }).click({ timeout: 3_000 }).catch(() => {});
+    await this.waitForSpinner();
+    await this.page.getByRole('tab', { name: 'Accept' }).click({ timeout: 60_000 }).catch(() => {});
     await this.clickAdd();
     await this.pick('process', d.process, { search: true });
-    if (d.subProcess) await this.pick('subProcess', d.subProcess, { search: true }).catch(() => {});
+    // The Production Source list only loads once the Sub Process is set
+    // (17-11-2026 at Cochin: "Design And CAD" offers CAD Approval / CAD
+    // Modeling and the source list stays "No items found" until one is
+    // picked; "Casting Process" has a single sub process the form fills by
+    // itself). Pick the chain's sub process, else the first one offered.
+    if (d.subProcess) {
+      await this.pick('subProcess', d.subProcess, { search: true })
+        .catch((e) => console.log(`processMovementAccept: sub process "${d.subProcess}" pick failed (${String(e).split('\n')[0]})`));
+    } else {
+      await this.pickFirstSubProcessIfEmpty();
+    }
     await this.pick('sourceType', d.sourceType || 'Job Work', { exact: true });
     // the Sample source adds an Item Type filter - the grid loads ONLY after
     // it is picked, so a silently-failed pick here means an empty grid and a
     // FALSE "already accepted" skip. Log loudly when it fails.
-    if (d.itemType) {
+    if (d.itemType && (await this.hasItemTypeSelect())) {
       await this.pick('itemType', d.itemType, { exact: true }).catch((e1) =>
         this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
           console.log(`processMovementAccept: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`)));
+    } else if (d.itemType) {
+      console.log(`processMovementAccept: the ${d.sourceType || 'Job Work'} accept form has no Item Type select - not picking "${d.itemType}"`);
     }
     // The pending grid loads AFTER the filters via a slow XHR behind the
     // ngx-spinner. NEVER decide "nothing pending" while the loader is still
     // up (QA lead 15-09-2026: a mid-load check false-skipped the sample
     // accept and the workflow continued unaccepted) - wait the loader out,
     // then give the grid a bounded window to render its rows.
-    await this.waitForSpinner();
-    const gridDeadline = Date.now() + 25_000;
-    while (Date.now() < gridDeadline) {
-      if (await this.rowExists(d.rowText, 1_500)) break;
-      const anyRow = await this.page.getByRole('row').filter({ has: this.page.getByRole('checkbox') }).last()
-        .isVisible().catch(() => false);
-      if (anyRow) break;
-      await this.waitForSpinner();
-      await this.settle(1_000);
-    }
+    await this.waitForPendingGrid(d.rowText, `accept ${d.process}`);
     // grids key rows by doc numbers we may not hold - first pending row is
     // ours (grid pre-filtered by process + source)
     if (!(await this.selectRowOrFirst(d.rowText))) {
@@ -651,7 +726,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
 
   async processMovementTransfer(d) {
     await this.openRoute('/prd/app-process-movement-setup');
-    await this.page.getByRole('tab', { name: 'Transfer' }).click();
+    await this.waitForSpinner();
+    await this.page.getByRole('tab', { name: 'Transfer' }).click({ timeout: 60_000 });
     await this.clickAdd();
 
     // Transfer-tab fields carry their own controlnames - address by label:
@@ -660,9 +736,11 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     await this.pickByLabel('From Process', d.fromProcess);
     if (d.fromSubProcess) await this.pickByLabel('From Sub Process', d.fromSubProcess).catch(() => {});
     await this.pickByLabel('Production Source', d.productionSource || 'Job Work', { exact: true });
-    if (d.itemType) {
+    if (d.itemType && (await this.hasItemTypeSelect())) {
       await this.pickByLabel('Item Type', d.itemType, { exact: true }).catch(() =>
         this.pick('itemType', d.itemType, { exact: true }).catch(() => {}));
+    } else if (d.itemType) {
+      console.log(`processMovementTransfer: the form has no Item Type select - not picking "${d.itemType}"`);
     }
     // "Production No With Sub No" filters by the PRODUCTION number
     // (D42026/...), which we may not hold - use it only when we have it,
@@ -670,7 +748,7 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     if (d.productionNo) {
       await this.pickByLabel('Production No With Sub No', d.productionNo, { search: true, closePanel: true }).catch(() => {});
     }
-    await this.settle(2_500);
+    await this.waitForPendingGrid(d.rowText, `transfer from ${d.fromProcess}`);
 
     if (!(await this.selectRowOrFirst(d.rowText))) {
       console.log(`processMovementTransfer: nothing pending at ${d.fromProcess} - already transferred, skipping`);
@@ -688,7 +766,10 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   // ---------- 5/7. Worker Issue / Receipt ----------
   async openWorkerIR(tab) {
     await this.openRoute('/prd/app-worker-issue-receipt-setup');
-    await this.page.getByRole('tab', { name: tab }).click();
+    // list pages boot behind two ngx-spinners for 15-20 s on qa (17-10-2026):
+    // wait the overlay out, then give the tab click the long timeout
+    await this.waitForSpinner();
+    await this.page.getByRole('tab', { name: tab }).click({ timeout: 60_000 });
     await this.waitForIdle();
     await this.settle(1_500);
     await this.clickAdd();
@@ -709,11 +790,15 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     // "already issued" skip.
     if (d.itemType) {
       await this.settle(1_500); // the select renders after the source pick
-      const itCtl = (await this.page.locator('sioniq-ng-select[controlname="masterDataValueID_JewelleryItemType"]').count())
-        ? 'masterDataValueID_JewelleryItemType' : 'itemType';
-      await this.pick(itCtl, d.itemType, { exact: true })
-        .catch(() => this.pickByLabel('Item Type', d.itemType, { exact: true }))
-        .catch((e1) => console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`));
+      if (await this.hasItemTypeSelect()) {
+        const itCtl = (await this.page.locator('sioniq-ng-select[controlname="masterDataValueID_JewelleryItemType"]').count())
+          ? 'masterDataValueID_JewelleryItemType' : 'itemType';
+        await this.pick(itCtl, d.itemType, { exact: true })
+          .catch(() => this.pickByLabel('Item Type', d.itemType, { exact: true }))
+          .catch((e1) => console.log(`workerIssue/Receipt: WARNING - Item Type pick failed, grid may stay empty (${String(e1).split('\n')[0]})`));
+      } else {
+        console.log(`workerIssue/Receipt: the ${d.productionSource || 'Job Work'} form has no Item Type select - not picking "${d.itemType}"`);
+      }
     }
     // the pending grid loads noticeably after the last filter, behind the
     // ngx-spinner - wait the loader out before anyone judges the grid
@@ -1480,6 +1565,15 @@ class ProductionWorkflowPage extends StockInwardBasePage {
     // regardless of page
     await this.narrowGrid(d.rowText);
     if (!(await this.rowExists(d.rowText, 15_000))) {
+      // qa answers 504 after ~30 s while the backend still completes the save
+      // (17-11-2026, TC-B2B-PRD-08: the 504'd "Submit & Generate" had generated
+      // the tag and the job had left the queue). Before failing, look the job
+      // up in the Generated Tags view - a listed tag means it IS finalized.
+      const tag = await this.readGeneratedTag(d.rowText).catch(() => null);
+      if (tag) {
+        console.log(`finalize: job "${d.rowText}" is no longer queued but Generated Tags lists its tag ${tag} - an earlier (504'd) generation went through`);
+        return { recovered: true, message: 'Saved successfully! (recovered from the Generated Tags view)', data: { receiptNo: tag, tagNo: tag } };
+      }
       throw new Error(`finalize: job "${d.rowText}" is NOT in the Job Finalize queue - the settlement receipt likely saved without "Move to Job Finalize" checked`);
     }
     await this.checkRow(d.rowText);
@@ -1523,7 +1617,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   /** Open the CAD page on the given tab ("Upload" | "Approval") and click Add. */
   async openCadTabAdd(tab) {
     await this.openRoute('/prd/app-cad-setup');
-    await this.page.getByRole('tab', { name: tab, exact: true }).click();
+    await this.waitForSpinner();
+    await this.page.getByRole('tab', { name: tab, exact: true }).click({ timeout: 60_000 });
     await this.waitForIdle();
     await this.settle(1_500);
     await this.clickAdd();
@@ -1598,7 +1693,8 @@ class ProductionWorkflowPage extends StockInwardBasePage {
   // ---------- Material Transaction (Production > Operations, /prd/production-material-transaction-list) ----------
   async openMaterialTabAdd(tab) {
     await this.openRoute('/prd/production-material-transaction-list');
-    await this.page.getByRole('tab', { name: tab, exact: true }).click();
+    await this.waitForSpinner();
+    await this.page.getByRole('tab', { name: tab, exact: true }).click({ timeout: 60_000 });
     await this.waitForIdle();
     await this.settle(1_500);
     await this.clickAdd();

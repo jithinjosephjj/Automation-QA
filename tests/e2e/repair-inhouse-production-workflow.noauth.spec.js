@@ -57,8 +57,12 @@ async function login(loginPage, page) {
 }
 
 function rowKey() {
-  const { repairNo } = state.readState();
-  return repairNo ? String(repairNo).replace(/^[A-Za-z]+-/, '') : '';
+  // the production grids (accept / transfer / worker issue) key the repair job
+  // by its PRODUCTION number (J###) rather than the repair number, so the
+  // J-number captured at the assignment is a second key (17-11-2026)
+  const { repairNo, productionNo } = state.readState();
+  const core = repairNo ? String(repairNo).replace(/^[A-Za-z]+-/, '') : '';
+  return [core, productionNo].filter(Boolean);
 }
 
 test.describe('B2B Repair - Inhouse - Production - Workflow', () => {
@@ -103,19 +107,20 @@ test.describe('B2B Repair - Inhouse - Production - Workflow', () => {
 
   test('TC-B2B-RPI-03 assign the repair job to Design And CAD / CAD Modeling', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
-    expect(rowKey(), 'run TC-B2B-RPI-01 first').toBeTruthy();
+    expect(rowKey().length, 'run TC-B2B-RPI-01 first').toBeTruthy();
     await login(loginPage, page);
     // the Repair assignment form has NO Item Type select (filters are
     // Business Type / Repair Type / Business Unit / Repair No - all optional
     // except Business Type per the QA lead)
-    await production.assignJob({
+    const productionNo = await production.assignJob({
       sourceType: 'Repair',
       businessType: 'B2B',
       process: DATA.round1.process,
       subProcess: DATA.round1.subProcess,
       rowText: rowKey(),
     });
-    console.log(`Repair job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess}`);
+    if (productionNo) state.writeState({ productionNo });
+    console.log(`Repair job assigned to ${DATA.round1.process} / ${DATA.round1.subProcess} - production no ${productionNo || '(not captured)'}`);
   });
 
   test('TC-B2B-RPI-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
@@ -123,6 +128,7 @@ test.describe('B2B Repair - Inhouse - Production - Workflow', () => {
     await login(loginPage, page);
     await production.processMovementAccept({
       process: DATA.round1.process,
+      subProcess: DATA.round1.subProcess,
       sourceType: 'Repair',
       itemType: 'Metal',
       rowText: rowKey(),
@@ -153,6 +159,7 @@ test.describe('B2B Repair - Inhouse - Production - Workflow', () => {
     });
     await production.processMovementAccept({
       process: DATA.round2.process,
+      subProcess: DATA.round2.subProcess,
       sourceType: 'Repair',
       itemType: 'Metal',
       rowText: rowKey(),

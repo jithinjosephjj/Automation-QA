@@ -123,7 +123,7 @@ test.describe('Production - Master Design - Workflow', () => {
     test.setTimeout(420_000);
     requireJob();
     await login(loginPage, page);
-    await production.processMovementAccept({ process: DATA.round1.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round1.process, subProcess: DATA.round1.subProcess, rowText: rowKey() });
     console.log('Process movement accepted at Design And CAD');
   });
 
@@ -148,7 +148,7 @@ test.describe('Production - Master Design - Workflow', () => {
       toSubProcess: DATA.round2.subProcess,
       rowText: rowKey(),
     });
-    await production.processMovementAccept({ process: DATA.round2.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round2.process, subProcess: DATA.round2.subProcess, rowText: rowKey() });
     console.log('Transferred to Casting and accepted');
   });
 

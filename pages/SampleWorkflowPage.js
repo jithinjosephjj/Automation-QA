@@ -20,7 +20,8 @@ class SampleWorkflowPage extends StockInwardBasePage {
   async openTab(route, tabName) {
     await this.goto(route);
     await this.waitForIdle();
-    await this.page.getByRole('tab', { name: tabName }).click();
+    await this.waitForSpinner(); // list pages boot behind the ngx-spinner for 15-20 s on qa
+    await this.page.getByRole('tab', { name: tabName }).click({ timeout: 60_000 });
     await this.waitForIdle();
     await this.settle(1_500);
   }

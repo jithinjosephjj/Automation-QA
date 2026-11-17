@@ -20,7 +20,8 @@ class RepairWorkflowPage extends StockInwardBasePage {
     await this.goto(route);
     await this.waitForIdle();
     if (tabName) {
-      await this.page.getByRole('tab', { name: tabName }).click();
+      await this.waitForSpinner(); // list pages boot behind the ngx-spinner for 15-20 s on qa
+      await this.page.getByRole('tab', { name: tabName }).click({ timeout: 60_000 });
       await this.waitForIdle();
       await this.settle(1_500);
     }
@@ -58,7 +59,12 @@ class RepairWorkflowPage extends StockInwardBasePage {
     ).catch(() => null);
     await button.click();
     const r = await resp;
-    if (!r) throw new Error('Submit fired no save request - form silently blocked');
+    if (!r) {
+      // say WHAT blocked it: the form's invalid controls and any toast text
+      const invalid = await this.invalidControls().catch(() => null);
+      const toast = (await this.page.locator('.toast-message, .toast-title, [role="alert"]').locator('visible=true').allTextContents().catch(() => [])).join(' | ');
+      throw new Error(`Submit fired no save request - form silently blocked; invalid: ${JSON.stringify(invalid)}; toast: "${toast}"`);
+    }
     const body = await r.json().catch(() => null);
     console.log('repair save:', r.status(), r.url().split('/').pop(), JSON.stringify(body).slice(0, 250));
     if (r.status() >= 400 || (body && body.errorCode)) {
@@ -272,8 +278,17 @@ class RepairWorkflowPage extends StockInwardBasePage {
     await this.pick('vendorID', customer, { exact: true });
     await this.waitForIdle();
     await this.settle(2_500);
+    // the delivery form gained a mandatory Dispatch Type (Our Employee |
+    // Vendor Representative, each revealing a person select) like the other
+    // Nov-2026 issue/delivery forms - 17-11-2026 at Cochin the Submit fired
+    // no request at all without it. Skipped when the form offers none.
+    const typed = await this.fillTypeSelectIfOffered({ label: 'Dispatch Type', controlname: 'masterDataValueID_DispatchType', what: 'repair delivery' })
+      .catch((e) => { console.log(`repair delivery: Dispatch Type - ${String(e).split('\n')[0]}`); return false; });
+    if (!typed) console.log('repair delivery: no Dispatch Type select on the form');
 
     await this.checkRow(repairNo);
+    const invalid = await this.invalidControls().catch(() => null);
+    if (invalid && (invalid.selects.length || invalid.inputs.length)) console.log(`repair delivery: still invalid before Submit ${JSON.stringify(invalid)}`);
     const body = await this.clickAndCaptureSave(this.page.getByRole('button', { name: 'Submit' }));
     await this.previewAndClose();
     return (body && body.data && (body.data.receiptNo || body.data.docNo)) || '';

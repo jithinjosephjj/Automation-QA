@@ -158,7 +158,7 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
   test('TC-B2B-PRD-04 process movement accept (Design And CAD)', async ({ loginPage, production, page }) => {
     test.setTimeout(420_000);
     await login(loginPage, page);
-    await production.processMovementAccept({ process: DATA.round1.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round1.process, subProcess: DATA.round1.subProcess, rowText: rowKey() });
     console.log('Process movement accepted at Design And CAD');
   });
 
@@ -181,7 +181,7 @@ test.describe('B2B Order - Inhouse - Production - Workflow', () => {
       toSubProcess: DATA.round2.subProcess,
       rowText: rowKey(),
     });
-    await production.processMovementAccept({ process: DATA.round2.process, rowText: rowKey() });
+    await production.processMovementAccept({ process: DATA.round2.process, subProcess: DATA.round2.subProcess, rowText: rowKey() });
     console.log('Transferred to Casting and accepted');
   });
 
