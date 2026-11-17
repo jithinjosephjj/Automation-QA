@@ -67,8 +67,12 @@ const DATA = {
   delivery: { customer: 'Luxurio', itemType: 'Metal', dispatchType: 'Our Employee', employee: 'Sioniquser16' },
 };
 
+// production is the COCHIN branch (user 17-11-2026): every step of this chain logs in
+// at Cochin, whatever SIONIQ_BU says - the rest of the suite runs at Kakkanad
+const PRODUCTION_BU = 'Cochin';
+
 async function login(loginPage, page) {
-  await loginPage.ensureLoggedIn();
+  await loginPage.ensureLoggedIn({ bu: PRODUCTION_BU });
 }
 
 function rowKey() {
@@ -198,7 +202,7 @@ test.describe('B2B Sample - Inhouse - Production - Workflow', () => {
     await production.assignJob({
       sourceType: 'Sample',
       itemType: 'Metal',
-      businessUnit: 'Kakkanad',
+      businessUnit: PRODUCTION_BU, // the sample was raised under the login business unit
       process: DATA.round.process,
       subProcess: DATA.round.subProcess,
       rowText: rowKey(),

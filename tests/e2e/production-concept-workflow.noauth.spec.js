@@ -55,8 +55,12 @@ const DATA = {
   },
 };
 
+// production is the COCHIN branch (user 17-11-2026): every step of this chain logs in
+// at Cochin, whatever SIONIQ_BU says - the rest of the suite runs at Kakkanad
+const PRODUCTION_BU = 'Cochin';
+
 async function login(loginPage, page) {
-  await loginPage.ensureLoggedIn();
+  await loginPage.ensureLoggedIn({ bu: PRODUCTION_BU });
 }
 
 /** The grid-row key: job work no when we have it, else the concept no. */

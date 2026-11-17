@@ -48,8 +48,12 @@ const DATA = {
   receipt: { subTransactionType: 'Invoice', productionUnit: 'Cochin' },
 };
 
+// production is the COCHIN branch (user 17-11-2026): every step of this chain logs in
+// at Cochin, whatever SIONIQ_BU says - the rest of the suite runs at Kakkanad
+const PRODUCTION_BU = 'Cochin';
+
 async function login(loginPage, page) {
-  await loginPage.ensureLoggedIn();
+  await loginPage.ensureLoggedIn({ bu: PRODUCTION_BU });
 }
 
 function rowKey() {
