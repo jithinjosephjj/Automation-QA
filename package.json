@@ -20,6 +20,7 @@
     "test:mds": "playwright test tests/masters/master-add-operations.noauth.spec.js --project=no-auth && playwright test tests/e2e/production-master-design-settlement-workflow.noauth.spec.js --project=no-auth",
     "test:retail-reserve": "playwright test tests/e2e/retail-reserve-estimation-advance-workflow.noauth.spec.js --project=no-auth",
     "test:retail-direct":"playwright test tests/e2e/retail-direct-invoice-workflow.noauth.spec.js --project=no-auth",
+    "test:grn-retail": "playwright test tests/e2e/grn-retail-invoice-workflow.noauth.spec.js --project=no-auth",
     "test:retail-item-delivery": "playwright test tests/e2e/retail-invoice-item-delivery-workflow.noauth.spec.js --project=no-auth",
     "test:retail-advance": "playwright test tests/e2e/retail-general-advance-workflow.noauth.spec.js --project=no-auth",
     "test:retail-tag-order-estimation": "playwright test tests/e2e/retail-tag-order-estimation-registration-estimation-workflow.noauth.spec.js --project=no-auth",

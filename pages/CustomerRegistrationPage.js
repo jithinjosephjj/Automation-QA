@@ -97,7 +97,21 @@ class CustomerRegistrationPage extends StockInwardBasePage {
       await this.pickDocType(d.document.type);
       const docNo = this.page.locator('xpath=//label[contains(normalize-space(.),"Document No")]/following::input[1]').first();
       if (d.document.number && (await docNo.isVisible({ timeout: 1_000 }).catch(() => false))) {
-        await docNo.fill(String(d.document.number));
+        // Document No stays DISABLED on qa since Nov 2026 (17-11-2026: type
+        // "Aadhar Card" selected, input disabled after 15 s, three option-list
+        // re-picks changed nothing, and Add Document / CreateCustomer accept
+        // the document without a number). One re-pick through the option list
+        // in case the type pick only echoed the label, then the number goes in
+        // only when the input is enabled
+        if (!(await docNo.isEnabled().catch(() => false))) {
+          await this.page.waitForTimeout(1_500);
+          if (!(await docNo.isEnabled().catch(() => false))) {
+            await this.page.keyboard.press('Escape').catch(() => {});
+            await this.pickDocType(d.document.type, { viaList: true }).catch((e) => console.log(`customer: document type re-pick failed (${String(e).split('\n')[0].slice(0, 100)})`));
+          }
+        }
+        if (await docNo.isEnabled().catch(() => false)) await docNo.fill(String(d.document.number));
+        else console.log('customer: Document No is disabled (qa, Nov 2026) - the document goes in without a number');
       }
       // no Browse click - the native picker would hang; set the hidden file
       // input directly, then Add Document
@@ -162,10 +176,19 @@ class CustomerRegistrationPage extends StockInwardBasePage {
     throw new Error(`no address-line field matched ${JSON.stringify(labels)}`);
   }
 
-  async pickDocType(type) {
-    await this.pick('documentTypeID', type)
-      .catch(() => this.page.locator('#kyc-doctype-select .ng-select-container').click()
-        .then(() => this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: type }).first().click()));
+  async pickDocType(type, { viaList = false } = {}) {
+    // viaList: open the select's own container and click the option (no typed
+    // search) - the path that makes the select's model take the value
+    const clickOption = async () => {
+      const host = this.page.locator('#kyc-doctype-select .ng-select-container').or(this.select('documentTypeID').locator('.ng-select-container')).first();
+      await host.click();
+      const opt = this.page.locator('.ng-dropdown-panel .ng-option').filter({ hasText: type }).first();
+      await opt.waitFor({ state: 'visible', timeout: 10_000 });
+      await opt.click();
+      await this.settle(800);
+    };
+    if (viaList) return clickOption();
+    await this.pick('documentTypeID', type).catch(clickOption);
   }
 
   /** Pick an address select by value; fall back to its first real option. */
